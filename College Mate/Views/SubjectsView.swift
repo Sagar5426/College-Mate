@@ -52,8 +52,9 @@ struct SubjectsView: View {
                 .padding() // Padding outside the cards
             }
             .overlay(alignment: .bottomTrailing) {
-                Button {
+                NavigationLink {
                     // Add your button action here
+                    AddSubjectView()
                 } label: {
                     Image(systemName: "plus")
                         .resizable()

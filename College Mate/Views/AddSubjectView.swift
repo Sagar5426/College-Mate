@@ -1,7 +1,8 @@
 import SwiftUI
+import SwiftData
 
 // Define a custom struct for class times
-struct ClassTime: Hashable {
+struct ClassPeriodTime: Hashable {
     var startTime: Date?
     var endTime: Date?
 }
@@ -10,7 +11,7 @@ struct AddSubjectView: View {
     
     @State private var subjectName = ""
     @State private var selectedDays: Set<String> = []
-    @State private var classTimes: [String: [ClassTime]] = [:]
+    @State private var classTimes: [String: [ClassPeriodTime]] = [:]
     @State private var classCount: [String: Int] = [:]
     
     let daysOfWeek = [
@@ -18,7 +19,6 @@ struct AddSubjectView: View {
     ]
     
     var body: some View {
-        NavigationView {
             Form {
                 SubjectDetailsSection(subjectName: $subjectName)
                 
@@ -29,12 +29,13 @@ struct AddSubjectView: View {
                     classCount: $classCount
                 )
             }
-            .navigationTitle("Add Subject")
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Save") {
-                        saveSubject()
-                    }
+        // added navigation title here to put this on outside view
+        .navigationTitle("Add Subject")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button("Save") {
+                    saveSubject()
                 }
             }
         }
@@ -62,7 +63,7 @@ struct SubjectDetailsSection: View {
 struct ClassScheduleSection: View {
     let daysOfWeek: [String]
     @Binding var selectedDays: Set<String>
-    @Binding var classTimes: [String: [ClassTime]]
+    @Binding var classTimes: [String: [ClassPeriodTime]]
     @Binding var classCount: [String: Int]
 
     var body: some View {
@@ -75,7 +76,7 @@ struct ClassScheduleSection: View {
                         set: { isSelected in
                             if isSelected {
                                 selectedDays.insert(day)
-                                classTimes[day] = [ClassTime(startTime: Date(), endTime: nil)]
+                                classTimes[day] = [ClassPeriodTime(startTime: Date(), endTime: nil)]
                                 classCount[day] = 1
                             } else {
                                 selectedDays.remove(day)
@@ -85,7 +86,7 @@ struct ClassScheduleSection: View {
                         }
                     ),
                     times: Binding(
-                        get: { classTimes[day] ?? [ClassTime(startTime: Date(), endTime: nil)] },
+                        get: { classTimes[day] ?? [ClassPeriodTime(startTime: Date(), endTime: nil)] },
                         set: { classTimes[day] = $0 }
                     ),
                     count: Binding(
@@ -101,7 +102,7 @@ struct ClassScheduleSection: View {
 struct DayRowView: View {
     let day: String
     @Binding var isSelected: Bool
-    @Binding var times: [ClassTime]
+    @Binding var times: [ClassPeriodTime]
     @Binding var count: Int
 
     var body: some View {
@@ -121,7 +122,7 @@ struct DayRowView: View {
                         set: { newValue in
                             // Resize `times` array safely when `count` changes
                             if newValue > times.count {
-                                times.append(contentsOf: Array(repeating: ClassTime(startTime: nil, endTime: nil), count: newValue - times.count))
+                                times.append(contentsOf: Array(repeating: ClassPeriodTime(startTime: nil, endTime: nil), count: newValue - times.count))
                             } else {
                                 times.removeLast(times.count - newValue)
                             }
@@ -170,5 +171,7 @@ struct DayRowView: View {
 }
 
 #Preview {
-    AddSubjectView()
+    NavigationStack {
+        AddSubjectView()
+    }
 }

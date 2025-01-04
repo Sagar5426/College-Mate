@@ -13,5 +13,6 @@ struct College_MateApp: App {
         WindowGroup {
             AddSubjectView()
         }
+        .modelContainer(for: Subject.self)
     }
 }
