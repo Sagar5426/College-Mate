@@ -1,4 +1,3 @@
-
 import Foundation
 import SwiftData
 
@@ -6,12 +5,15 @@ import SwiftData
 class Subject {
     var id: UUID
     var name: String
-    @Relationship(deleteRule: .cascade) var schedules: [Schedule] = []
-    @Relationship(deleteRule: .cascade) var attendance: Attendance
+    var numberOfNotes: Int
+    var schedules: [Schedule]
+    var attendance: Attendance
     
-    init(name: String) {
+    init(name: String, numberOfNotes: Int = 0, schedules: [Schedule] = [], attendance: Attendance = Attendance(totalClasses: 0, attendedClasses: 0)) {
         self.id = UUID()
         self.name = name
-        self.attendance = Attendance(totalClasses: 0, attendedClasses: 0)
+        self.numberOfNotes = numberOfNotes
+        self.schedules = schedules
+        self.attendance = attendance
     }
 }

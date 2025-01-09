@@ -15,7 +15,10 @@ struct HomeView: View {
             }
             
             Tab("Attendence", systemImage: "chart.bar.fill") {
-                AttendenceView()
+                AttendanceView()
+            }
+            Tab("Time Table", systemImage: "calendar") {
+                TimeTableView()
             }
             
          }

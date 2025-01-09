@@ -6,7 +6,7 @@ import SwiftData
 class Schedule {
     var id: UUID
     var day: String
-    @Relationship(deleteRule: .cascade) var classTimes: [ClassTime] = [] // Use a SwiftData-compatible model
+    var classTimes: [ClassTime] = [] // Use a SwiftData-compatible model
     
     init(day: String, classTimes: [ClassTime] = []) {
         self.id = UUID()

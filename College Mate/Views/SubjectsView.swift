@@ -1,11 +1,5 @@
-//
-//  ContentView.swift
-//  College Mate
-//
-//  Created by Sagar Jangra on 03/01/2025.
-//
-
 import SwiftUI
+import SwiftData
 
 struct SubjectsView: View {
     // Array of beautiful colors
@@ -18,79 +12,104 @@ struct SubjectsView: View {
         Color.yellow.opacity(0.2)
     ]
     
+    @Environment(\.modelContext) var modelContext
+    @Query var subjects: [Subject]
+    @State var isShowingAddSubject: Bool = false
+    
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 16) { // Add spacing between cards
-                    ForEach(0..<5, id: \.self) { index in // Example loop for multiple cards
-                        NavigationLink(destination: CardDetailView(subject: "Subject \(index + 1)")) {
-                            HStack {
-                                // Text Details
-                                VStack(alignment: .leading, spacing: 8) {
-                                    Text("Subject \(index + 1)")
-                                        .font(.headline)
-                                        .fontWeight(.bold)
-                                    
-                                    Text("No of Notes: 12")
-                                        .font(.subheadline)
-                                        .foregroundColor(.gray)
-                                }
-                                Spacer()
-                                
-                                // Progress View
-                                PieProgressView(total: 10, completed: 7)
-                            }
-                            .padding() // Padding inside card
-                            .frame(maxWidth: .infinity, alignment: .leading) // Full-width card
-                            .background(cardColors[index % cardColors.count]) // Random color from array
-                            .cornerRadius(12) // Rounded corners
-                            .shadow(color: .black.opacity(0.1), radius: 5, x: 0, y: 5) // Soft shadow
-                        }
-                        .buttonStyle(.plain) // Removes arrow from NavigationLink
+                VStack(spacing: 16) {
+                    ForEach(Array(subjects.enumerated()), id: \.element.id) { (index, subject) in
+                        SubjectCardView(subject: subject, cardColor: cardColors[index % cardColors.count])
                     }
                 }
-                .padding() // Padding outside the cards
+                .padding()
             }
+            .frame(maxWidth: .infinity)
             .overlay(alignment: .bottomTrailing) {
-                NavigationLink {
-                    // Add your button action here
-                    AddSubjectView()
-                } label: {
-                    Image(systemName: "plus")
-                        .resizable()
-                        .scaledToFit()
-                        .foregroundColor(.white) // Ensures the icon is white
-                        .frame(width: 30, height: 30)
-                        .padding(12) // Padding around the icon
-                        .background(
-                            Circle()
-                                .fill(Color.blue.opacity(0.8)) // Background color with opacity
-                        )
-                        .shadow(radius: 10) // Optional shadow for better visibility
-                }
-                .padding() // Optional: Adds padding around the button
+                AddSubjectButton(isShowingAddSubject: $isShowingAddSubject)
             }
-
             .navigationTitle("My Subjects")
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     NavigationLink(destination: ProfileView()) {
-                                            Image(systemName: "person.circle.fill") // Profile icon
-                                                .resizable()
-                                                .scaledToFit()
-                                                .frame(height: 40)
-                                                .tint(.blue.opacity(0.8))
-                                                .padding(.vertical)
-                                        }
+                        ProfileIconView()
+                    }
                 }
             }
-            
+            .fullScreenCover(isPresented: $isShowingAddSubject) {
+                AddSubjectView(isShowingAddSubjectView: $isShowingAddSubject)
+            }
         }
     }
 }
 
+struct SubjectCardView: View {
+    let subject: Subject
+    let cardColor: Color
+    
+    var body: some View {
+        NavigationLink(destination: CardDetailView(subject: subject)) {
+            HStack {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(subject.name)
+                        .font(.headline)
+                        .fontWeight(.bold)
+                    
+                    Text("Notes: \(subject.numberOfNotes)")
+                        .font(.subheadline)
+                        .foregroundColor(.gray)
+                }
+                Spacer()
+                
+                PieProgressView(
+                    total: subject.attendance.totalClasses,
+                    completed: subject.attendance.attendedClasses
+                )
+            }
+            .padding()
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(cardColor)
+            .cornerRadius(12)
+            .shadow(color: .black.opacity(0.1), radius: 5, x: 0, y: 5)
+        }
+        .buttonStyle(.plain)
+    }
+}
 
+struct AddSubjectButton: View {
+    @Binding var isShowingAddSubject: Bool
+    
+    var body: some View {
+        Button {
+            isShowingAddSubject = true
+        } label: {
+            Image(systemName: "plus")
+                .resizable()
+                .scaledToFit()
+                .foregroundColor(.white)
+                .frame(width: 30, height: 30)
+                .padding(12)
+                .background(Circle().fill(Color.blue.opacity(0.8)))
+                .shadow(radius: 10)
+        }
+        .padding()
+    }
+}
+
+struct ProfileIconView: View {
+    var body: some View {
+        Image(systemName: "person.circle.fill")
+            .resizable()
+            .scaledToFit()
+            .frame(height: 40)
+            .tint(.blue.opacity(0.8))
+            .padding(.vertical)
+    }
+}
 
 #Preview {
     SubjectsView()
 }
+

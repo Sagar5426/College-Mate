@@ -9,6 +9,10 @@ struct ClassPeriodTime: Hashable {
 
 struct AddSubjectView: View {
     
+    @Environment(\.modelContext) var modelContext
+    @Query var subjects: [Subject]
+    @Binding var isShowingAddSubjectView: Bool
+    
     @State private var subjectName = ""
     @State private var selectedDays: Set<String> = []
     @State private var classTimes: [String: [ClassPeriodTime]] = [:]
@@ -19,6 +23,7 @@ struct AddSubjectView: View {
     ]
     
     var body: some View {
+        NavigationStack {
             Form {
                 SubjectDetailsSection(subjectName: $subjectName)
                 
@@ -29,24 +34,64 @@ struct AddSubjectView: View {
                     classCount: $classCount
                 )
             }
-        // added navigation title here to put this on outside view
+            // added navigation title here to put this on outside view
+        
         .navigationTitle("Add Subject")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
+            ToolbarItem(placement: .topBarTrailing) {
                 Button("Save") {
                     saveSubject()
                 }
             }
+            
+            ToolbarItem(placement: .topBarLeading) {
+                Button("Cancel", systemImage: "xmark") {
+                    isShowingAddSubjectView = false
+                }
+            }
         }
+    }
     }
     
     private func saveSubject() {
-        print("Subject Name: \(subjectName)")
-        print("Days: \(selectedDays)")
-        print("Times: \(classTimes)")
-        print("Class Count: \(classCount)")
+        guard !subjectName.isEmpty else {
+            print("Subject name cannot be empty.")
+            return
+        }
+        
+        // Create a new Subject
+        let newSubject = Subject(name: subjectName, numberOfNotes: 0)
+
+        // Create schedules for the selected days
+        for day in selectedDays {
+            let newSchedule = Schedule(day: day)
+            
+            // Add class times to the schedule
+            if let times = classTimes[day] {
+                for time in times {
+                    let newClassTime = ClassTime(startTime: time.startTime, endTime: time.endTime)
+                    newSchedule.classTimes.append(newClassTime)
+                }
+            }
+            
+            // Add the schedule to the subject
+            newSubject.schedules.append(newSchedule)
+        }
+        
+        // Add the new Subject to the modelContext
+        modelContext.insert(newSubject)
+        
+        // Reset form fields
+        subjectName = ""
+        selectedDays.removeAll()
+        classTimes.removeAll()
+        classCount.removeAll()
+        
+        print("Subject saved successfully.")
+        isShowingAddSubjectView = false
     }
+
 }
 
 // MARK: Helper Views
@@ -172,6 +217,6 @@ struct DayRowView: View {
 
 #Preview {
     NavigationStack {
-        AddSubjectView()
+        AddSubjectView(isShowingAddSubjectView: .constant(true))
     }
 }
