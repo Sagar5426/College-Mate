@@ -4,125 +4,157 @@ import SwiftData
 struct AttendanceView: View {
     @Environment(\.modelContext) var modelContext
     @Query var subjects: [Subject]
-    @State private var selectedDate = Date() // Tracks the selected date
-    @State private var isHoliday = false // Tracks holiday state
-    @State private var showDatePicker = false // Controls the visibility of the date picker
+    @State private var selectedDate = Date()
+    @State private var isHoliday = false
+    @State private var isshowingDatePicker = false
+    @State var isShowingProfileView: Bool = false
     
     var body: some View {
-        NavigationStack {
-                VStack {
-                    // Date Picker and Navigation Arrows
-                    HStack {
-                        Button(action: moveToPreviousDay) {
-                            Image(systemName: "chevron.left")
-                                .font(.title2)
-                                .padding()
-                        }
+        GeometryReader {
+            let size = $0.size
+            
+            NavigationStack {
+                ScrollView(.vertical) {
+                    LazyVStack(spacing: 16, pinnedViews: [.sectionHeaders]) {
                         
-                        Spacer()
-                        
-                        Text(selectedDate, formatter: dateFormatter)
-                            .font(.headline)
-                            .onTapGesture {
-                                withAnimation {
-                                    showDatePicker.toggle() // Toggle date picker visibility
-                                }
+                        Section {
+                            DatePickerHeader(
+                                selectedDate: $selectedDate,
+                                showDatePicker: $isshowingDatePicker,
+                                moveToPreviousDay: moveToPreviousDay,
+                                moveToNextDay: moveToNextDay
+                            )
+                            HolidayButton(isHoliday: $isHoliday)
+                            Divider().padding(.vertical)
+                            ClassesList(subjects: subjects, selectedDate: selectedDate, isHoliday: isHoliday)
+                        } header: {
+                            GeometryReader { proxy in
+                                HeaderView(size: proxy.size, title: "Attendance 🙋", isShowingProfileView: $isShowingProfileView)
+                                
                             }
-                        
-                        Spacer()
-                        
-                        Button(action: moveToNextDay) {
-                            Image(systemName: "chevron.right")
-                                .font(.title2)
-                                .padding()
+                            .frame(height: 50)
                         }
                     }
-                    .padding(.horizontal)
+                    .padding()
+//                    .navigationTitle("Attendance 🙋")
+//                    .navigationBarTitleDisplayMode(.inline)
+//                    .toolbar {
+//                        ToolbarItem(placement: .navigationBarTrailing) {
+//                            NavigationLink(destination: ProfileView()) {
+//                                Image(systemName: "person.circle.fill")
+//                                    .resizable()
+//                                    .scaledToFit()
+//                                    .frame(height: 40)
+//                                    .tint(.blue.opacity(0.8))
+//                                    .padding(.vertical)
+//                            }
+//                        }
+//                    }
                     
-                    
-                    
-                    // Mark as Holiday Button
-                    Button(action: markAsHoliday) {
-                        Text(isHoliday ? "Marked as Holiday" : "Mark Today as Holiday")
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .foregroundColor(.white)
-                            .background(isHoliday ? Color.red : Color.blue)
-                            .clipShape(RoundedRectangle(cornerRadius: 10))
-                            .padding(.horizontal)
-                    }
-                    
-                    Divider().padding(.vertical)
-                    
-                    // Classes List
-                    ScrollView {
-                        if isHoliday {
-                            Text("No classes today. Enjoy your holiday!")
-                                .font(.subheadline)
-                                .foregroundColor(.gray)
-                                .padding()
-                        } else {
-                            VStack(alignment: .leading, spacing: 20) {
-                                ForEach(subjects) { subject in
-                                    ForEach(subject.schedules) { schedule in
-                                        if schedule.day == formattedDay(from: selectedDate) {
-                                            ClassAttendanceRow(subject: subject)
-                                        }
-                                    }
-                                }
-                            }
-                            .padding()
-                        }
-                    }
-                }
-                .navigationTitle("Attendance 🙋")
-                .toolbar {
-                    ToolbarItem(placement: .navigationBarTrailing) {
-                        NavigationLink(destination: ProfileView()) {
-                            Image(systemName: "person.circle.fill")
-                                .resizable()
-                                .scaledToFit()
-                                .frame(height: 40)
-                                .tint(.blue.opacity(0.8))
-                                .padding(.vertical)
-                        }
-                    }
                 }
                 .background(.gray.opacity(0.15))
-            
-            .blur(radius: showDatePicker ? 8: 0)
-            .disabled(showDatePicker)
-            
-            
+                .blur(radius: isshowingDatePicker ? 8 : 0)
+                .disabled(isshowingDatePicker)
+            }
+            .fullScreenCover(isPresented: $isShowingProfileView) {
+                ProfileView(isShowingProfileView: $isShowingProfileView)
+            }
+            .overlay {
+                if isshowingDatePicker {
+                    DateFilterView(
+                        start: selectedDate,
+                        onSubmit: { start in
+                            selectedDate = start
+                            isshowingDatePicker = false
+                        },
+                        onClose: { isshowingDatePicker = false }
+                    )
+                    .transition(.move(edge: .leading))
+                }
+            }
+            .animation(.snappy, value: isshowingDatePicker)
         }
-        .overlay {
-            if showDatePicker {
-                DateFilterView(start: selectedDate, onSubmit: { start in
-                    selectedDate = start
-                    showDatePicker = false
-                }, onClose: {
-                    showDatePicker = false
-                })
-                .transition(.move(edge: .leading))
+    }
+}
+
+// MARK: - Subviews
+struct DatePickerHeader: View {
+    @Binding var selectedDate: Date
+    @Binding var showDatePicker: Bool
+    let moveToPreviousDay: () -> Void
+    let moveToNextDay: () -> Void
+    
+    var body: some View {
+        HStack {
+            Button(action: moveToPreviousDay) {
+                Image(systemName: "chevron.left")
+                    .font(.title2)
+                    .padding()
+            }
+            
+            Spacer()
+            
+            Text(selectedDate, formatter: AttendanceView.dateFormatter)
+                .font(.headline)
+                .onTapGesture {
+                    withAnimation {
+                        showDatePicker.toggle()
+                    }
+                }
+            
+            Spacer()
+            
+            Button(action: moveToNextDay) {
+                Image(systemName: "chevron.right")
+                    .font(.title2)
+                    .padding()
             }
         }
-        .animation(.snappy, value: showDatePicker)
+        .padding(.horizontal)
     }
+}
+
+struct HolidayButton: View {
+    @Binding var isHoliday: Bool
     
-    // MARK: - Actions
-    
-    private func moveToPreviousDay() {
-        selectedDate = Calendar.current.date(byAdding: .day, value: -1, to: selectedDate) ?? selectedDate
-        isHoliday = false // Reset holiday state for the new day
+    var body: some View {
+        Button(action: { isHoliday.toggle() }) {
+            Text(isHoliday ? "Marked as Holiday" : "Mark Today as Holiday")
+                .frame(maxWidth: .infinity)
+                .padding()
+                .foregroundColor(.white)
+                .background(isHoliday ? Color.red : Color.blue)
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .padding(.horizontal)
+        }
     }
+}
+
+struct ClassesList: View {
+    let subjects: [Subject]
+    let selectedDate: Date
+    let isHoliday: Bool
     
-    private func moveToNextDay() {
-        selectedDate = Calendar.current.date(byAdding: .day, value: 1, to: selectedDate) ?? selectedDate
-        isHoliday = false // Reset holiday state for the new day
-    }
-    
-    private func markAsHoliday() {
-        isHoliday.toggle()
+    var body: some View {
+        ScrollView {
+            if isHoliday {
+                Text("No classes today. Enjoy your holiday!")
+                    .font(.subheadline)
+                    .foregroundColor(.gray)
+                    .padding()
+            } else {
+                VStack(alignment: .leading, spacing: 20) {
+                    ForEach(subjects) { subject in
+                        ForEach(subject.schedules) { schedule in
+                            if schedule.day == formattedDay(from: selectedDate) {
+                                ClassAttendanceRow(subject: subject)
+                            }
+                        }
+                    }
+                }
+                .padding()
+            }
+        }
     }
     
     private func formattedDay(from date: Date) -> String {
@@ -130,8 +162,21 @@ struct AttendanceView: View {
         formatter.dateFormat = "EEEE"
         return formatter.string(from: date)
     }
+}
+
+// MARK: - Extensions
+extension AttendanceView {
+    private func moveToPreviousDay() {
+        selectedDate = Calendar.current.date(byAdding: .day, value: -1, to: selectedDate) ?? selectedDate
+        isHoliday = false
+    }
     
-    private var dateFormatter: DateFormatter {
+    private func moveToNextDay() {
+        selectedDate = Calendar.current.date(byAdding: .day, value: 1, to: selectedDate) ?? selectedDate
+        isHoliday = false
+    }
+    
+    static var dateFormatter: DateFormatter {
         let formatter = DateFormatter()
         formatter.dateStyle = .full
         return formatter
@@ -140,7 +185,7 @@ struct AttendanceView: View {
 
 struct ClassAttendanceRow: View {
     let subject: Subject
-    @State private var isAttended = false // Track attendance for the class
+    @State private var isAttended = false
     
     var body: some View {
         HStack {
@@ -169,7 +214,6 @@ struct ClassAttendanceRow: View {
     
     private func toggleAttendance() {
         isAttended.toggle()
-        // Update attendance in the model context if needed
     }
 }
 
@@ -177,3 +221,6 @@ struct ClassAttendanceRow: View {
     AttendanceView()
         .modelContainer(for: Subject.self, inMemory: true)
 }
+
+
+

@@ -8,11 +8,24 @@
 import SwiftUI
 
 struct ProfileView: View {
+    @Binding var isShowingProfileView: Bool
+    
     var body: some View {
-        Text("Profile View")
+        NavigationStack {
+            VStack {
+                Text("Profile View")
+            }
+            .toolbar {
+                Button("Close", systemImage: "xmark") {
+                    isShowingProfileView = false
+                }
+            }
+        }
+        
     }
+        
 }
 
 #Preview {
-    ProfileView()
+    ProfileView(isShowingProfileView: .constant(true))
 }

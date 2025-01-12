@@ -3,18 +3,43 @@ import SwiftData
 
 struct SubjectsView: View {
     // Array of beautiful colors
-    let cardColors: [Color] = [
-        Color.pink.opacity(0.3),
-        Color.blue.opacity(0.3),
-        Color.green.opacity(0.3),
-        Color.orange.opacity(0.3),
-        Color.purple.opacity(0.3),
-        Color.yellow.opacity(0.3)
+    let cardColors: [LinearGradient] = [
+        LinearGradient(
+            gradient: Gradient(colors: [Color.pink.opacity(0.3), Color.red.opacity(0.3)]),
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        ),
+        LinearGradient(
+            gradient: Gradient(colors: [Color.blue.opacity(0.3), Color.cyan.opacity(0.3)]),
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        ),
+        LinearGradient(
+            gradient: Gradient(colors: [Color.green.opacity(0.3), Color.mint.opacity(0.3)]),
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        ),
+        LinearGradient(
+            gradient: Gradient(colors: [Color.orange.opacity(0.3), Color.yellow.opacity(0.3)]),
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        ),
+        LinearGradient(
+            gradient: Gradient(colors: [Color.purple.opacity(0.3), Color.indigo.opacity(0.3)]),
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        ),
+        LinearGradient(
+            gradient: Gradient(colors: [Color.yellow.opacity(0.3), Color.white.opacity(0.3)]),
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
     ]
     
     @Environment(\.modelContext) var modelContext
     @Query var subjects: [Subject]
     @State var isShowingAddSubject: Bool = false
+    @State var isShowingProfileView = false // Keep this as @State to modify it
     
     var body: some View {
         GeometryReader {
@@ -30,16 +55,14 @@ struct SubjectsView: View {
                             }
                         } header: {
                             GeometryReader { proxy in
-                                HeaderView(proxy.size, title: "My Subjects 📚") // Pass title here
+                                HeaderView(size: proxy.size, title: "My Subjects 📚", isShowingProfileView: $isShowingProfileView) // Pass binding here
                             }
-                            .frame(height: 100) // Adjust header height as needed
+                            .frame(height: 60) // Adjust header height as needed
                         }
                     }
-                    
                     .padding()
                 }
                 .background(.gray.opacity(0.15))
-                
                 .frame(maxWidth: .infinity)
                 .overlay(alignment: .bottomTrailing) {
                     AddSubjectButton(isShowingAddSubject: $isShowingAddSubject)
@@ -47,16 +70,18 @@ struct SubjectsView: View {
                 .fullScreenCover(isPresented: $isShowingAddSubject) {
                     AddSubjectView(isShowingAddSubjectView: $isShowingAddSubject)
                 }
+                // Full screen cover for Profile View
+                .fullScreenCover(isPresented: $isShowingProfileView) {
+                    ProfileView(isShowingProfileView: $isShowingProfileView)
+                }
             }
         }
     }
-    
-    
 }
 
 struct SubjectCardView: View {
     let subject: Subject
-    let cardColor: Color
+    let cardColor: LinearGradient // Updated to LinearGradient
     
     var body: some View {
         NavigationLink(destination: CardDetailView(subject: subject)) {
@@ -79,7 +104,7 @@ struct SubjectCardView: View {
             }
             .padding()
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(cardColor)
+            .background(cardColor) // LinearGradient used here
             .cornerRadius(12)
             .shadow(color: .black.opacity(0.1), radius: 5, x: 0, y: 5)
         }
@@ -104,68 +129,6 @@ struct AddSubjectButton: View {
                 .shadow(radius: 10)
         }
         .padding()
-    }
-}
-
-
-
-extension SubjectsView {
-    // Updated Profile Icon in Header View
-    @ViewBuilder
-    func HeaderView(_ size: CGSize, title: String) -> some View {
-        HStack(spacing: 10) {
-            Text(title)
-                .font(.title.bold())
-            
-            Spacer(minLength: 0)
-            
-            NavigationLink(destination: ProfileView()) {
-                Image(systemName: "person.circle.fill")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 45, height: 45)
-                    .foregroundStyle(.white)
-                    .background(
-                        Circle()
-                            .fill(Color.blue.gradient)
-                            .frame(width: 55, height: 55) // Larger circle for profile
-                    )
-                    .shadow(radius: 5)
-            }
-        }
-        .padding(.bottom, 10)
-        .background {
-            VStack(spacing: 0) {
-                Rectangle()
-                    .fill(.ultraThinMaterial)
-                
-                Divider()
-            }
-            .visualEffect { content, geometryProxy in
-                content
-                    .opacity(headerBGOpacity(geometryProxy))
-            }
-            .padding(.horizontal, -15)
-            .padding(.top, -(safeArea.top + 15))
-        }
-    }
-    
-    func headerBGOpacity(_ proxy: GeometryProxy) -> CGFloat {
-        // Since we ignored the safe area by applying the negative padding, the minY starts with the safe area top value instead of zero.
-        
-        let minY = proxy.frame(in: .scrollView).minY + safeArea.top
-        return minY > 0 ? 0 : (-minY/15)
-        //Instead of applying opacity instantly, l converted the minY into a series of progress ranging from 0 to 1, so the opacity effect will be more subtle.
-    }
-    
-    func headerScale(_ size: CGSize, proxy: GeometryProxy) -> CGFloat {
-        let minY = proxy.frame(in: .scrollView).minY
-        let screenHeight = size.height
-        
-        let progress = minY / screenHeight
-        let scale = (min(max(progress,0),1)) * 0.4
-        
-        return 1 + scale
     }
 }
 
