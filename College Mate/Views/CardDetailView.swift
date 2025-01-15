@@ -15,6 +15,7 @@ struct CardDetailView: View {
     @Environment(\.modelContext) var modelContext
     @Environment(\.dismiss) var dismiss
     @State private var isShowingDeleteAlert = false
+    @State private var isShowingEditView = false
     
     let subject: Subject
     
@@ -28,7 +29,10 @@ struct CardDetailView: View {
         .navigationTitle(subject.name)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                Button ("Edit", systemImage: "pencil") {
+                    isShowingEditView.toggle()
+                }
                 Button("Delete", systemImage: "trash") {
                     isShowingDeleteAlert = true
                 }
@@ -39,6 +43,9 @@ struct CardDetailView: View {
             Button("Cancel", role: .cancel, action: { })
         } message: {
             Text("Are you sure?")
+        }
+        .fullScreenCover(isPresented: $isShowingEditView) {
+            EditSubjectView(subject: subject, isShowingEditSubjectView: $isShowingEditView)
         }
     }
 }

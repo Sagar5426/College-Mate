@@ -7,6 +7,7 @@ class Attendance {
     var totalClasses: Int
     var attendedClasses: Int
     
+    
     init(totalClasses: Int, attendedClasses: Int) {
         self.id = UUID()
         self.totalClasses = totalClasses

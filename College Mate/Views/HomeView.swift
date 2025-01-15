@@ -6,8 +6,10 @@
 //
 
 import SwiftUI
+import SwiftData
 
 struct HomeView: View {
+    @Query var subjects: [Subject]
     var body: some View {
         TabView {
             Tab("Subjects", systemImage: "book.closed") {
@@ -15,7 +17,7 @@ struct HomeView: View {
             }
             
             Tab("Attendence", systemImage: "chart.bar.fill") {
-                AttendanceView()
+                AttendanceView(viewModel: AttendanceViewModel(subjects: subjects))
             }
             Tab("Time Table", systemImage: "calendar") {
                 TimeTableView()

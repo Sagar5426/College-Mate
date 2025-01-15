@@ -1,11 +1,7 @@
 import SwiftUI
 import SwiftData
 
-// Define a custom struct for class times
-struct ClassPeriodTime: Hashable {
-    var startTime: Date?
-    var endTime: Date?
-}
+
 
 struct AddSubjectView: View {
     
@@ -14,6 +10,7 @@ struct AddSubjectView: View {
     @Binding var isShowingAddSubjectView: Bool
     
     @State private var subjectName = ""
+    @State private var startDateOfSubject: Date = .now
     @State private var selectedDays: Set<String> = []
     @State private var classTimes: [String: [ClassPeriodTime]] = [:]
     @State private var classCount: [String: Int] = [:]
@@ -26,7 +23,7 @@ struct AddSubjectView: View {
         NavigationStack {
             Form {
                 SubjectDetailsSection(subjectName: $subjectName)
-                
+                FirstSubjectDatePicker(startDateOfSubject: $startDateOfSubject)
                 ClassScheduleSection(
                     daysOfWeek: daysOfWeek,
                     selectedDays: $selectedDays,
@@ -43,6 +40,8 @@ struct AddSubjectView: View {
                 Button("Save") {
                     saveSubject()
                 }
+                .disabled(!isAllInfoValid)
+                .tint(isAllInfoValid ? .blue : .gray)
             }
             
             ToolbarItem(placement: .topBarLeading) {
@@ -74,6 +73,8 @@ struct AddSubjectView: View {
                     newSchedule.classTimes.append(newClassTime)
                 }
             }
+            // Add first date of class
+            newSubject.startDateOfSubject = startDateOfSubject
             
             // Add the schedule to the subject
             newSubject.schedules.append(newSchedule)
@@ -121,7 +122,9 @@ struct ClassScheduleSection: View {
                         set: { isSelected in
                             if isSelected {
                                 selectedDays.insert(day)
-                                classTimes[day] = [ClassPeriodTime(startTime: Date(), endTime: nil)]
+                                let now = Date()
+                                let oneHourLater = Calendar.current.date(byAdding: .hour, value: 1, to: now)!
+                                classTimes[day] = [ClassPeriodTime(startTime: now, endTime: oneHourLater)]
                                 classCount[day] = 1
                             } else {
                                 selectedDays.remove(day)
@@ -144,6 +147,7 @@ struct ClassScheduleSection: View {
     }
 }
 
+
 struct DayRowView: View {
     let day: String
     @Binding var isSelected: Bool
@@ -157,7 +161,7 @@ struct DayRowView: View {
             if isSelected {
                 Divider()
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("How many times you have this class in a day?")
+                    Text("How many times do you have this class in a day?")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .bold()
@@ -183,7 +187,7 @@ struct DayRowView: View {
                     ForEach(0..<count, id: \.self) { index in
                         Divider()
                         VStack(alignment: .leading) {
-                            Text("\(index + 1) class Timing (OPTIONAL)")
+                            Text("\(ordinalNumber(for: index + 1)) Class Timing")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                                 .bold()
@@ -209,14 +213,53 @@ struct DayRowView: View {
                             .padding(.horizontal, 20)
                         }
                     }
+                    
+                    // Optional Timing Comment
+                    Text("Adding class timings is optional.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .italic()
+                        .padding(.top, 5)
                 }
             }
         }
     }
+
+    /// Converts a number to its ordinal representation (e.g., 1 -> "1st", 2 -> "2nd").
+    private func ordinalNumber(for number: Int) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .ordinal
+        return formatter.string(from: NSNumber(value: number)) ?? "\(number)"
+    }
 }
+
+
 
 #Preview {
     NavigationStack {
         AddSubjectView(isShowingAddSubjectView: .constant(true))
+    }
+}
+
+
+extension AddSubjectView {
+    var isAllInfoValid: Bool {
+        guard !subjectName.isEmpty else { return false }
+        guard !selectedDays.isEmpty else { return false }
+
+        
+
+        return true
+    }
+}
+
+
+struct FirstSubjectDatePicker: View {
+    @Binding var startDateOfSubject: Date
+    var body: some View {
+        Section("Select the date of your first class") {
+            DatePicker("First Class", selection: $startDateOfSubject, displayedComponents: [.date])
+                .datePickerStyle(.graphical)
+        }
     }
 }

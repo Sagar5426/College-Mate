@@ -16,8 +16,10 @@ struct ProfileView: View {
                 Text("Profile View")
             }
             .toolbar {
-                Button("Close", systemImage: "xmark") {
-                    isShowingProfileView = false
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Close", systemImage: "xmark") {
+                        isShowingProfileView = false
+                    }
                 }
             }
         }

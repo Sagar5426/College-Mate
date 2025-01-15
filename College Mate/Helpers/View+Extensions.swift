@@ -37,6 +37,7 @@ extension View {
     // Updated Profile Icon in Header View
         @ViewBuilder
         func HeaderView(size: CGSize, title: String, isShowingProfileView: Binding<Bool>) -> some View {
+            let safeArea = self.safeArea 
             HStack(spacing: 10) {
                 Text(title)
                     .font(.title.bold())
@@ -69,21 +70,21 @@ extension View {
                 }
                 .visualEffect { content, geometryProxy in
                     content
-                        .opacity(headerBGOpacity(geometryProxy))
+                        .opacity(headerBGOpacity(geometryProxy, safeArea: safeArea)) // Passing safeArea here
                 }
                 .padding(.horizontal, -15)
                 .padding(.top, -(safeArea.top + 15))
             }
         }
         
-        func headerBGOpacity(_ proxy: GeometryProxy) -> CGFloat {
+    nonisolated func headerBGOpacity(_ proxy: GeometryProxy, safeArea: UIEdgeInsets) -> CGFloat {
             // Since we ignored the safe area by applying the negative padding, the minY starts with the safe area top value instead of zero.
             
             let minY = proxy.frame(in: .scrollView).minY + safeArea.top
             return minY > 0 ? 0 : (-minY/15)
         }
         
-        func headerScale(_ size: CGSize, proxy: GeometryProxy) -> CGFloat {
+    nonisolated func headerScale(_ size: CGSize, proxy: GeometryProxy, safeArea: UIEdgeInsets) -> CGFloat {
             let minY = proxy.frame(in: .scrollView).minY
             let screenHeight = size.height
             
@@ -92,7 +93,4 @@ extension View {
             
             return 1 + scale
         }
-    
-    
-    
 }

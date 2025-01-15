@@ -21,3 +21,9 @@ class ClassTime {
         self.endTime = endTime
     }
 }
+
+// Define a custom struct for class times
+struct ClassPeriodTime: Hashable {
+    var startTime: Date?
+    var endTime: Date?
+}

@@ -22,8 +22,6 @@ struct TimeTableView: View {
     @State private var isShowingProfileView = false
     
     var body: some View {
-        GeometryReader { geometry in
-            let size = geometry.size
             NavigationStack {
                 ScrollView(.vertical) {
                     LazyVStack(spacing: 20, pinnedViews: [.sectionHeaders]) {
@@ -67,7 +65,7 @@ struct TimeTableView: View {
                 }
                 .background(.gray.opacity(0.15))
             }
-        }
+        
     }
 
     // MARK: - Toggle Day Expansion
