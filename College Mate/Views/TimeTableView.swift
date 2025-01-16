@@ -131,9 +131,9 @@ struct ScheduleCard: View {
                     .font(.footnote)
                     .foregroundStyle(.gray)
                 Spacer()
-                Text("Attendance: \(Int(subject.attendance.attendancePercentage))%")
+                Text("Attendance: \(Int(subject.attendance.percentage))%")
                     .font(.footnote)
-                    .foregroundColor(subject.attendance.attendancePercentage >= 75 ? .green : .red)
+                    .foregroundColor(subject.attendance.percentage >= 75 ? .green : .red)
             }
         }
         .padding()

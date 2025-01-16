@@ -17,7 +17,11 @@ struct EditSubjectView: View {
             Form {
                 SubjectDetailsSection(subjectName: $subject.name)
                 FirstSubjectDatePicker(startDateOfSubject: $subject.startDateOfSubject)
-                
+                MinimumAttendenceStepper(MinimumAttendancePercentage: Binding<Int>(
+                    get: { Int(subject.attendance.minimumPercentageRequirement) }, // Convert Double to Int
+                    set: { subject.attendance.minimumPercentageRequirement = Double($0) } // Convert Int back to Double
+                ))
+
                 ClassScheduleSection(
                     daysOfWeek: daysOfWeek,
                     selectedDays: $selectedDays,
@@ -32,6 +36,7 @@ struct EditSubjectView: View {
                 saveUpdatedData()
             }
             .navigationTitle("Edit Subject")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Done") {
@@ -222,7 +227,7 @@ extension EditSubjectView {
         var body: some View {
             Section("Select the date of your first class") {
                 DatePicker("First Class", selection: $startDateOfSubject, displayedComponents: [.date])
-                    .datePickerStyle(.graphical)
+                    .datePickerStyle(.compact)
             }
         }
     }

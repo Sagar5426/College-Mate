@@ -167,9 +167,9 @@ struct ClassAttendanceRow: View {
             VStack(alignment: .leading, spacing: 5) {
                 Text(subject.name)
                     .font(.headline)
-                Text("Attendance: \(Int(subject.attendance.attendancePercentage))%")
+                Text("Attendance: \(Int(subject.attendance.percentage))%")
                     .font(.subheadline)
-                    .foregroundColor(subject.attendance.attendancePercentage >= 75 ? .green : .red)
+                    .foregroundColor(subject.attendance.percentage >= 75 ? .green : .red)
             }
 
             Spacer()

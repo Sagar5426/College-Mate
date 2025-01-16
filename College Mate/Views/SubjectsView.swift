@@ -10,11 +10,19 @@ struct SubjectsView: View {
     var body: some View {
         NavigationStack {
             ScrollView(.vertical) {
-                LazyVStack(spacing: 16, pinnedViews: [.sectionHeaders]) {
+                LazyVStack(spacing: 20, pinnedViews: [.sectionHeaders]) {
                     Section {
                         ForEach(subjects, id: \.id) { subject in
-                            SubjectCardView(subject: subject)
+                            NavigationLink {
+                                CardDetailView(subject: subject)
+                            } label: {
+                                SubjectCardView(subject: subject)
+                            }
+
+                            
+                                
                         }
+                        Spacer(minLength: 45)
                     } header: {
                         GeometryReader { proxy in
                             HeaderView(size: proxy.size, title: "My Subjects 📚", isShowingProfileView: $isShowingProfileView) // Pass binding here
@@ -24,7 +32,7 @@ struct SubjectsView: View {
                 }
                 .padding()
             }
-            .background(.gray.opacity(0.15))
+            .background(.black.opacity(0.2))
             .frame(maxWidth: .infinity)
             .overlay(alignment: .bottomTrailing) {
                 AddSubjectButton(isShowingAddSubject: $isShowingAddSubject)
@@ -40,37 +48,13 @@ struct SubjectsView: View {
     }
 }
 
-struct SubjectCardView: View {
-    let subject: Subject
-    
-    var body: some View {
-        NavigationLink(destination: CardDetailView(subject: subject)) {
-            HStack {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text(subject.name)
-                        .font(.headline)
-                        .fontWeight(.bold)
-                    
-                    Text("Notes: \(subject.numberOfNotes)")
-                        .font(.subheadline)
-                        .foregroundColor(.gray)
-                }
-                Spacer()
-                
-                PieProgressView(
-                    total: subject.attendance.totalClasses,
-                    completed: subject.attendance.attendedClasses
-                )
-            }
-            .padding()
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.white) // Use a solid background color if needed
-            .cornerRadius(12)
-            .shadow(color: .black.opacity(0.1), radius: 5, x: 0, y: 5)
-        }
-        .buttonStyle(.plain)
-    }
-}
+
+
+
+
+
+
+
 
 struct AddSubjectButton: View {
     @Binding var isShowingAddSubject: Bool
@@ -96,3 +80,6 @@ struct AddSubjectButton: View {
 #Preview {
     SubjectsView()
 }
+
+
+

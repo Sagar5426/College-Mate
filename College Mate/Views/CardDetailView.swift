@@ -42,7 +42,7 @@ struct CardDetailView: View {
             Button("Delete", role: .destructive, action: deleteSubject)
             Button("Cancel", role: .cancel, action: { })
         } message: {
-            Text("Are you sure?")
+            Text("Deleting this subject will remove all associated data. Are you sure?")
         }
         .fullScreenCover(isPresented: $isShowingEditView) {
             EditSubjectView(subject: subject, isShowingEditSubjectView: $isShowingEditView)

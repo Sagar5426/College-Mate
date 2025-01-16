@@ -1,6 +1,6 @@
 import SwiftUI
 import SwiftData
-
+import CoreHaptics
 
 
 struct AddSubjectView: View {
@@ -11,6 +11,7 @@ struct AddSubjectView: View {
     
     @State private var subjectName = ""
     @State private var startDateOfSubject: Date = .now
+    @State private var MinimumAttendancePercentage: Int = 75
     @State private var selectedDays: Set<String> = []
     @State private var classTimes: [String: [ClassPeriodTime]] = [:]
     @State private var classCount: [String: Int] = [:]
@@ -24,6 +25,7 @@ struct AddSubjectView: View {
             Form {
                 SubjectDetailsSection(subjectName: $subjectName)
                 FirstSubjectDatePicker(startDateOfSubject: $startDateOfSubject)
+                MinimumAttendenceStepper(MinimumAttendancePercentage: $MinimumAttendancePercentage)
                 ClassScheduleSection(
                     daysOfWeek: daysOfWeek,
                     selectedDays: $selectedDays,
@@ -75,6 +77,9 @@ struct AddSubjectView: View {
             }
             // Add first date of class
             newSubject.startDateOfSubject = startDateOfSubject
+            
+            // Add minimum attendence requirement
+            newSubject.attendance.minimumPercentageRequirement = Double(MinimumAttendancePercentage)
             
             // Add the schedule to the subject
             newSubject.schedules.append(newSchedule)
@@ -258,8 +263,45 @@ struct FirstSubjectDatePicker: View {
     @Binding var startDateOfSubject: Date
     var body: some View {
         Section("Select the date of your first class") {
-            DatePicker("First Class", selection: $startDateOfSubject, displayedComponents: [.date])
-                .datePickerStyle(.graphical)
+            DatePicker("First Class Date", selection: $startDateOfSubject, displayedComponents: [.date])
+                .datePickerStyle(.compact)
         }
     }
 }
+
+struct MinimumAttendenceStepper: View {
+    @Binding var MinimumAttendancePercentage: Int
+
+    var body: some View {
+        Section("Minimum Attendance Requirement") {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Attendance Requirement")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+
+                HStack {
+                    Spacer()
+                    Text("\(MinimumAttendancePercentage)%")
+                        .font(.title3)
+                        .bold()
+                        .padding(8)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(Color.blue.opacity(0.1))
+                        )
+                        .frame(minWidth: 70)
+
+                    Spacer()
+                    Spacer()
+
+                    Stepper("", value: $MinimumAttendancePercentage, in: 5...100, step: 5)
+                        .labelsHidden()
+                        .sensoryFeedback(.increase, trigger: MinimumAttendancePercentage)
+                }
+            }
+            .padding(.vertical, 4)
+        }
+    }
+}
+
+
