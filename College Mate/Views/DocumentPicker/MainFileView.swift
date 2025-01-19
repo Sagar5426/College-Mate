@@ -140,10 +140,33 @@ struct MainFileView: View {
                 fileManager.loadFiles()
             }
             .fullScreenCover(item: $selectedFile) { identifiableURL in
-                FileViewer(fileURL: identifiableURL.url, onDismiss: {
-                    selectedFile = nil
-                })
+                ZStack {
+                    FileViewer(fileURL: identifiableURL.url)
+                    
+                    VStack {
+                        HStack {
+                            Spacer()
+                            Button(action: {
+                                selectedFile = nil
+                            }) {
+                                Image(systemName: "xmark")
+                                    .resizable()
+                                    .frame(width: 20, height: 20)
+                                    .foregroundStyle(.black)
+                                    .padding(8)
+                                    .background(
+                                        Circle()
+                                            .fill(.white)
+                                    )
+                            }
+                            .padding(.top, 20) // Add padding to the top to ensure it stays in the safe area
+                            .padding(.trailing, 16) // Align it to the right
+                        }
+                        Spacer()
+                    }
+                }
             }
+
         }
     }
 }
@@ -154,26 +177,27 @@ struct MainFileView: View {
 // MARK: - File Viewer
 struct FileViewer: View {
     let fileURL: URL
-    var onDismiss: () -> Void
+    @State private var scale: CGFloat = 1.0
+    @State private var initialScale: CGFloat = 1.0
 
     var body: some View {
         VStack {
-            HStack {
-                Spacer()
-                Button(action: onDismiss) {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 24))
-                        .foregroundColor(.white)
-                }
-                .padding()
-            }
-
             if fileURL.pathExtension.lowercased() == "pdf" {
                 PDFKitView(url: fileURL)
             } else if let image = UIImage(contentsOfFile: fileURL.path) {
                 Image(uiImage: image)
                     .resizable()
                     .scaledToFit()
+                    .scaleEffect(scale) // Apply zoom scale
+                    .gesture(
+                        MagnificationGesture()
+                            .onChanged { value in
+                                scale = initialScale * value
+                            }
+                            .onEnded { value in
+                                initialScale = scale
+                            }
+                    )
                     .edgesIgnoringSafeArea(.all)
             } else {
                 Text("Unsupported file type")
@@ -184,6 +208,8 @@ struct FileViewer: View {
         .edgesIgnoringSafeArea(.all)
     }
 }
+
+
 
 
 struct PDFKitView: UIViewRepresentable {
