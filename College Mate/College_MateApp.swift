@@ -11,7 +11,9 @@ import SwiftUI
 struct College_MateApp: App {
     var body: some Scene {
         WindowGroup {
-            HomeView()
+//            HomeView()
+//            MainPDFView()
+            MainFileView()
         }
         .modelContainer(for: Subject.self)
     }
