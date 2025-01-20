@@ -19,8 +19,8 @@ struct HomeView: View {
             Tab("Attendence", systemImage: "chart.bar.fill") {
                 AttendanceView(viewModel: AttendanceViewModel(subjects: subjects))
             }
-            Tab("Notes", systemImage: "calendar") {
-                MainFileView()
+            Tab("TimeTable", systemImage: "calendar") {
+                TimeTableView()
             }
             
          }

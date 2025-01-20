@@ -9,15 +9,19 @@ class Subject {
     var startDateOfSubject: Date
     var schedules: [Schedule]
     var attendance: Attendance
-    
-    init(name: String, numberOfNotes: Int = 0,startDateOfSubject: Date = .now, schedules: [Schedule] = [], attendance: Attendance = Attendance(totalClasses: 0, attendedClasses: 0)) {
+    var notes: [Note] // New property to store notes
+
+    init(name: String, numberOfNotes: Int = 0, startDateOfSubject: Date = .now, schedules: [Schedule] = [], attendance: Attendance = Attendance(totalClasses: 0, attendedClasses: 0), notes: [Note] = []) {
         self.id = UUID()
         self.name = name
         self.numberOfNotes = numberOfNotes
         self.startDateOfSubject = startDateOfSubject
         self.schedules = schedules
         self.attendance = attendance
+        self.notes = notes
     }
-    
-    
 }
+
+
+
+
