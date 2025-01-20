@@ -15,49 +15,71 @@ struct CardDetailView: View {
     @State private var importedFileData: Data? = nil
     @State private var selectedImage: UIImage? = nil
     
+    @State private var selectedFilter: NoteFilter = .all // Default filter
+    
     let subject: Subject
     
     var body: some View {
-        Form {
-            Section("Subject Details") {
-                Text("\(subject.name) Details")
-            }
+        VStack {
+            // Segmented Control
+                        Picker("Filter", selection: $selectedFilter) {
+                            ForEach(NoteFilter.allCases, id: \.self) { filter in
+                                Text(filter.rawValue).tag(filter)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                        .padding()
             
-            Section("Notes") {
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3)) {
-                    ForEach(subject.notes, id: \.id) { note in
-                        if note.type == .image {
-                            if let image = UIImage(data: note.content) {
-                                Image(uiImage: image)
-                                    .resizable()
-                                    .scaledToFit()
-                                    .frame(maxWidth: 100, maxHeight: 100)
-                                    .clipShape(RoundedRectangle(cornerRadius: 8))
-                            }
-                        } else if note.type == .pdf {
-                            VStack {
-                                Image(systemName: "doc.richtext")
-                                    .resizable()
-                                    .scaledToFit()
-                                    .frame(width: 50, height: 50)
-                                    .foregroundColor(.blue)
-                                Text(note.title)
-                                    .font(.caption)
-                                    .lineLimit(1)
-                            }
+        ScrollView {
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3)) {
+                ForEach(filteredNotes, id: \.id) { note in
+                    if note.type == .image {
+                        if let image = UIImage(data: note.content) {
+                            Image(uiImage: image)
+                                .resizable()
+                                .scaledToFit()
+                                .frame(maxWidth: 100, maxHeight: 100)
+                                .clipShape(RoundedRectangle(cornerRadius: 8))
+                        }
+                    } else if note.type == .pdf {
+                        VStack {
+                            Image(systemName: "doc.richtext")
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 50, height: 50)
+                                .foregroundColor(.blue)
+                            Text(note.title)
+                                .font(.caption)
+                                .lineLimit(1)
                         }
                     }
                 }
             }
+        }
+    }
+        
+        .overlay(alignment: .bottomTrailing){
             
-            Section("Add Notes") {
+            Menu {
                 Button("Add Image from Photos") {
                     isShowingImagePicker = true
                 }
+                .tag(0)
                 Button("Add PDF from Files") {
                     isShowingFileImporter = true
-                }
+                }.tag(1)
+                
+            } label: {
+                Image(systemName: "plus")
+                    .foregroundColor(.white)
+                    .frame(width: 30, height: 30)
+                    .padding(12)
+                    .background(Circle().fill(Color.blue.opacity(0.8)))
+                    .shadow(radius: 10)
+                
             }
+            .padding()
+            
         }
         .font(.title)
         .navigationTitle(subject.name)
@@ -101,7 +123,7 @@ extension CardDetailView {
         modelContext.delete(subject)
         dismiss()
     }
-
+    
     func handleFileImport(result: Result<URL, Error>) {
         switch result {
         case .success(let url):
@@ -121,6 +143,29 @@ extension CardDetailView {
         subject.notes.append(newNote)
         try? modelContext.save()
     }
+}
+
+extension CardDetailView {
+    var filteredNotes: [Note] {
+            switch selectedFilter {
+            case .all:
+                return subject.notes
+            case .images:
+                return subject.notes.filter { $0.type == .image }
+            case .pdfs:
+                return subject.notes.filter { $0.type == .pdf }
+            }
+        }
+    }
+
+    // Enum for Note Filter
+    enum NoteFilter: String, CaseIterable {
+        case all = "All"
+        case images = "Images"
+        case pdfs = "PDFs"
+        
+        
+    
 }
 
 #Preview {
@@ -147,7 +192,7 @@ import PhotosUI
 struct ImagePicker: UIViewControllerRepresentable {
     @Binding var selectedImage: UIImage?
     var onImageSelected: (UIImage?) -> Void
-
+    
     func makeUIViewController(context: Context) -> PHPickerViewController {
         var config = PHPickerConfiguration()
         config.filter = .images
@@ -155,24 +200,24 @@ struct ImagePicker: UIViewControllerRepresentable {
         picker.delegate = context.coordinator
         return picker
     }
-
+    
     func updateUIViewController(_ uiViewController: PHPickerViewController, context: Context) {}
-
+    
     func makeCoordinator() -> Coordinator {
         Coordinator(self)
     }
-
+    
     class Coordinator: NSObject, PHPickerViewControllerDelegate {
         let parent: ImagePicker
-
+        
         init(_ parent: ImagePicker) {
             self.parent = parent
         }
-
+        
         func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
             picker.dismiss(animated: true)
             guard let provider = results.first?.itemProvider, provider.canLoadObject(ofClass: UIImage.self) else { return }
-
+            
             provider.loadObject(ofClass: UIImage.self) { image, _ in
                 DispatchQueue.main.async {
                     self.parent.selectedImage = image as? UIImage
