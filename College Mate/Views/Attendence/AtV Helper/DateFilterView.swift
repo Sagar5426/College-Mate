@@ -1,11 +1,3 @@
-//
-//  DateFilterView.swift
-//  College Mate
-//
-//  Created by Sagar Jangra on 10/01/2025.
-//
-
-
 import SwiftUI
 
 struct DateFilterView: View {
@@ -13,12 +5,19 @@ struct DateFilterView: View {
     
     var onSubmit: (Date) -> ()
     var onClose: () -> ()
+    
+    private var dateRange: ClosedRange<Date> {
+        let today = Calendar.current.startOfDay(for: Date())
+        let earliestDate = Calendar.current.date(byAdding: .year, value: -1, to: today) ?? today
+        return earliestDate...today
+    }
+    
     var body: some View {
         VStack(spacing: 15) {
-            DatePicker("Select Date", selection: $start, displayedComponents: [.date])
+            DatePicker("Select Date", selection: $start, in: dateRange, displayedComponents: [.date])
                 .datePickerStyle(.graphical)
             
-             HStack(spacing: 15) {
+            HStack(spacing: 15) {
                 Button("Cancel") {
                     onClose()
                 }
@@ -26,7 +25,7 @@ struct DateFilterView: View {
                 .buttonBorderShape(.roundedRectangle(radius: 5))
                 .tint(.red)
                 
-                Button("Filter") {
+                Button("Done") {
                     onSubmit(start)
                 }
                 .buttonStyle(.borderedProminent)
@@ -44,14 +43,11 @@ struct DateFilterView: View {
 #Preview {
     DateFilterView(
         start: Date(), // Start with the current date
-        // End date 7 days from now
         onSubmit: { start in
-            print("Date range submitted: \(start) to ")
+            print("Date submitted: \(start)")
         },
         onClose: {
             print("Date filter view closed")
         }
     )
 }
-
-

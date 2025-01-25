@@ -63,7 +63,7 @@ struct EditSubjectView: View {
             Schedule(
                 day: day,
                 classTimes: classTimes[day]?.map { classPeriodTime in
-                    ClassTime(startTime: classPeriodTime.startTime, endTime: classPeriodTime.endTime)
+                    ClassTime(startTime: classPeriodTime.startTime, endTime: classPeriodTime.endTime, date: Date())
                 } ?? []
             )
         }

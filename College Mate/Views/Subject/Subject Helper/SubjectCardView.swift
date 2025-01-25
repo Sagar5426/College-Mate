@@ -8,6 +8,7 @@
 import SwiftUI
 import SwiftData
 
+// MARK: Main View SubjectCardView
 struct SubjectCardView: View {
     @Bindable var subject: Subject // Binding to update the model dynamically
     
@@ -60,33 +61,34 @@ struct SubjectCardView: View {
         }
     }
     
-    // Increment attended
-    private func incrementAttended() {
-        subject.attendance.attendedClasses += 1
-        subject.attendance.totalClasses += 1
-    }
-    
-    // Decrement attended
-    private func decrementAttended() {
-        if subject.attendance.attendedClasses > 0 {
-            subject.attendance.attendedClasses -= 1
-            subject.attendance.totalClasses -= 1
-        }
-    }
-    
-    // Increment missed
-    private func incrementMissed() {
-        subject.attendance.totalClasses += 1
-    }
-    
-    // Decrement missed
-    private func decrementMissed() {
-        if subject.attendance.totalClasses > subject.attendance.attendedClasses {
-            subject.attendance.totalClasses -= 1
-        }
-    }
+//    // Increment attended
+//    private func incrementAttended() {
+//        subject.attendance.attendedClasses += 1
+//        subject.attendance.totalClasses += 1
+//    }
+//    
+//    // Decrement attended
+//    private func decrementAttended() {
+//        if subject.attendance.attendedClasses > 0 {
+//            subject.attendance.attendedClasses -= 1
+//            subject.attendance.totalClasses -= 1
+//        }
+//    }
+//    
+//    // Increment missed
+//    private func incrementMissed() {
+//        subject.attendance.totalClasses += 1
+//    }
+//    
+//    // Decrement missed
+//    private func decrementMissed() {
+//        if subject.attendance.totalClasses > subject.attendance.attendedClasses {
+//            subject.attendance.totalClasses -= 1
+//        }
+//    }
 }
 
+// MARK: Preview
 #Preview {
     do {
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
@@ -102,6 +104,7 @@ struct SubjectCardView: View {
     }
 }
 
+// MARK: SubjectCardView Extension
 extension SubjectCardView {
     struct CircularProgressView: View {
         var percentage: Double
@@ -228,7 +231,6 @@ extension SubjectCardView {
         }
     }
     
-    
     struct AttendanceInfoView: View {
         let totalClasses: Int
         let attendedClasses: Int
@@ -279,3 +281,116 @@ extension SubjectCardView {
 
     
 }
+
+
+// MARK: SubjectCardView Update
+extension SubjectCardView {
+    // Increment attended
+    private func incrementAttended() {
+        for schedule in subject.schedules {
+            if isClassToday(schedule: schedule) {
+                for classTime in schedule.classTimes {
+                    if classTime.label == "Canceled" || classTime.label == "Not Attended" {
+                        // Ensure this classTime is for today only and hasn't been updated yet
+                        if !isUpdatedToday(classTime: classTime) && isToday(classTime: classTime) {
+                            classTime.label = "Attended" // Update label
+                            classTime.lastUpdatedDate = Date() // Mark as updated for today
+                        }
+                    }
+                }
+            }
+        }
+
+        // Update attendance
+        subject.attendance.attendedClasses += 1
+        subject.attendance.totalClasses += 1
+    }
+
+    // Decrement attended
+    private func decrementAttended() {
+        if subject.attendance.attendedClasses > 0 {
+            for schedule in subject.schedules {
+                if isClassToday(schedule: schedule) {
+                    for classTime in schedule.classTimes {
+                        if classTime.label == "Attended" {
+                            // Ensure this classTime is for today only and was updated today
+                            if isUpdatedToday(classTime: classTime) && isToday(classTime: classTime) {
+                                classTime.label = "Not Attended" // Revert to Not Attended
+                                classTime.lastUpdatedDate = Date() // Update timestamp
+                            }
+                        }
+                    }
+                }
+            }
+
+            subject.attendance.attendedClasses -= 1
+            subject.attendance.totalClasses -= 1
+        }
+    }
+
+    // Increment missed
+    private func incrementMissed() {
+        for schedule in subject.schedules {
+            if isClassToday(schedule: schedule) {
+                for classTime in schedule.classTimes {
+                    if classTime.label == "Canceled" {
+                        // Ensure this classTime is for today only and hasn't been updated yet
+                        if !isUpdatedToday(classTime: classTime) && isToday(classTime: classTime) {
+                            classTime.label = "Not Attended" // Update label
+                            classTime.lastUpdatedDate = Date() // Mark as updated for today
+                        }
+                    }
+                }
+            }
+        }
+
+        // Update missed
+        subject.attendance.totalClasses += 1
+    }
+
+    // Decrement missed
+    private func decrementMissed() {
+        if subject.attendance.totalClasses > subject.attendance.attendedClasses {
+            subject.attendance.totalClasses -= 1
+        }
+    }
+
+    // Helper: Check if the class matches today's schedule
+    private func isClassToday(schedule: Schedule) -> Bool {
+        guard let scheduleDayInt = weekdayStringToInt(schedule.day) else { return false }
+        let todayInt = Calendar.current.component(.weekday, from: Date())
+        return scheduleDayInt == todayInt
+    }
+
+    // Helper: Convert weekday string to integer
+    private func weekdayStringToInt(_ day: String) -> Int? {
+        let daysOfWeek = [
+            "Sunday": 1,
+            "Monday": 2,
+            "Tuesday": 3,
+            "Wednesday": 4,
+            "Thursday": 5,
+            "Friday": 6,
+            "Saturday": 7
+        ]
+        return daysOfWeek[day]
+    }
+
+    // Helper: Check if classTime was updated today
+    private func isUpdatedToday(classTime: ClassTime) -> Bool {
+        guard let lastUpdated = classTime.lastUpdatedDate else { return false }
+        let today = Calendar.current.startOfDay(for: Date())
+        let lastUpdatedDay = Calendar.current.startOfDay(for: lastUpdated)
+        return today == lastUpdatedDay
+    }
+
+    // Helper: Ensure this classTime is specifically for today
+    private func isToday(classTime: ClassTime) -> Bool {
+        // Add a `date` property to `ClassTime` to hold the specific date of this entry
+        guard let classDate = classTime.date else { return false }
+        let today = Calendar.current.startOfDay(for: Date())
+        let classDay = Calendar.current.startOfDay(for: classDate)
+        return today == classDay
+    }
+}
+

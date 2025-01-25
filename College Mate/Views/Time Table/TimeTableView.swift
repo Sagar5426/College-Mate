@@ -63,9 +63,8 @@ struct TimeTableView: View {
                 .fullScreenCover(isPresented: $isShowingProfileView) {
                     ProfileView(isShowingProfileView: $isShowingProfileView)
                 }
-                .background(.gray.opacity(0.15))
+                .background(Color.black.opacity(0.2))
             }
-        
     }
 
     // MARK: - Toggle Day Expansion
@@ -116,7 +115,7 @@ struct ScheduleCard: View {
             HStack {
                 Text(subject.name)
                     .font(.title3.bold())
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.white)
                 Spacer()
                 if let classTime = schedule.classTimes.first {
                     if let startTime = classTime.startTime, let endTime = classTime.endTime {
@@ -137,7 +136,7 @@ struct ScheduleCard: View {
             }
         }
         .padding()
-        .background(Color.white)
+        .background(.gray.opacity(0.2))
         .cornerRadius(10)
         .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
     }

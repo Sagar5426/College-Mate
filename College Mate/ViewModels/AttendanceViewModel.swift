@@ -10,16 +10,18 @@ class AttendanceViewModel {
     }
     
     // Function to add or update attendance for a specific subject
-    func updateAttendance(for subjectName: String, totalClasses: Int, attendedClasses: Int) {
-        guard let subjectIndex = subjects.firstIndex(where: { $0.name == subjectName }) else {
-            print("Subject not found")
-            return
+    func updateAttendance(for subjectName: String, day: String, attended: Bool) {
+            guard let subjectIndex = subjects.firstIndex(where: { $0.name == subjectName }) else { return }
+            let subject = subjects[subjectIndex]
+
+            if let scheduleIndex = subject.schedules.firstIndex(where: { $0.day == day }) {
+                let schedule = subject.schedules[scheduleIndex]
+
+                if let classTimeIndex = schedule.classTimes.firstIndex(where: { $0.isAttended == attended }) {
+                    schedule.classTimes[classTimeIndex].isAttended = attended
+                }
+            }
         }
-        
-        let subject = subjects[subjectIndex]
-        subject.attendance.totalClasses = totalClasses
-        subject.attendance.attendedClasses = attendedClasses
-    }
     
     // Function to declare a day as a holiday for a subject
     func declareHoliday(for subjectName: String, day: String) {

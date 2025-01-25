@@ -71,7 +71,7 @@ struct AddSubjectView: View {
             // Add class times to the schedule
             if let times = classTimes[day] {
                 for time in times {
-                    let newClassTime = ClassTime(startTime: time.startTime, endTime: time.endTime)
+                    let newClassTime = ClassTime(startTime: time.startTime, endTime: time.endTime, date: Date())
                     newSchedule.classTimes.append(newClassTime)
                 }
             }

@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
 import UniformTypeIdentifiers
+import PDFKit
 
 struct CardDetailView: View {
     
@@ -19,6 +20,7 @@ struct CardDetailView: View {
     
     let subject: Subject
     
+    // MARK: MainView
     var body: some View {
         VStack {
             // Segmented Control
@@ -42,17 +44,20 @@ struct CardDetailView: View {
                                 .clipShape(RoundedRectangle(cornerRadius: 8))
                         }
                     } else if note.type == .pdf {
-                        VStack {
-                            Image(systemName: "doc.richtext")
-                                .resizable()
-                                .scaledToFit()
-                                .frame(width: 50, height: 50)
-                                .foregroundColor(.blue)
-                            Text(note.title)
-                                .font(.caption)
-                                .lineLimit(1)
+                        NavigationLink(destination: PDFViewer(pdfData: note.content, title: note.title)) {
+                            VStack {
+                                Image(systemName: "doc.richtext")
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(width: 50, height: 50)
+                                    .foregroundColor(.blue)
+                                Text(note.title)
+                                    .font(.caption)
+                                    .lineLimit(1)
+                            }
                         }
                     }
+
                 }
             }
         }
@@ -109,6 +114,8 @@ struct CardDetailView: View {
             allowedContentTypes: [.pdf],
             onCompletion: handleFileImport
         )
+
+        
         .sheet(isPresented: $isShowingImagePicker) {
             ImagePicker(selectedImage: $selectedImage, onImageSelected: handleImageSelected)
         }
@@ -120,6 +127,7 @@ struct CardDetailView: View {
 
 extension CardDetailView {
     func deleteSubject() {
+        deleteFolder(for: subject)
         modelContext.delete(subject)
         dismiss()
     }
@@ -127,15 +135,26 @@ extension CardDetailView {
     func handleFileImport(result: Result<URL, Error>) {
         switch result {
         case .success(let url):
-            if let pdfData = try? Data(contentsOf: url) {
-                let newNote = Note(title: url.lastPathComponent, type: .pdf, content: pdfData)
-                subject.notes.append(newNote)
-                try? modelContext.save()
+            guard let folderURL = folderURL(for: subject) else { return }
+            let destinationURL = folderURL.appendingPathComponent(url.lastPathComponent)
+            do {
+                createFolder(for: subject) // Ensure the folder exists
+                try FileManager.default.copyItem(at: url, to: destinationURL)
+                if let pdfData = try? Data(contentsOf: destinationURL) {
+                    let newNote = Note(title: url.lastPathComponent, type: .pdf, content: pdfData)
+                    subject.notes.append(newNote)
+                    try? modelContext.save()
+                }
+            } catch {
+                print("Failed to copy file: \(error.localizedDescription)")
             }
         case .failure(let error):
             print("Failed to import file: \(error.localizedDescription)")
         }
     }
+
+
+
     
     func handleImageSelected(_ image: UIImage?) {
         guard let image = image, let imageData = image.pngData() else { return }
@@ -158,7 +177,7 @@ extension CardDetailView {
         }
     }
 
-    // Enum for Note Filter
+    // MARK: Enum for Note Filter
     enum NoteFilter: String, CaseIterable {
         case all = "All"
         case images = "Images"
@@ -168,6 +187,7 @@ extension CardDetailView {
     
 }
 
+//MARK: Preview
 #Preview {
     do {
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
@@ -185,7 +205,7 @@ extension CardDetailView {
 
 
 
-// Func to import images
+// MARK: Func to import images
 import SwiftUI
 import PhotosUI
 
@@ -226,5 +246,54 @@ struct ImagePicker: UIViewControllerRepresentable {
             }
         }
     }
+}
+
+
+// MARK: PDFViewer
+struct PDFViewer: View {
+    let pdfData: Data
+    let title: String
+    
+    var body: some View {
+        PDFKitView(pdfData: pdfData)
+            .navigationTitle(title)
+            .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+// MARK: PDFKit View
+struct PDFKitView: UIViewRepresentable {
+    let pdfData: Data
+    
+    func makeUIView(context: Context) -> PDFView {
+        let pdfView = PDFView()
+        if let document = PDFDocument(data: pdfData) {
+            pdfView.document = document
+        }
+        pdfView.autoScales = true
+        return pdfView
+    }
+    
+    func updateUIView(_ uiView: PDFView, context: Context) {}
+}
+
+
+// MARK: Testing Code
+
+func folderURL(for subject: Subject) -> URL? {
+    guard let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
+        return nil
+    }
+    return documentsURL.appendingPathComponent(subject.id.uuidString)
+}
+
+func createFolder(for subject: Subject) {
+    guard let folderURL = folderURL(for: subject) else { return }
+    try? FileManager.default.createDirectory(at: folderURL, withIntermediateDirectories: true)
+}
+
+func deleteFolder(for subject: Subject) {
+    guard let folderURL = folderURL(for: subject) else { return }
+    try? FileManager.default.removeItem(at: folderURL)
 }
 

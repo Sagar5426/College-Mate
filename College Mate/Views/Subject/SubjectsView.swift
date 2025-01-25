@@ -11,23 +11,31 @@ struct SubjectsView: View {
         NavigationStack {
             ScrollView(.vertical) {
                 LazyVStack(spacing: 20, pinnedViews: [.sectionHeaders]) {
-                    Section {
-                        ForEach(subjects, id: \.id) { subject in
-                            NavigationLink {
-                                CardDetailView(subject: subject)
-                            } label: {
-                                SubjectCardView(subject: subject)
-                            }
-
-                            
-                                
-                        }
-                        Spacer(minLength: 45)
-                    } header: {
-                        GeometryReader { proxy in
-                            HeaderView(size: proxy.size, title: "My Subjects 📚", isShowingProfileView: $isShowingProfileView) // Pass binding here
-                        }
+                    // Always show the header
+                    Section(header:
+                                GeometryReader { proxy in
+                        HeaderView(
+                            size: proxy.size,
+                            title: "My Subjects 📚",
+                            isShowingProfileView: $isShowingProfileView
+                        )
+                    }
                         .frame(height: 60) // Adjust header height as needed
+                    ) {
+                        if subjects.isEmpty {
+                            NoItemsView(isShowingAddSubject: $isShowingAddSubject)
+                                .transition(AnyTransition.opacity.animation(.easeIn))
+                        } else {
+                            // Show list of subjects if available
+                            ForEach(subjects, id: \.id) { subject in
+                                NavigationLink {
+                                    CardDetailView(subject: subject)
+                                } label: {
+                                    SubjectCardView(subject: subject)
+                                }
+                            }
+                            Spacer(minLength: 45)
+                        }
                     }
                 }
                 .padding()
@@ -40,21 +48,17 @@ struct SubjectsView: View {
             .fullScreenCover(isPresented: $isShowingAddSubject) {
                 AddSubjectView(isShowingAddSubjectView: $isShowingAddSubject)
             }
-            // Full screen cover for Profile View
             .fullScreenCover(isPresented: $isShowingProfileView) {
                 ProfileView(isShowingProfileView: $isShowingProfileView)
             }
         }
     }
+    
+    
+    
+    
+    
 }
-
-
-
-
-
-
-
-
 
 struct AddSubjectButton: View {
     @Binding var isShowingAddSubject: Bool
