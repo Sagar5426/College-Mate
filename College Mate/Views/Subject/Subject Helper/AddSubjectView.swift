@@ -62,7 +62,7 @@ struct AddSubjectView: View {
         }
         
         // Create a new Subject
-        let newSubject = Subject(name: subjectName, numberOfNotes: 0)
+        let newSubject = Subject(name: subjectName)
 
         // Create schedules for the selected days
         for day in selectedDays {

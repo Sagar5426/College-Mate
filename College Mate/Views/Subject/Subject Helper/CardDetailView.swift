@@ -3,6 +3,13 @@ import SwiftData
 import UniformTypeIdentifiers
 import PDFKit
 
+struct IdentifiableImage: Identifiable {
+    let id = UUID()
+    let image: UIImage
+}
+
+
+
 struct CardDetailView: View {
     
     @Query var subjects: [Subject]
@@ -10,6 +17,11 @@ struct CardDetailView: View {
     @Environment(\.dismiss) var dismiss
     @State private var isShowingDeleteAlert = false
     @State private var isShowingEditView = false
+    
+    @State private var selectedImageForPreview: IdentifiableImage? = nil
+    @State private var zoomScale: CGFloat = 1.0
+
+    
     
     @State private var isShowingFileImporter = false
     @State private var isShowingImagePicker = false
@@ -24,44 +36,48 @@ struct CardDetailView: View {
     var body: some View {
         VStack {
             // Segmented Control
-                        Picker("Filter", selection: $selectedFilter) {
-                            ForEach(NoteFilter.allCases, id: \.self) { filter in
-                                Text(filter.rawValue).tag(filter)
-                            }
-                        }
-                        .pickerStyle(.segmented)
-                        .padding()
+            Picker("Filter", selection: $selectedFilter) {
+                ForEach(NoteFilter.allCases, id: \.self) { filter in
+                    Text(filter.rawValue).tag(filter)
+                }
+            }
+            .pickerStyle(.segmented)
+            .padding()
             
-        ScrollView {
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3)) {
-                ForEach(filteredNotes, id: \.id) { note in
-                    if note.type == .image {
-                        if let image = UIImage(data: note.content) {
-                            Image(uiImage: image)
-                                .resizable()
-                                .scaledToFit()
-                                .frame(maxWidth: 100, maxHeight: 100)
-                                .clipShape(RoundedRectangle(cornerRadius: 8))
-                        }
-                    } else if note.type == .pdf {
-                        NavigationLink(destination: PDFViewer(pdfData: note.content, title: note.title)) {
-                            VStack {
-                                Image(systemName: "doc.richtext")
+            ScrollView {
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3)) {
+                    ForEach(filteredNotes, id: \.id) { note in
+                        if note.type == .image {
+                            if let image = UIImage(data: note.content) {
+                                Image(uiImage: image)
                                     .resizable()
                                     .scaledToFit()
-                                    .frame(width: 50, height: 50)
-                                    .foregroundColor(.blue)
-                                Text(note.title)
-                                    .font(.caption)
-                                    .lineLimit(1)
+                                    .frame(maxWidth: 100, maxHeight: 100)
+                                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                                    .onTapGesture {
+                                        selectedImageForPreview = IdentifiableImage(image: image)
+                                    }
+
+                            }
+                        } else if note.type == .pdf {
+                            NavigationLink(destination: { }) { // MARK: add here destination
+                                VStack {
+                                    Image(systemName: "doc.richtext")
+                                        .resizable()
+                                        .scaledToFit()
+                                        .frame(width: 50, height: 50)
+                                        .foregroundColor(.blue)
+                                    Text(note.title)
+                                        .font(.caption)
+                                        .lineLimit(1)
+                                }
                             }
                         }
+                        
                     }
-
                 }
             }
         }
-    }
         
         .overlay(alignment: .bottomTrailing){
             
@@ -112,49 +128,81 @@ struct CardDetailView: View {
         .fileImporter(
             isPresented: $isShowingFileImporter,
             allowedContentTypes: [.pdf],
-            onCompletion: handleFileImport
+            onCompletion: { result in }
         )
-
+        
         
         .sheet(isPresented: $isShowingImagePicker) {
             ImagePicker(selectedImage: $selectedImage, onImageSelected: handleImageSelected)
         }
+        
         .fullScreenCover(isPresented: $isShowingEditView) {
             EditSubjectView(subject: subject, isShowingEditSubjectView: $isShowingEditView)
         }
+        
+        .fullScreenCover(item: $selectedImageForPreview) { identifiableImage in
+            ZStack {
+                Color.black.ignoresSafeArea()
+                
+                VStack {
+                    Spacer() // Pushes image to the center
+                    Image(uiImage: identifiableImage.image)
+                        .resizable()
+                        .scaledToFit()
+                        .scaleEffect(zoomScale)
+                        .gesture(
+                            MagnificationGesture()
+                                .onChanged { value in
+                                    zoomScale = value
+                                }
+                                .onEnded { _ in
+                                    zoomScale = 1.0
+                                }
+                        )
+                    Spacer() // Pushes image to the center
+                }
+                
+                // Close Button at Top Trailing
+                VStack {
+                    HStack {
+                        Spacer()
+                        Button(action: {
+                            selectedImageForPreview = nil  // Dismiss the fullscreen view
+                        }) {
+                            Image(systemName: "xmark.circle.fill")
+                                .resizable()
+                                .frame(width: 30, height: 30)
+                                .foregroundColor(.white)
+                                .background(Color.black.opacity(0.6))
+                                .clipShape(Circle())
+                                .padding()
+                        }
+                    }
+                    .padding(.top, 10) // Avoids notch on iPhones
+                    Spacer()
+                }
+            }
+        }
+
+
+
+
+        
+        
     }
 }
 
 extension CardDetailView {
     func deleteSubject() {
-        deleteFolder(for: subject)
+        
         modelContext.delete(subject)
         dismiss()
     }
     
-    func handleFileImport(result: Result<URL, Error>) {
-        switch result {
-        case .success(let url):
-            guard let folderURL = folderURL(for: subject) else { return }
-            let destinationURL = folderURL.appendingPathComponent(url.lastPathComponent)
-            do {
-                createFolder(for: subject) // Ensure the folder exists
-                try FileManager.default.copyItem(at: url, to: destinationURL)
-                if let pdfData = try? Data(contentsOf: destinationURL) {
-                    let newNote = Note(title: url.lastPathComponent, type: .pdf, content: pdfData)
-                    subject.notes.append(newNote)
-                    try? modelContext.save()
-                }
-            } catch {
-                print("Failed to copy file: \(error.localizedDescription)")
-            }
-        case .failure(let error):
-            print("Failed to import file: \(error.localizedDescription)")
-        }
-    }
-
-
-
+    
+    
+    
+    
     
     func handleImageSelected(_ image: UIImage?) {
         guard let image = image, let imageData = image.pngData() else { return }
@@ -166,24 +214,24 @@ extension CardDetailView {
 
 extension CardDetailView {
     var filteredNotes: [Note] {
-            switch selectedFilter {
-            case .all:
-                return subject.notes
-            case .images:
-                return subject.notes.filter { $0.type == .image }
-            case .pdfs:
-                return subject.notes.filter { $0.type == .pdf }
-            }
+        switch selectedFilter {
+        case .all:
+            return subject.notes
+        case .images:
+            return subject.notes.filter { $0.type == .image }
+        case .pdfs:
+            return subject.notes.filter { $0.type == .pdf }
         }
     }
+}
 
-    // MARK: Enum for Note Filter
-    enum NoteFilter: String, CaseIterable {
-        case all = "All"
-        case images = "Images"
-        case pdfs = "PDFs"
-        
-        
+// MARK: Enum for Note Filter
+enum NoteFilter: String, CaseIterable {
+    case all = "All"
+    case images = "Images"
+    case pdfs = "PDFs"
+    
+    
     
 }
 
@@ -249,51 +297,9 @@ struct ImagePicker: UIViewControllerRepresentable {
 }
 
 
-// MARK: PDFViewer
-struct PDFViewer: View {
-    let pdfData: Data
-    let title: String
-    
-    var body: some View {
-        PDFKitView(pdfData: pdfData)
-            .navigationTitle(title)
-            .navigationBarTitleDisplayMode(.inline)
-    }
-}
-
-// MARK: PDFKit View
-struct PDFKitView: UIViewRepresentable {
-    let pdfData: Data
-    
-    func makeUIView(context: Context) -> PDFView {
-        let pdfView = PDFView()
-        if let document = PDFDocument(data: pdfData) {
-            pdfView.document = document
-        }
-        pdfView.autoScales = true
-        return pdfView
-    }
-    
-    func updateUIView(_ uiView: PDFView, context: Context) {}
-}
 
 
-// MARK: Testing Code
 
-func folderURL(for subject: Subject) -> URL? {
-    guard let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
-        return nil
-    }
-    return documentsURL.appendingPathComponent(subject.id.uuidString)
-}
 
-func createFolder(for subject: Subject) {
-    guard let folderURL = folderURL(for: subject) else { return }
-    try? FileManager.default.createDirectory(at: folderURL, withIntermediateDirectories: true)
-}
 
-func deleteFolder(for subject: Subject) {
-    guard let folderURL = folderURL(for: subject) else { return }
-    try? FileManager.default.removeItem(at: folderURL)
-}
 

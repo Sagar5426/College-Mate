@@ -286,7 +286,6 @@ extension AttendanceView {
 #Preview {
     AttendanceView(viewModel: AttendanceViewModel(subjects: [
         Subject(name: "DSA",
-                numberOfNotes: 10,
                 startDateOfSubject: Date.now,
                 schedules: [Schedule(day: "Monday", classTimes: [ClassTime(startTime: Date.now, endTime: Date.now, isAttended: false, date: Date())])],
                 attendance: Attendance(totalClasses: 8, attendedClasses: 5, minimumPercentageRequirement: 75.0), notes: [Note(title: "asas", type: .image, content: Data(),  createdDate: Date())])

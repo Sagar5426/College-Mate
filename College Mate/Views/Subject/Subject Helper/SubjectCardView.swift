@@ -61,31 +61,6 @@ struct SubjectCardView: View {
         }
     }
     
-//    // Increment attended
-//    private func incrementAttended() {
-//        subject.attendance.attendedClasses += 1
-//        subject.attendance.totalClasses += 1
-//    }
-//    
-//    // Decrement attended
-//    private func decrementAttended() {
-//        if subject.attendance.attendedClasses > 0 {
-//            subject.attendance.attendedClasses -= 1
-//            subject.attendance.totalClasses -= 1
-//        }
-//    }
-//    
-//    // Increment missed
-//    private func incrementMissed() {
-//        subject.attendance.totalClasses += 1
-//    }
-//    
-//    // Decrement missed
-//    private func decrementMissed() {
-//        if subject.attendance.totalClasses > subject.attendance.attendedClasses {
-//            subject.attendance.totalClasses -= 1
-//        }
-//    }
 }
 
 // MARK: Preview

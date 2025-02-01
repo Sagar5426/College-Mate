@@ -126,10 +126,6 @@ struct ScheduleCard: View {
                 }
             }
             HStack {
-                Text("Notes: \(subject.numberOfNotes)")
-                    .font(.footnote)
-                    .foregroundStyle(.gray)
-                Spacer()
                 Text("Attendance: \(Int(subject.attendance.percentage))%")
                     .font(.footnote)
                     .foregroundColor(subject.attendance.percentage >= 75 ? .green : .red)
