@@ -29,6 +29,31 @@ struct CardDetailView: View {
     @State private var selectedImage: UIImage? = nil
     
     @State private var selectedFilter: NoteFilter = .all // Default filter
+    @State private var renamingFileURL: URL? = nil
+    @State private var newFileName: String = ""
+
+    func renamePDF(_ fileURL: URL) {
+        renamingFileURL = fileURL
+        newFileName = fileURL.deletingPathExtension().lastPathComponent
+    }
+    func deletePDF(_ fileURL: URL) {
+        do {
+            try FileManager.default.removeItem(at: fileURL)
+        } catch {
+            print("Failed to delete file: \(error.localizedDescription)")
+        }
+    }
+    
+    func deleteFile(_ fileURL: URL) {
+        do {
+            try FileManager.default.removeItem(at: fileURL)
+        } catch {
+            print("Failed to delete file: \(error.localizedDescription)")
+        }
+    }
+
+
+
     
     let subject: Subject
     
@@ -46,9 +71,9 @@ struct CardDetailView: View {
             
             ScrollView {
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3)) {
-                    ForEach(filteredNotes, id: \.id) { note in
-                        if note.type == .image {
-                            if let image = UIImage(data: note.content) {
+                    ForEach(filteredNotes, id: \.self) { fileURL in
+                        if fileURL.pathExtension == "jpg" || fileURL.pathExtension == "png" {
+                            if let imageData = try? Data(contentsOf: fileURL), let image = UIImage(data: imageData) {
                                 Image(uiImage: image)
                                     .resizable()
                                     .scaledToFit()
@@ -57,27 +82,71 @@ struct CardDetailView: View {
                                     .onTapGesture {
                                         selectedImageForPreview = IdentifiableImage(image: image)
                                     }
-
+                                    .contextMenu {
+                                        Button(role: .destructive, action: { deleteFile(fileURL) }) {
+                                            Label("Delete", systemImage: "trash")
+                                        }
+                                    }
                             }
-                        } else if note.type == .pdf {
-                            NavigationLink(destination: { }) { // MARK: add here destination
+                        } else if fileURL.pathExtension == "pdf" {
+                            NavigationLink(destination: PDFViewer(url: fileURL)) {
                                 VStack {
-                                    Image(systemName: "doc.richtext")
-                                        .resizable()
-                                        .scaledToFit()
-                                        .frame(width: 50, height: 50)
-                                        .foregroundColor(.blue)
-                                    Text(note.title)
+                                    if let pdfThumbnail = generatePDFThumbnail(from: fileURL) {
+                                        Image(uiImage: pdfThumbnail)
+                                            .resizable()
+                                            .scaledToFit()
+                                            .frame(width: 80, height: 100)
+                                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                                    } else {
+                                        Image(systemName: "doc.richtext")
+                                            .resizable()
+                                            .scaledToFit()
+                                            .frame(width: 50, height: 50)
+                                            .foregroundColor(.blue)
+                                    }
+
+                                    Text(fileURL.lastPathComponent)
                                         .font(.caption)
                                         .lineLimit(1)
+                                        .frame(maxWidth: 100)
+                                }
+                            }
+                            .contextMenu {
+                                Button(action: { renamePDF(fileURL) }) {
+                                    Label("Rename", systemImage: "pencil")
+                                }
+                                Button(role: .destructive, action: { deleteFile(fileURL) }) {
+                                    Label("Delete", systemImage: "trash")
                                 }
                             }
                         }
-                        
                     }
                 }
+
+
+
+
             }
         }
+        .alert("Rename PDF", isPresented: Binding<Bool>(
+            get: { renamingFileURL != nil },
+            set: { _ in renamingFileURL = nil }
+        )) {
+            TextField("New Name", text: $newFileName)
+            Button("Cancel", role: .cancel) { renamingFileURL = nil }
+            Button("Save") {
+                if let oldURL = renamingFileURL {
+                    let newURL = oldURL.deletingLastPathComponent().appendingPathComponent("\(newFileName).pdf")
+                    do {
+                        try FileManager.default.moveItem(at: oldURL, to: newURL)
+                    } catch {
+                        print("Rename failed: \(error.localizedDescription)")
+                    }
+                }
+                renamingFileURL = nil
+            }
+        }
+
         
         .overlay(alignment: .bottomTrailing){
             
@@ -128,8 +197,40 @@ struct CardDetailView: View {
         .fileImporter(
             isPresented: $isShowingFileImporter,
             allowedContentTypes: [.pdf],
-            onCompletion: { result in }
+            onCompletion: { result in
+                DispatchQueue.main.async {
+                    do {
+                        let fileURL = try result.get()
+                        print("Selected PDF URL: \(fileURL)") // Debugging
+                        
+                        // 🔥 Request permission to access the file
+                        guard fileURL.startAccessingSecurityScopedResource() else {
+                            print("Failed to access security-scoped resource.")
+                            return
+                        }
+
+                        defer { fileURL.stopAccessingSecurityScopedResource() } // Release access when done
+                        
+                        let data = try Data(contentsOf: fileURL)
+                        let fileName = "pdf_\(UUID().uuidString).pdf"
+                        
+                        if let savedURL = FileHelper.saveFile(data: data, fileName: fileName, to: subject) {
+                            print("PDF saved at: \(savedURL)") // Debugging
+
+                            let newNote = Note(title: fileName, type: .pdf, content: Data(savedURL.absoluteString.utf8))
+                            subject.notes.append(newNote)
+                            try? modelContext.save()
+                        }
+                    } catch {
+                        print("Failed to import PDF: \(error.localizedDescription)")
+                    }
+                }
+            }
         )
+
+
+
+
         
         
         .sheet(isPresented: $isShowingImagePicker) {
@@ -139,6 +240,10 @@ struct CardDetailView: View {
         .fullScreenCover(isPresented: $isShowingEditView) {
             EditSubjectView(subject: subject, isShowingEditSubjectView: $isShowingEditView)
         }
+        .onAppear {
+            print("CardDetailView appeared, ready for file import.")
+        }
+
         
         .fullScreenCover(item: $selectedImageForPreview) { identifiableImage in
             ZStack {
@@ -193,11 +298,27 @@ struct CardDetailView: View {
 }
 
 extension CardDetailView {
-    func deleteSubject() {
+    func generatePDFThumbnail(from url: URL, pageNumber: Int = 1) -> UIImage? {
+        guard let document = PDFDocument(url: url), let page = document.page(at: pageNumber - 1) else {
+            return nil
+        }
+
+        let pageRect = page.bounds(for: .mediaBox)
+        let renderer = UIGraphicsImageRenderer(size: pageRect.size)
         
+        return renderer.image { ctx in
+            UIColor.white.set()
+            ctx.fill(pageRect)
+            page.draw(with: .mediaBox, to: ctx.cgContext)
+        }
+    }
+
+    func deleteSubject() {
+        FileHelper.deleteSubjectFolder(for: subject) // Delete folder
         modelContext.delete(subject)
         dismiss()
     }
+
     
     
     
@@ -205,24 +326,24 @@ extension CardDetailView {
     
     
     func handleImageSelected(_ image: UIImage?) {
-        guard let image = image, let imageData = image.pngData() else { return }
-        let newNote = Note(title: "Image Note", type: .image, content: imageData)
-        subject.notes.append(newNote)
-        try? modelContext.save()
+        guard let image = image, let imageData = image.jpegData(compressionQuality: 0.8) else { return }
+        
+        let fileName = "image_\(UUID().uuidString).jpg"
+        
+        if let fileURL = FileHelper.saveFile(data: imageData, fileName: fileName, to: subject) {
+            let newNote = Note(title: fileName, type: .image, content: Data(fileURL.absoluteString.utf8))
+            subject.notes.append(newNote)
+            try? modelContext.save()
+        }
     }
+
 }
 
 extension CardDetailView {
-    var filteredNotes: [Note] {
-        switch selectedFilter {
-        case .all:
-            return subject.notes
-        case .images:
-            return subject.notes.filter { $0.type == .image }
-        case .pdfs:
-            return subject.notes.filter { $0.type == .pdf }
-        }
+    var filteredNotes: [URL] {
+        return FileHelper.loadFiles(from: subject)
     }
+
 }
 
 // MARK: Enum for Note Filter
