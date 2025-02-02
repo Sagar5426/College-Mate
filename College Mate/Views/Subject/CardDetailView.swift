@@ -298,6 +298,19 @@ struct CardDetailView: View {
 }
 
 extension CardDetailView {
+    var filteredNotes: [URL] {
+        let allFiles = FileHelper.loadFiles(from: subject)
+
+        switch selectedFilter {
+        case .all:
+            return allFiles
+        case .images:
+            return allFiles.filter { $0.pathExtension.lowercased() == "jpg" || $0.pathExtension.lowercased() == "png" }
+        case .pdfs:
+            return allFiles.filter { $0.pathExtension.lowercased() == "pdf" }
+        }
+    }
+    
     func generatePDFThumbnail(from url: URL, pageNumber: Int = 1) -> UIImage? {
         guard let document = PDFDocument(url: url), let page = document.page(at: pageNumber - 1) else {
             return nil
@@ -339,20 +352,7 @@ extension CardDetailView {
 
 }
 
-extension CardDetailView {
-    var filteredNotes: [URL] {
-        let allFiles = FileHelper.loadFiles(from: subject)
 
-        switch selectedFilter {
-        case .all:
-            return allFiles
-        case .images:
-            return allFiles.filter { $0.pathExtension.lowercased() == "jpg" || $0.pathExtension.lowercased() == "png" }
-        case .pdfs:
-            return allFiles.filter { $0.pathExtension.lowercased() == "pdf" }
-        }
-    }
-}
 
 
 // MARK: Enum for Note Filter
