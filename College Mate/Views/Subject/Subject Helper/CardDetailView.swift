@@ -341,10 +341,19 @@ extension CardDetailView {
 
 extension CardDetailView {
     var filteredNotes: [URL] {
-        return FileHelper.loadFiles(from: subject)
-    }
+        let allFiles = FileHelper.loadFiles(from: subject)
 
+        switch selectedFilter {
+        case .all:
+            return allFiles
+        case .images:
+            return allFiles.filter { $0.pathExtension.lowercased() == "jpg" || $0.pathExtension.lowercased() == "png" }
+        case .pdfs:
+            return allFiles.filter { $0.pathExtension.lowercased() == "pdf" }
+        }
+    }
 }
+
 
 // MARK: Enum for Note Filter
 enum NoteFilter: String, CaseIterable {

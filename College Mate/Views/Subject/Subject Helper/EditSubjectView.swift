@@ -5,13 +5,15 @@ import SwiftData
 struct EditSubjectView: View {
     @Bindable var subject: Subject
     @Binding var isShowingEditSubjectView: Bool
-
+    @State private var originalSubjectName: String = ""
+    
+    
     let daysOfWeek = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
-
+    
     @State private var selectedDays: Set<String> = []
     @State private var classTimes: [String: [ClassPeriodTime]] = [:]
     @State private var classCount: [String: Int] = [:]
-
+    
     var body: some View {
         NavigationStack {
             Form {
@@ -21,7 +23,7 @@ struct EditSubjectView: View {
                     get: { Int(subject.attendance.minimumPercentageRequirement) }, // Convert Double to Int
                     set: { subject.attendance.minimumPercentageRequirement = Double($0) } // Convert Int back to Double
                 ))
-
+                
                 ClassScheduleSection(
                     daysOfWeek: daysOfWeek,
                     selectedDays: $selectedDays,
@@ -30,8 +32,10 @@ struct EditSubjectView: View {
                 )
             }
             .onAppear {
+                originalSubjectName = subject.name
                 populateExistingData()
             }
+            
             .onDisappear {
                 saveUpdatedData()
             }
@@ -40,13 +44,19 @@ struct EditSubjectView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Done") {
+                        if originalSubjectName != subject.name {
+                            moveFilesToNewFolder(oldName: originalSubjectName, newName: subject.name)
+                        }
                         isShowingEditSubjectView = false
                     }
+                    
+                    
                 }
             }
         }
+        
     }
-
+    
     private func populateExistingData() {
         for schedule in subject.schedules {
             selectedDays.insert(schedule.day)
@@ -57,7 +67,7 @@ struct EditSubjectView: View {
             classCount[schedule.day] = schedule.classTimes.count
         }
     }
-
+    
     private func saveUpdatedData() {
         subject.schedules = selectedDays.map { day in
             Schedule(
@@ -68,7 +78,7 @@ struct EditSubjectView: View {
             )
         }
     }
-
+    
 }
 
 #Preview {
@@ -95,13 +105,13 @@ extension EditSubjectView {
             }
         }
     }
-
+    
     struct ClassScheduleSection: View {
         let daysOfWeek: [String]
         @Binding var selectedDays: Set<String>
         @Binding var classTimes: [String: [ClassPeriodTime]]
         @Binding var classCount: [String: Int]
-
+        
         var body: some View {
             Section(header: Text("Select days on which you have classes")) {
                 ForEach(daysOfWeek, id: \.self) { day in
@@ -136,14 +146,14 @@ extension EditSubjectView {
             }
         }
     }
-
-
+    
+    
     struct DayRowView: View {
         let day: String
         @Binding var isSelected: Bool
         @Binding var times: [ClassPeriodTime]
         @Binding var count: Int
-
+        
         var body: some View {
             VStack(alignment: .leading) {
                 Toggle(day, isOn: $isSelected)
@@ -155,7 +165,7 @@ extension EditSubjectView {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .bold()
-
+                        
                         Picker("Number of Classes", selection: Binding(
                             get: { count },
                             set: { newValue in
@@ -214,7 +224,7 @@ extension EditSubjectView {
                 }
             }
         }
-
+        
         /// Converts a number to its ordinal representation (e.g., 1 -> "1st", 2 -> "2nd").
         private func ordinalNumber(for number: Int) -> String {
             let formatter = NumberFormatter()
@@ -231,5 +241,42 @@ extension EditSubjectView {
             }
         }
     }
+    
+}
 
+
+extension EditSubjectView {
+    func moveFilesToNewFolder(oldName: String, newName: String) {
+        let fileManager = FileManager.default
+        let oldFolderURL = getFolderURL(for: oldName)
+        let newFolderURL = getFolderURL(for: newName)
+        
+        do {
+            if fileManager.fileExists(atPath: oldFolderURL.path) {
+                if !fileManager.fileExists(atPath: newFolderURL.path) {
+                    try fileManager.createDirectory(at: newFolderURL, withIntermediateDirectories: true)
+                }
+                
+                let files = try fileManager.contentsOfDirectory(at: oldFolderURL, includingPropertiesForKeys: nil)
+                for file in files {
+                    let newFileURL = newFolderURL.appendingPathComponent(file.lastPathComponent)
+                    try fileManager.moveItem(at: file, to: newFileURL)
+                }
+                
+                // Delete old folder if empty
+                let remainingFiles = try fileManager.contentsOfDirectory(atPath: oldFolderURL.path)
+                if remainingFiles.isEmpty {
+                    try fileManager.removeItem(at: oldFolderURL)
+                }
+            }
+        } catch {
+            print("Failed to move files: \(error.localizedDescription)")
+        }
+    }
+    
+    func getFolderURL(for subjectName: String) -> URL {
+        let documentsDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        return documentsDirectory.appendingPathComponent("Subjects").appendingPathComponent(subjectName)
+    }
+    
 }
