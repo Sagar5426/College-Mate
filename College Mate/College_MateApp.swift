@@ -12,7 +12,9 @@ struct College_MateApp: App {
     var body: some Scene {
         WindowGroup {
             HomeView()
+                .preferredColorScheme(.dark)
         }
         .modelContainer(for: Subject.self)
+        
     }
 }

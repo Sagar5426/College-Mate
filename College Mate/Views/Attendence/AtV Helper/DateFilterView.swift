@@ -30,7 +30,7 @@ struct DateFilterView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .buttonBorderShape(.roundedRectangle(radius: 5))
-                .tint(appTint)
+                
             }
             .padding(.top, 10)
         }

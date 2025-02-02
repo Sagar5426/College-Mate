@@ -136,6 +136,7 @@ struct HolidayButton: View {
     }
 }
 
+// MARK: - Extensions
 extension AttendanceView {
     struct ClassesList: View {
         
@@ -184,7 +185,6 @@ extension AttendanceView {
         }
     }
     
-    // MARK: CHange acc. to new model changes
     struct ClassAttendanceRow: View {
         let subject: Subject
         let viewModel: AttendanceViewModel
@@ -268,18 +268,16 @@ extension AttendanceView {
         }
     }
 
-
-}
-
-// MARK: - Extensions
-
-extension AttendanceView {
     static var dateFormatter: DateFormatter {
         let formatter = DateFormatter()
         formatter.dateStyle = .full
         return formatter
     }
 }
+
+
+
+
 
 // MARK: - Preview
 

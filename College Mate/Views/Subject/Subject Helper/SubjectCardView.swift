@@ -135,8 +135,8 @@ extension SubjectCardView {
             }
         }
     }
-
-
+    
+    
     
     struct AttendanceStatView: View {
         let label: String
@@ -253,13 +253,10 @@ extension SubjectCardView {
             }
         }
     }
-
     
-}
-
-
-// MARK: SubjectCardView Update
-extension SubjectCardView {
+    
+    
+    
     // Increment attended
     private func incrementAttended() {
         for schedule in subject.schedules {
@@ -275,12 +272,12 @@ extension SubjectCardView {
                 }
             }
         }
-
+        
         // Update attendance
         subject.attendance.attendedClasses += 1
         subject.attendance.totalClasses += 1
     }
-
+    
     // Decrement attended
     private func decrementAttended() {
         if subject.attendance.attendedClasses > 0 {
@@ -297,12 +294,12 @@ extension SubjectCardView {
                     }
                 }
             }
-
+            
             subject.attendance.attendedClasses -= 1
             subject.attendance.totalClasses -= 1
         }
     }
-
+    
     // Increment missed
     private func incrementMissed() {
         for schedule in subject.schedules {
@@ -318,25 +315,25 @@ extension SubjectCardView {
                 }
             }
         }
-
+        
         // Update missed
         subject.attendance.totalClasses += 1
     }
-
+    
     // Decrement missed
     private func decrementMissed() {
         if subject.attendance.totalClasses > subject.attendance.attendedClasses {
             subject.attendance.totalClasses -= 1
         }
     }
-
+    
     // Helper: Check if the class matches today's schedule
     private func isClassToday(schedule: Schedule) -> Bool {
         guard let scheduleDayInt = weekdayStringToInt(schedule.day) else { return false }
         let todayInt = Calendar.current.component(.weekday, from: Date())
         return scheduleDayInt == todayInt
     }
-
+    
     // Helper: Convert weekday string to integer
     private func weekdayStringToInt(_ day: String) -> Int? {
         let daysOfWeek = [
@@ -350,7 +347,7 @@ extension SubjectCardView {
         ]
         return daysOfWeek[day]
     }
-
+    
     // Helper: Check if classTime was updated today
     private func isUpdatedToday(classTime: ClassTime) -> Bool {
         guard let lastUpdated = classTime.lastUpdatedDate else { return false }
@@ -358,7 +355,7 @@ extension SubjectCardView {
         let lastUpdatedDay = Calendar.current.startOfDay(for: lastUpdated)
         return today == lastUpdatedDay
     }
-
+    
     // Helper: Ensure this classTime is specifically for today
     private func isToday(classTime: ClassTime) -> Bool {
         // Add a `date` property to `ClassTime` to hold the specific date of this entry
@@ -367,5 +364,5 @@ extension SubjectCardView {
         let classDay = Calendar.current.startOfDay(for: classDate)
         return today == classDay
     }
+    
 }
-

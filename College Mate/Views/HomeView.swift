@@ -24,6 +24,7 @@ struct HomeView: View {
             }
             
          }
+        .environment(\.colorScheme, .dark)
      }
 }
 
