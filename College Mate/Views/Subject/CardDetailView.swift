@@ -20,8 +20,6 @@ struct CardDetailView: View {
     
     @State private var selectedImageForPreview: IdentifiableImage? = nil
     @State private var zoomScale: CGFloat = 1.0
-
-    
     
     @State private var isShowingFileImporter = false
     @State private var isShowingImagePicker = false
@@ -128,6 +126,7 @@ struct CardDetailView: View {
 
             }
         }
+        .background(LinearGradient(colors: [.gray.opacity(0.1), .black.opacity(0.1), .gray.opacity(0.07)], startPoint: .top, endPoint: .bottom))
         .alert("Rename PDF", isPresented: Binding<Bool>(
             get: { renamingFileURL != nil },
             set: { _ in renamingFileURL = nil }

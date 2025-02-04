@@ -1,12 +1,10 @@
 import SwiftUI
 import SwiftData
 
-
 struct EditSubjectView: View {
     @Bindable var subject: Subject
     @Binding var isShowingEditSubjectView: Bool
     @State private var originalSubjectName: String = ""
-    
     
     let daysOfWeek = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
     
@@ -16,41 +14,47 @@ struct EditSubjectView: View {
     
     var body: some View {
         NavigationStack {
-            Form {
-                SubjectDetailsSection(subjectName: $subject.name)
-                FirstSubjectDatePicker(startDateOfSubject: $subject.startDateOfSubject)
-                MinimumAttendenceStepper(MinimumAttendancePercentage: Binding<Int>(
-                    get: { Int(subject.attendance.minimumPercentageRequirement) }, // Convert Double to Int
-                    set: { subject.attendance.minimumPercentageRequirement = Double($0) } // Convert Int back to Double
-                ))
+            ZStack {
+                LinearGradient(colors: [.gray.opacity(0.1), .black.opacity(0.1), .gray.opacity(0.07)], startPoint: .top, endPoint: .bottom)
+                    .ignoresSafeArea()
+                Form {
+                    SubjectDetailsSection(subjectName: $subject.name)
+                    FirstSubjectDatePicker(startDateOfSubject: $subject.startDateOfSubject)
+                    MinimumAttendenceStepper(MinimumAttendancePercentage: Binding<Int>(
+                        get: { Int(subject.attendance.minimumPercentageRequirement) }, // Convert Double to Int
+                        set: { subject.attendance.minimumPercentageRequirement = Double($0) } // Convert Int back to Double
+                    ))
+                    
+                    ClassScheduleSection(
+                        daysOfWeek: daysOfWeek,
+                        selectedDays: $selectedDays,
+                        classTimes: $classTimes,
+                        classCount: $classCount
+                    )
+                }
+                .scrollContentBackground(.hidden)
+                .background(Color.clear)
+                .onAppear {
+                    originalSubjectName = subject.name
+                    populateExistingData()
+                }
                 
-                ClassScheduleSection(
-                    daysOfWeek: daysOfWeek,
-                    selectedDays: $selectedDays,
-                    classTimes: $classTimes,
-                    classCount: $classCount
-                )
-            }
-            .onAppear {
-                originalSubjectName = subject.name
-                populateExistingData()
-            }
-            
-            .onDisappear {
-                saveUpdatedData()
-            }
-            .navigationTitle("Edit Subject")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") {
-                        if originalSubjectName != subject.name {
-                            moveFilesToNewFolder(oldName: originalSubjectName, newName: subject.name)
+                .onDisappear {
+                    saveUpdatedData()
+                }
+                .navigationTitle("Edit Subject")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("Done") {
+                            if originalSubjectName != subject.name {
+                                moveFilesToNewFolder(oldName: originalSubjectName, newName: subject.name)
+                            }
+                            isShowingEditSubjectView = false
                         }
-                        isShowingEditSubjectView = false
+                        
+                        
                     }
-                    
-                    
                 }
             }
         }

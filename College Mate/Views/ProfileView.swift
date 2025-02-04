@@ -24,79 +24,85 @@ struct ProfileView: View {
     }
     
     var ageCalculated: Int {
-            let calendar = Calendar.current
-            let currentDate = Date()
-            let components = calendar.dateComponents([.year], from: userDob, to: currentDate)
-            return components.year ?? 0
-        }
-
+        let calendar = Calendar.current
+        let currentDate = Date()
+        let components = calendar.dateComponents([.year], from: userDob, to: currentDate)
+        return components.year ?? 0
+    }
+    
     @State private var isEditingProfile = false
-
+    
     var body: some View {
         NavigationStack {
-            Form {
-                Section {
-                    Button {
-                        isEditingProfile = true
-                    } label: {
-                        HStack(spacing: 12) {
-                            if let imageData = profileImageData, let uiImage = UIImage(data: imageData) {
-                                Image(uiImage: uiImage)
-                                    .resizable()
-                                    .scaledToFill()
-                                    .frame(width: 60, height: 60)
-                                    .clipShape(Circle())
-                            } else {
-                                Image(systemName: "person.circle.fill")
-                                    .resizable()
-                                    .scaledToFill()
-                                    .frame(width: 60, height: 60)
-                                    .foregroundColor(.gray)
-                            }
-                            
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(username)
-                                    .font(.headline)
-                                Text(collegeName)
-                                    .font(.subheadline)
-                                    .foregroundColor(.secondary)
-                            }
-                            Spacer()
-                            VStack(alignment: .center, spacing: 4) {
-                                if ageCalculated != 0 {
-                                    Text("\(ageCalculated) yrs old")
+            ZStack {
+                LinearGradient(colors: [.gray.opacity(0.1), .black.opacity(0.1), .gray.opacity(0.07)], startPoint: .top, endPoint: .bottom)
+                    .ignoresSafeArea()
+                Form {
+                    Section {
+                        Button {
+                            isEditingProfile = true
+                        } label: {
+                            HStack(spacing: 12) {
+                                if let imageData = profileImageData, let uiImage = UIImage(data: imageData) {
+                                    Image(uiImage: uiImage)
+                                        .resizable()
+                                        .scaledToFill()
+                                        .frame(width: 60, height: 60)
+                                        .clipShape(Circle())
+                                } else {
+                                    Image(systemName: "person.circle.fill")
+                                        .resizable()
+                                        .scaledToFill()
+                                        .frame(width: 60, height: 60)
+                                        .foregroundColor(.gray)
+                                }
+                                
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(username)
+                                        .font(.headline)
+                                    Text(collegeName)
+                                        .font(.subheadline)
+                                        .foregroundColor(.secondary)
+                                }
+                                Spacer()
+                                VStack(alignment: .center, spacing: 4) {
+                                    if ageCalculated != 0 {
+                                        Text("\(ageCalculated) yrs old")
+                                            .foregroundStyle(.gray)
+                                            .font(.caption)
+                                    }
+                                    Text("\(gender)")
                                         .foregroundStyle(.gray)
                                         .font(.caption)
                                 }
-                                Text("\(gender)")
-                                    .foregroundStyle(.gray)
-                                    .font(.caption)
+                            }
+                            .padding(.vertical, 4)
+                        }
+                    }
+                    
+                    Section("User Details") {
+                        TextField("Email", text: $email)
+                        DatePicker("Date of Birth", selection: $userDob, displayedComponents: .date)
+                        Picker("Gender", selection: $gender) {
+                            ForEach(Gender.allCases, id: \.self) { genderOption in
+                                Text(genderOption.rawValue)
                             }
                         }
-                        .padding(.vertical, 4)
                     }
                 }
-                
-                Section("User Details") {
-                    TextField("Email", text: $email)
-                    DatePicker("Date of Birth", selection: $userDob, displayedComponents: .date)
-                    Picker("Gender", selection: $gender) {
-                        ForEach(Gender.allCases, id: \.self) { genderOption in
-                            Text(genderOption.rawValue)
+                .scrollContentBackground(.hidden)
+                .background(Color.clear)
+                .navigationTitle("Profile")
+                .toolbar {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button("Close", systemImage: "xmark") {
+                            isShowingProfileView = false
                         }
                     }
                 }
-            }
-            .navigationTitle("Profile")
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button("Close", systemImage: "xmark") {
-                        isShowingProfileView = false
-                    }
+                .sheet(isPresented: $isEditingProfile) {
+                    EditProfileView(profileImageData: $profileImageData)
                 }
-            }
-            .sheet(isPresented: $isEditingProfile) {
-                EditProfileView(profileImageData: $profileImageData)
             }
         }
     }
@@ -106,10 +112,10 @@ struct EditProfileView: View {
     @AppStorage("username") private var username: String = ""
     @AppStorage("collegeName") private var collegeName: String = ""
     @Binding var profileImageData: Data?
-
+    
     @State private var selectedPhoto: PhotosPickerItem?
     @Environment(\.dismiss) private var dismiss
-
+    
     var body: some View {
         NavigationStack {
             Form {
@@ -132,7 +138,7 @@ struct EditProfileView: View {
                         Spacer()
                     }
                     .padding(.vertical, 8)
-
+                    
                     PhotosPicker("Change Profile Photo", selection: $selectedPhoto, matching: .images)
                         .onChange(of: selectedPhoto) { _ , _ in
                             Task {
@@ -143,7 +149,7 @@ struct EditProfileView: View {
                         }
                     
                 }
-
+                
                 Section("Edit Details") {
                     TextField("Enter your name", text: $username)
                     TextField("College name", text: $collegeName)

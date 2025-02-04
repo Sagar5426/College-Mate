@@ -22,37 +22,41 @@ struct AddSubjectView: View {
     
     var body: some View {
         NavigationStack {
-            Form {
-                SubjectDetailsSection(subjectName: $subjectName)
-                FirstSubjectDatePicker(startDateOfSubject: $startDateOfSubject)
-                MinimumAttendenceStepper(MinimumAttendancePercentage: $MinimumAttendancePercentage)
-                ClassScheduleSection(
-                    daysOfWeek: daysOfWeek,
-                    selectedDays: $selectedDays,
-                    classTimes: $classTimes,
-                    classCount: $classCount
-                )
-            }
-            // added navigation title here to put this on outside view
-        
-        .navigationTitle("Add Subject")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button("Save") {
-                    saveSubject()
+            ZStack {
+                LinearGradient(colors: [.gray.opacity(0.1), .black.opacity(0.1), .gray.opacity(0.07)], startPoint: .top, endPoint: .bottom)
+                    .ignoresSafeArea()
+                Form {
+                    SubjectDetailsSection(subjectName: $subjectName)
+                    FirstSubjectDatePicker(startDateOfSubject: $startDateOfSubject)
+                    MinimumAttendenceStepper(MinimumAttendancePercentage: $MinimumAttendancePercentage)
+                    ClassScheduleSection(
+                        daysOfWeek: daysOfWeek,
+                        selectedDays: $selectedDays,
+                        classTimes: $classTimes,
+                        classCount: $classCount
+                    )
                 }
-                .disabled(!isAllInfoValid)
-                .tint(isAllInfoValid ? .blue : .gray)
-            }
-            
-            ToolbarItem(placement: .topBarLeading) {
-                Button("Cancel", systemImage: "xmark") {
-                    isShowingAddSubjectView = false
+                .scrollContentBackground(.hidden)
+                .background(Color.clear) //
+                .navigationTitle("Add Subject")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("Save") {
+                            saveSubject()
+                        }
+                        .disabled(!isAllInfoValid)
+                        .tint(isAllInfoValid ? .blue : .gray)
+                    }
+                    
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button("Cancel", systemImage: "xmark") {
+                            isShowingAddSubjectView = false
+                        }
+                    }
                 }
             }
         }
-    }
     }
     
     private func saveSubject() {
@@ -63,7 +67,7 @@ struct AddSubjectView: View {
         
         // Create a new Subject
         let newSubject = Subject(name: subjectName)
-
+        
         // Create schedules for the selected days
         for day in selectedDays {
             let newSchedule = Schedule(day: day)
@@ -99,7 +103,7 @@ struct AddSubjectView: View {
         print("Subject saved successfully.")
         isShowingAddSubjectView = false
     }
-
+    
 }
 
 // MARK: Helper Views
@@ -118,7 +122,7 @@ struct ClassScheduleSection: View {
     @Binding var selectedDays: Set<String>
     @Binding var classTimes: [String: [ClassPeriodTime]]
     @Binding var classCount: [String: Int]
-
+    
     var body: some View {
         Section(header: Text("Select days on which you have classes")) {
             ForEach(daysOfWeek, id: \.self) { day in
@@ -160,7 +164,7 @@ struct DayRowView: View {
     @Binding var isSelected: Bool
     @Binding var times: [ClassPeriodTime]
     @Binding var count: Int
-
+    
     var body: some View {
         VStack(alignment: .leading) {
             Toggle(day, isOn: $isSelected)
@@ -172,7 +176,7 @@ struct DayRowView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .bold()
-
+                    
                     Picker("Number of Classes", selection: Binding(
                         get: { count },
                         set: { newValue in
@@ -231,7 +235,7 @@ struct DayRowView: View {
             }
         }
     }
-
+    
     /// Converts a number to its ordinal representation (e.g., 1 -> "1st", 2 -> "2nd").
     private func ordinalNumber(for number: Int) -> String {
         let formatter = NumberFormatter()
@@ -253,9 +257,9 @@ extension AddSubjectView {
     var isAllInfoValid: Bool {
         guard !subjectName.isEmpty else { return false }
         guard !selectedDays.isEmpty else { return false }
-
         
-
+        
+        
         return true
     }
 }
@@ -273,14 +277,14 @@ struct FirstSubjectDatePicker: View {
 
 struct MinimumAttendenceStepper: View {
     @Binding var MinimumAttendancePercentage: Int
-
+    
     var body: some View {
         Section("Minimum Attendance Requirement") {
             VStack(alignment: .leading, spacing: 10) {
                 Text("Attendance Requirement")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
-
+                
                 HStack {
                     Spacer()
                     Text("\(MinimumAttendancePercentage)%")
@@ -292,10 +296,10 @@ struct MinimumAttendenceStepper: View {
                                 .fill(Color.blue.opacity(0.1))
                         )
                         .frame(minWidth: 70)
-
+                    
                     Spacer()
                     Spacer()
-
+                    
                     Stepper("", value: $MinimumAttendancePercentage, in: 5...100, step: 5)
                         .labelsHidden()
                         .sensoryFeedback(.increase, trigger: MinimumAttendancePercentage)

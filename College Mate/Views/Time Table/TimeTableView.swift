@@ -64,7 +64,7 @@ struct TimeTableView: View {
                 .fullScreenCover(isPresented: $isShowingProfileView) {
                     ProfileView(isShowingProfileView: $isShowingProfileView)
                 }
-                .background(Color.black.opacity(0.2))
+                .background(LinearGradient(colors: [.gray.opacity(0.1), .black], startPoint: .top, endPoint: .center))
             }
     }
 

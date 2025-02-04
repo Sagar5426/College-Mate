@@ -33,7 +33,7 @@ struct AttendanceView: View {
                 }
                 .padding()
             }
-            .background(.black.opacity(0.2))
+            .background(LinearGradient(colors: [.gray.opacity(0.1), .black.opacity(0.1), .gray.opacity(0.07)], startPoint: .top, endPoint: .bottom))
             .blur(radius: isShowingDatePicker ? 8 : 0)
             .disabled(isShowingDatePicker)
         }
