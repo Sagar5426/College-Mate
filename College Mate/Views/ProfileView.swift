@@ -37,66 +37,20 @@ struct ProfileView: View {
             ZStack {
                 LinearGradient(colors: [.gray.opacity(0.1), .black.opacity(0.1), .gray.opacity(0.07)], startPoint: .top, endPoint: .bottom)
                     .ignoresSafeArea()
+                
                 Form {
-                    Section {
-                        Button {
-                            isEditingProfile = true
-                        } label: {
-                            HStack(spacing: 12) {
-                                if let imageData = profileImageData, let uiImage = UIImage(data: imageData) {
-                                    Image(uiImage: uiImage)
-                                        .resizable()
-                                        .scaledToFill()
-                                        .frame(width: 60, height: 60)
-                                        .clipShape(Circle())
-                                } else {
-                                    Image(systemName: "person.circle.fill")
-                                        .resizable()
-                                        .scaledToFill()
-                                        .frame(width: 60, height: 60)
-                                        .foregroundColor(.gray)
-                                }
-                                
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(username)
-                                        .font(.headline)
-                                    Text(collegeName)
-                                        .font(.subheadline)
-                                        .foregroundColor(.secondary)
-                                }
-                                Spacer()
-                                VStack(alignment: .center, spacing: 4) {
-                                    if ageCalculated != 0 {
-                                        Text("\(ageCalculated) yrs old")
-                                            .foregroundStyle(.gray)
-                                            .font(.caption)
-                                    }
-                                    Text("\(gender)")
-                                        .foregroundStyle(.gray)
-                                        .font(.caption)
-                                }
-                            }
-                            .padding(.vertical, 4)
-                        }
-                    }
+                    ProfileHeaderView(
+                        username: username,
+                        collegeName: collegeName,
+                        profileImageData: profileImageData,
+                        ageCalculated: ageCalculated,
+                        gender: gender,
+                        isEditingProfile: $isEditingProfile
+                    )
                     
-                    Section("User Details") {
-                        TextField("Email", text: $email)
-                        DatePicker("Date of Birth", selection: $userDob, displayedComponents: .date)
-                        Picker("Gender", selection: $gender) {
-                            ForEach(Gender.allCases, id: \.self) { genderOption in
-                                Text(genderOption.rawValue)
-                            }
-                        }
-                    }
+                    UserDetailsSection(email: $email, userDob: $userDob, gender: $gender)
                     
-                    Section("History of Attendence changed") {
-                        List {
-                            ForEach(1..<10) { _ in
-                                Text("Attendence +")
-                            }
-                        }
-                    }
+                    AttendanceHistorySection()
                 }
                 .scrollContentBackground(.hidden)
                 .background(Color.clear)
@@ -116,6 +70,97 @@ struct ProfileView: View {
     }
 }
 
+// MARK: - Profile Header View
+struct ProfileHeaderView: View {
+    let username: String
+    let collegeName: String
+    let profileImageData: Data?
+    let ageCalculated: Int
+    let gender: ProfileView.Gender
+    @Binding var isEditingProfile: Bool
+    
+    var body: some View {
+        Section {
+            Button {
+                isEditingProfile = true
+            } label: {
+                HStack(spacing: 12) {
+                    ProfileImageView(profileImageData: profileImageData)
+                    
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(username).font(.headline)
+                        Text(collegeName).font(.subheadline).foregroundColor(.secondary)
+                    }
+                    
+                    Spacer()
+                    
+                    VStack(alignment: .center, spacing: 4) {
+                        if ageCalculated != 0 {
+                            Text("\(ageCalculated) yrs old").foregroundStyle(.gray).font(.caption)
+                        }
+                        Text(gender.rawValue).foregroundStyle(.gray).font(.caption)
+                    }
+                }
+                .padding(.vertical, 4)
+            }
+        }
+    }
+}
+
+// MARK: - Profile Image View
+struct ProfileImageView: View {
+    let profileImageData: Data?
+    
+    var body: some View {
+        if let imageData = profileImageData, let uiImage = UIImage(data: imageData) {
+            Image(uiImage: uiImage)
+                .resizable()
+                .scaledToFill()
+                .frame(width: 60, height: 60)
+                .clipShape(Circle())
+        } else {
+            Image(systemName: "person.circle.fill")
+                .resizable()
+                .scaledToFill()
+                .frame(width: 60, height: 60)
+                .foregroundColor(.gray)
+        }
+    }
+}
+
+// MARK: - User Details Section
+struct UserDetailsSection: View {
+    @Binding var email: String
+    @Binding var userDob: Date
+    @Binding var gender: ProfileView.Gender
+    
+    var body: some View {
+        Section("User Details") {
+            TextField("Email", text: $email)
+            DatePicker("Date of Birth", selection: $userDob, displayedComponents: .date)
+            Picker("Gender", selection: $gender) {
+                ForEach(ProfileView.Gender.allCases, id: \.self) { genderOption in
+                    Text(genderOption.rawValue)
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Attendance History Section
+struct AttendanceHistorySection: View {
+    var body: some View {
+        Section("History of Attendance changed") {
+            List {
+                ForEach(1..<10) { _ in
+                    Text("Attendance +")
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Edit Profile View
 struct EditProfileView: View {
     @AppStorage("username") private var username: String = ""
     @AppStorage("collegeName") private var collegeName: String = ""
@@ -127,36 +172,7 @@ struct EditProfileView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section {
-                    HStack {
-                        Spacer()
-                        if let imageData = profileImageData, let uiImage = UIImage(data: imageData) {
-                            Image(uiImage: uiImage)
-                                .resizable()
-                                .scaledToFill()
-                                .frame(width: 100, height: 100)
-                                .clipShape(Circle())
-                        } else {
-                            Image(systemName: "person.circle.fill")
-                                .resizable()
-                                .scaledToFill()
-                                .frame(width: 100, height: 100)
-                                .foregroundColor(.gray)
-                        }
-                        Spacer()
-                    }
-                    .padding(.vertical, 8)
-                    
-                    PhotosPicker("Change Profile Photo", selection: $selectedPhoto, matching: .images)
-                        .onChange(of: selectedPhoto) { _ , _ in
-                            Task {
-                                if let data = try? await selectedPhoto?.loadTransferable(type: Data.self) {
-                                    profileImageData = data
-                                }
-                            }
-                        }
-                    
-                }
+                ProfileImagePicker(profileImageData: $profileImageData, selectedPhoto: $selectedPhoto)
                 
                 Section("Edit Details") {
                     TextField("Enter your name", text: $username)
@@ -166,16 +182,39 @@ struct EditProfileView: View {
             .navigationTitle("Edit Profile")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Save") {
-                        dismiss()
-                    }
-                    .bold()
+                    Button("Save") { dismiss() }.bold()
                 }
             }
         }
     }
 }
 
+// MARK: - Profile Image Picker
+struct ProfileImagePicker: View {
+    @Binding var profileImageData: Data?
+    @Binding var selectedPhoto: PhotosPickerItem?
+    
+    var body: some View {
+        Section {
+            HStack {
+                Spacer()
+                ProfileImageView(profileImageData: profileImageData)
+                    .frame(width: 100, height: 100)
+                Spacer()
+            }
+            .padding(.vertical, 8)
+            
+            PhotosPicker("Change Profile Photo", selection: $selectedPhoto, matching: .images)
+                .onChange(of: selectedPhoto) { _, _ in
+                    Task {
+                        if let data = try? await selectedPhoto?.loadTransferable(type: Data.self) {
+                            profileImageData = data
+                        }
+                    }
+                }
+        }
+    }
+}
 
 #Preview {
     ProfileView(isShowingProfileView: .constant(true))
