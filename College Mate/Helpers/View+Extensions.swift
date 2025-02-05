@@ -44,6 +44,18 @@ extension View {
                 
                 Spacer(minLength: 0)
                 
+//                Image("history-clock-button")
+//                    .resizable()
+//                    .scaledToFit()
+//                    .frame(width: 35, height: 35)
+//                    .foregroundStyle(.white)
+//                    .background(
+//                        Circle()
+//                            .fill(Color.blue.gradient)
+//                            .frame(width: 50, height: 50) // Larger circle for profile
+//                    )
+//                    .padding(.trailing, 15)
+                
                 Image(systemName: "person.circle.fill")
                     .resizable()
                     .scaledToFit()

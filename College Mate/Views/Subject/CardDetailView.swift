@@ -2,11 +2,13 @@ import SwiftUI
 import SwiftData
 import UniformTypeIdentifiers
 import PDFKit
+import PhotosUI
 
 struct IdentifiableImage: Identifiable {
     let id = UUID()
     let image: UIImage
 }
+
 
 
 
@@ -29,6 +31,49 @@ struct CardDetailView: View {
     @State private var selectedFilter: NoteFilter = .all // Default filter
     @State private var renamingFileURL: URL? = nil
     @State private var newFileName: String = ""
+    
+    @State private var scale = 1.0
+    @State private var lastScale = 1.0
+    private let minScale = 1.0
+    private let maxScale = 5.0
+    @State private var offset = CGSize.zero
+    
+    @State private var imageOffset = CGSize.zero
+    @State private var lastOffset = CGSize.zero
+
+
+    
+    var magnification: some Gesture {
+        MagnificationGesture()
+            .onChanged { state in
+                adjustScale(from: state)
+            }
+            .onEnded { state in
+                withAnimation {
+                    validateScaleLimits()
+                }
+                lastScale = 1.0
+            }
+    }
+    
+    func getMinimumScaleAllowed() -> CGFloat {
+        return max(scale, minScale)
+    }
+    
+    func getMaximumScaleAllowed() -> CGFloat {
+        return min(scale, maxScale)
+    }
+    
+    func adjustScale(from state: MagnificationGesture.Value) {
+        let delta  = state/lastScale
+        scale *= delta
+        lastScale = state
+    }
+    
+    func validateScaleLimits() {
+        scale = getMinimumScaleAllowed()
+        scale = getMaximumScaleAllowed()
+    }
 
     func renamePDF(_ fileURL: URL) {
         renamingFileURL = fileURL
@@ -67,64 +112,79 @@ struct CardDetailView: View {
             .pickerStyle(.segmented)
             .padding()
             
-            ScrollView {
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3)) {
-                    ForEach(filteredNotes, id: \.self) { fileURL in
-                        if fileURL.pathExtension == "jpg" || fileURL.pathExtension == "png" {
-                            if let imageData = try? Data(contentsOf: fileURL), let image = UIImage(data: imageData) {
-                                Image(uiImage: image)
-                                    .resizable()
-                                    .scaledToFit()
-                                    .frame(maxWidth: 100, maxHeight: 100)
-                                    .clipShape(RoundedRectangle(cornerRadius: 8))
-                                    .onTapGesture {
-                                        selectedImageForPreview = IdentifiableImage(image: image)
+            ZStack {
+                Color.clear
+                if filteredNotes.isEmpty {
+                    ScrollView {
+                        VStack {
+                            Spacer(minLength: UIScreen.main.bounds.height / 6) // Adjust for vertical centering
+                            NoNotesView()
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            Spacer(minLength: UIScreen.main.bounds.height / 4) // Adjust for vertical centering
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    }
+                } else {
+                    ScrollView {
+                        LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3)) {
+                            ForEach(filteredNotes, id: \.self) { fileURL in
+                                
+                                if fileURL.pathExtension == "jpg" || fileURL.pathExtension == "png" {
+                                    if let imageData = try? Data(contentsOf: fileURL), let image = UIImage(data: imageData) {
+                                        Image(uiImage: image)
+                                            .resizable()
+                                            .scaledToFit()
+                                            .frame(maxWidth: 100, maxHeight: 100)
+                                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                                            .onTapGesture {
+                                                selectedImageForPreview = IdentifiableImage(image: image)
+                                            }
+                                            .contextMenu {
+                                                Button(role: .destructive, action: { deleteFile(fileURL) }) {
+                                                    Label("Delete", systemImage: "trash")
+                                                }
+                                            }
                                     }
+                                } else if fileURL.pathExtension == "pdf" {
+                                    NavigationLink(destination: PDFViewer(url: fileURL)) {
+                                        VStack {
+                                            if let pdfThumbnail = generatePDFThumbnail(from: fileURL) {
+                                                Image(uiImage: pdfThumbnail)
+                                                    .resizable()
+                                                    .scaledToFit()
+                                                    .frame(width: 80, height: 100)
+                                                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                                            } else {
+                                                Image(systemName: "doc.richtext")
+                                                    .resizable()
+                                                    .scaledToFit()
+                                                    .frame(width: 50, height: 50)
+                                                    .foregroundColor(.blue)
+                                            }
+                                            
+                                            Text(fileURL.lastPathComponent)
+                                                .font(.caption)
+                                                .lineLimit(1)
+                                                .frame(maxWidth: 100)
+                                        }
+                                    }
+                                    
                                     .contextMenu {
+                                        Button(action: { renamePDF(fileURL) }) {
+                                            Label("Rename", systemImage: "pencil")
+                                        }
                                         Button(role: .destructive, action: { deleteFile(fileURL) }) {
                                             Label("Delete", systemImage: "trash")
                                         }
                                     }
-                            }
-                        } else if fileURL.pathExtension == "pdf" {
-                            NavigationLink(destination: PDFViewer(url: fileURL)) {
-                                VStack {
-                                    if let pdfThumbnail = generatePDFThumbnail(from: fileURL) {
-                                        Image(uiImage: pdfThumbnail)
-                                            .resizable()
-                                            .scaledToFit()
-                                            .frame(width: 80, height: 100)
-                                            .clipShape(RoundedRectangle(cornerRadius: 8))
-                                    } else {
-                                        Image(systemName: "doc.richtext")
-                                            .resizable()
-                                            .scaledToFit()
-                                            .frame(width: 50, height: 50)
-                                            .foregroundColor(.blue)
-                                    }
-
-                                    Text(fileURL.lastPathComponent)
-                                        .font(.caption)
-                                        .lineLimit(1)
-                                        .frame(maxWidth: 100)
                                 }
                             }
-                            .contextMenu {
-                                Button(action: { renamePDF(fileURL) }) {
-                                    Label("Rename", systemImage: "pencil")
-                                }
-                                Button(role: .destructive, action: { deleteFile(fileURL) }) {
-                                    Label("Delete", systemImage: "trash")
-                                }
-                            }
-                        }
+                        }  
                     }
                 }
-
-
-
-
+                
             }
+            .ignoresSafeArea()
         }
         .background(LinearGradient(colors: [.gray.opacity(0.1), .black.opacity(0.1), .gray.opacity(0.07)], startPoint: .top, endPoint: .bottom))
         .alert("Rename PDF", isPresented: Binding<Bool>(
@@ -245,48 +305,53 @@ struct CardDetailView: View {
 
         
         .fullScreenCover(item: $selectedImageForPreview) { identifiableImage in
-            ZStack {
-                Color.black.ignoresSafeArea()
-                
-                VStack {
-                    Spacer() // Pushes image to the center
+            GeometryReader { geometry in
+                ZStack {
+                    Color.black.ignoresSafeArea()
+                    
                     Image(uiImage: identifiableImage.image)
                         .resizable()
-                        .scaledToFit()
-                        .scaleEffect(zoomScale)
+                        .aspectRatio(contentMode: .fit)
+                        .scaleEffect(scale)
+                        .offset(x: imageOffset.width, y: imageOffset.height)
                         .gesture(
-                            MagnificationGesture()
-                                .onChanged { value in
-                                    zoomScale = value
-                                }
-                                .onEnded { _ in
-                                    zoomScale = 1.0
-                                }
-                        )
-                    Spacer() // Pushes image to the center
-                }
-                
-                // Close Button at Top Trailing
-                VStack {
-                    HStack {
-                        Spacer()
-                        Button(action: {
-                            selectedImageForPreview = nil  // Dismiss the fullscreen view
-                        }) {
-                            Image(systemName: "xmark.circle.fill")
-                                .resizable()
-                                .frame(width: 30, height: 30)
-                                .foregroundColor(.white)
-                                .background(Color.black.opacity(0.6))
-                                .clipShape(Circle())
-                                .padding()
+                                            DragGesture()
+                                                .onChanged { gesture in
+                                                    let maxOffsetX = (geometry.size.width * (scale - 1)) / 2
+                                                    let maxOffsetY = (geometry.size.height * (scale - 1)) / 2
+
+                                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                                        imageOffset.width = min(max(gesture.translation.width + lastOffset.width, -maxOffsetX), maxOffsetX)
+                                                        imageOffset.height = min(max(gesture.translation.height + lastOffset.height, -maxOffsetY), maxOffsetY)
+                                                    }
+                                                }
+                                                .onEnded { _ in
+                                                    lastOffset = imageOffset
+                                                }
+                                        )
+                        .gesture(magnification)
+
+                    VStack {
+                        HStack {
+                            Spacer()
+                            Button(action: {
+                                selectedImageForPreview = nil  // Close preview
+                            }) {
+                                Image(systemName: "xmark.circle.fill")
+                                    .resizable()
+                                    .frame(width: 30, height: 30)
+                                    .foregroundColor(.white)
+                                    .background(Color.black.opacity(0.6))
+                                    .clipShape(Circle())
+                                    .padding()
+                            }
                         }
+                        Spacer()
                     }
-                    .padding(.top, 10) // Avoids notch on iPhones
-                    Spacer()
                 }
             }
         }
+
 
 
 

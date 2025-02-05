@@ -89,6 +89,14 @@ struct ProfileView: View {
                             }
                         }
                     }
+                    
+                    Section("History of Attendence changed") {
+                        List {
+                            ForEach(1..<10) { _ in
+                                Text("Attendence +")
+                            }
+                        }
+                    }
                 }
                 .scrollContentBackground(.hidden)
                 .background(Color.clear)
