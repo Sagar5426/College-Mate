@@ -95,7 +95,7 @@ extension SubjectCardView {
         
         // Determine the gradient color based on percentage and skippable classes
         private var gradientColors: [Color] {
-            if skippableClasses > 0 && percentage >= minimumRequiredPercentage {
+            if  percentage >= minimumRequiredPercentage {
                 return [Color.green.opacity(0.6), Color.green]
             } else if percentage <= 0.5 * minimumRequiredPercentage {
                 return [Color.red.opacity(0.6), Color.red]
