@@ -51,6 +51,7 @@ struct SubjectCardView: View {
             .shadow(radius: 4)
             
             // Controls
+            // MARK: MAke change here
             HStack(spacing: 16) {
                 AttendanceControl(label: "Attended", onIncrement: incrementAttended, onDecrement: decrementAttended)
                 
@@ -254,9 +255,6 @@ extension SubjectCardView {
         }
     }
     
-    
-    
-    
     // Increment attended
     private func incrementAttended() {
         for schedule in subject.schedules {
@@ -264,7 +262,7 @@ extension SubjectCardView {
                 for classTime in schedule.classTimes {
                     if classTime.label == "Canceled" || classTime.label == "Not Attended" {
                         // Ensure this classTime is for today only and hasn't been updated yet
-                        if !isUpdatedToday(classTime: classTime) && isToday(classTime: classTime) {
+                        if isToday(classTime: classTime) {
                             classTime.label = "Attended" // Update label
                             classTime.lastUpdatedDate = Date() // Mark as updated for today
                         }
@@ -286,8 +284,8 @@ extension SubjectCardView {
                     for classTime in schedule.classTimes {
                         if classTime.label == "Attended" {
                             // Ensure this classTime is for today only and was updated today
-                            if isUpdatedToday(classTime: classTime) && isToday(classTime: classTime) {
-                                classTime.label = "Not Attended" // Revert to Not Attended
+                            if isToday(classTime: classTime) {
+                                classTime.label = "Canceled" // Revert to Canceled
                                 classTime.lastUpdatedDate = Date() // Update timestamp
                             }
                         }
@@ -307,7 +305,7 @@ extension SubjectCardView {
                 for classTime in schedule.classTimes {
                     if classTime.label == "Canceled" {
                         // Ensure this classTime is for today only and hasn't been updated yet
-                        if !isUpdatedToday(classTime: classTime) && isToday(classTime: classTime) {
+                        if isToday(classTime: classTime) {
                             classTime.label = "Not Attended" // Update label
                             classTime.lastUpdatedDate = Date() // Mark as updated for today
                         }
@@ -322,8 +320,17 @@ extension SubjectCardView {
     
     // Decrement missed
     private func decrementMissed() {
+        for schedule in subject.schedules {
+            if isClassToday(schedule: schedule) {
+                for classTime in schedule.classTimes {
+                    classTime.label = "Canceled"
+                }
+            }
+        }
+        
         if subject.attendance.totalClasses > subject.attendance.attendedClasses {
             subject.attendance.totalClasses -= 1
+             
         }
     }
     
@@ -348,13 +355,7 @@ extension SubjectCardView {
         return daysOfWeek[day]
     }
     
-    // Helper: Check if classTime was updated today
-    private func isUpdatedToday(classTime: ClassTime) -> Bool {
-        guard let lastUpdated = classTime.lastUpdatedDate else { return false }
-        let today = Calendar.current.startOfDay(for: Date())
-        let lastUpdatedDay = Calendar.current.startOfDay(for: lastUpdated)
-        return today == lastUpdatedDay
-    }
+    
     
     // Helper: Ensure this classTime is specifically for today
     private func isToday(classTime: ClassTime) -> Bool {

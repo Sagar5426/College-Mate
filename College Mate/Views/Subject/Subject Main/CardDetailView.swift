@@ -144,7 +144,8 @@ struct CardDetailView: View {
                             .transition(.slide.combined(with: .opacity))
                     }
                 }
-            }
+             }
+            Spacer(minLength: 37)
         }
     }
     
