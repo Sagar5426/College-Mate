@@ -5,9 +5,7 @@
 	<key>NSDocumentsDirectoryUsageDescription</key>
 	<string>We need access to save imported PDFs</string>
 	<key>UIBackgroundModes</key>
-	<array>
-		<string>fetch</string>
-	</array>
+	<array/>
 	<key>UIFileSharingEnabled</key>
 	<true/>
 </dict>

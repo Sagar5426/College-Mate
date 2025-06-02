@@ -153,27 +153,11 @@ extension AttendanceView {
             } else {
                 VStack(alignment: .leading, spacing: 20) {
                     ForEach(subjects) { subject in
-                        if selectedDate >= subject.startDateOfSubject { // Check if the date is valid
-                            ForEach(subject.schedules) { schedule in
-                                ForEach(schedule.classTimes) { classTime in
-                                    if schedule.day == formattedDay(from: selectedDate) {
-                                        ClassAttendanceRow(
-                                            subject: subject,
-                                            viewModel: viewModel,
-                                            classTime: Binding (
-                                                get: { classTime },
-                                                set: { updatedClassTime in
-                                                    if let index = schedule.classTimes.firstIndex(where: { $0.id == classTime.id }) {
-                                                        schedule.classTimes[index] = updatedClassTime
-                                                    }
-                                                }
-                                            )
-                                        )
-                                    }
-                                }
-                            }
+                        if selectedDate >= subject.startDateOfSubject {
+                            SubjectScheduleView(subject: subject, selectedDate: selectedDate, viewModel: viewModel)
                         }
                     }
+
                 }
                 .padding()
             }
@@ -186,7 +170,33 @@ extension AttendanceView {
         }
     }
 
-    
+    struct SubjectScheduleView: View {
+        let subject: Subject
+        let selectedDate: Date
+        let viewModel: AttendanceViewModel
+
+        var body: some View {
+            let day = formattedDay(from: selectedDate)
+            return ForEach(subject.schedules) { schedule in
+                if schedule.day == day {
+                    ForEach(schedule.classTimes) { classTime in
+                        ClassAttendanceRow(
+                            subject: subject,
+                            viewModel: viewModel,
+                            classTime: .constant(classTime) // Start with constant for simplicity
+                        )
+                    }
+                }
+            }
+        }
+
+        private func formattedDay(from date: Date) -> String {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "EEEE"
+            return formatter.string(from: date)
+        }
+    }
+
     struct ClassAttendanceRow: View {
         let subject: Subject
         let viewModel: AttendanceViewModel
