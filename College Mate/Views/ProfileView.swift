@@ -7,6 +7,7 @@
 
 import SwiftUI
 import PhotosUI
+import SwiftData
 
 struct ProfileView: View {
     @Binding var isShowingProfileView: Bool
@@ -16,6 +17,12 @@ struct ProfileView: View {
     @AppStorage("email") private var email: String = ""
     @AppStorage("profileImage") private var profileImageData: Data?
     @AppStorage("gender") private var gender: Gender = .male
+    
+    @Query var subjects: [Subject]
+    private var allAttendanceLogs: [AttendanceLogEntry] {
+           subjects.flatMap { $0.logs }
+               .sorted(by: { $0.timestamp > $1.timestamp }) // Most recent first
+       }
     
     enum Gender: String, CaseIterable {
         case male = "Male"
@@ -37,23 +44,26 @@ struct ProfileView: View {
             ZStack {
                 LinearGradient(colors: [.gray.opacity(0.1), .black.opacity(0.1), .gray.opacity(0.07)], startPoint: .top, endPoint: .bottom)
                     .ignoresSafeArea()
-                
-                Form {
-                    ProfileHeaderView(
-                        username: username,
-                        collegeName: collegeName,
-                        profileImageData: profileImageData,
-                        ageCalculated: ageCalculated,
-                        gender: gender,
-                        isEditingProfile: $isEditingProfile
-                    )
-                    
-                    UserDetailsSection(email: $email, userDob: $userDob, gender: $gender)
-                    
-                    AttendanceHistorySection()
+
+                VStack {
+                    Form {
+                        ProfileHeaderView(
+                            username: username,
+                            collegeName: collegeName,
+                            profileImageData: profileImageData,
+                            ageCalculated: ageCalculated,
+                            gender: gender,
+                            isEditingProfile: $isEditingProfile
+                        )
+
+                        UserDetailsSection(email: $email, userDob: $userDob, gender: $gender)
+                    }
+                    .scrollContentBackground(.hidden)
+                    .background(Color.clear)
+
+                    AttendanceHistorySection(subjects: subjects)
+                        .padding(20)
                 }
-                .scrollContentBackground(.hidden)
-                .background(Color.clear)
                 .navigationTitle("Profile")
                 .toolbar {
                     ToolbarItem(placement: .topBarLeading) {
@@ -67,6 +77,7 @@ struct ProfileView: View {
                 }
             }
         }
+
     }
 }
 
@@ -149,16 +160,114 @@ struct UserDetailsSection: View {
 
 // MARK: - Attendance History Section
 struct AttendanceHistorySection: View {
-    var body: some View {
-        Section("History of Attendance changed") {
-            List {
-                ForEach(1..<10) { _ in
-                    Text("Attendance +")
-                }
+    let subjects: [Subject]
+
+    @State private var selectedFilter: FilterType = .sevenDays
+
+    enum FilterType: String, CaseIterable, Identifiable {
+        case oneDay = "1 Day"
+        case sevenDays = "7 Days"
+        case oneMonth = "1 Month"
+        case sixMonths = "6 Months"
+        case oneYear = "1 Year"
+        case allTime = "All Time"
+
+        var id: String { rawValue }
+
+        func dateThreshold(from date: Date = Date()) -> Date? {
+            let calendar = Calendar.current
+            switch self {
+            case .oneDay: return calendar.date(byAdding: .day, value: -1, to: date)
+            case .sevenDays: return calendar.date(byAdding: .day, value: -7, to: date)
+            case .oneMonth: return calendar.date(byAdding: .month, value: -1, to: date)
+            case .sixMonths: return calendar.date(byAdding: .month, value: -6, to: date)
+            case .oneYear: return calendar.date(byAdding: .year, value: -1, to: date)
+            case .allTime: return nil
             }
         }
     }
+
+    var filteredLogs: [AttendanceLogEntry] {
+        let allLogs = subjects.flatMap { $0.logs }
+        guard let threshold = selectedFilter.dateThreshold() else {
+            return allLogs.sorted { $0.timestamp > $1.timestamp }
+        }
+        return allLogs
+            .filter { $0.timestamp >= threshold }
+            .sorted { $0.timestamp > $1.timestamp }
+    }
+
+    var body: some View {
+        Section {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("Filter:")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+
+                    Spacer()
+
+                    Menu {
+                        ForEach(FilterType.allCases) { filter in
+                            Button {
+                                selectedFilter = filter
+                            } label: {
+                                Text(filter.rawValue)
+                            }
+                        }
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "line.3.horizontal.decrease.circle")
+                            Text(selectedFilter.rawValue)
+                                .font(.subheadline)
+                        }
+                        .foregroundColor(.blue)
+                    }
+                }
+
+                ScrollView {
+                    LazyVStack(spacing: 0) {
+                        if filteredLogs.isEmpty {
+                            Text("No attendance changes in this period.")
+                                .foregroundColor(.gray)
+                                .padding(.vertical)
+                        } else {
+                            ForEach(filteredLogs.indices, id: \.self) { index in
+                                let log = filteredLogs[index]
+                                VStack(alignment: .leading, spacing: 4) {
+                                    HStack {
+                                        Text(log.action)
+                                            .font(.body)
+                                        Spacer()
+                                        Text(log.timestamp.formatted(date: .abbreviated, time: .shortened))
+                                            .font(.caption)
+                                            .foregroundColor(.gray)
+                                    }
+                                    Text(log.subjectName)
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                                .padding(.vertical, 10)
+
+                                if index < filteredLogs.count - 1 {
+                                    Divider()
+                                }
+                            }
+                        }
+                    }
+                }
+                .frame(minHeight: 150, maxHeight: 350)
+            }
+        } header: {
+            Text("Attendance History")
+        }
+    }
 }
+
+
+
+
+
 
 // MARK: - Edit Profile View
 struct EditProfileView: View {
@@ -216,6 +325,29 @@ struct ProfileImagePicker: View {
     }
 }
 
+
+
 #Preview {
-    ProfileView(isShowingProfileView: .constant(true))
+    do {
+        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: Subject.self, configurations: config)
+        
+        let subject = Subject(name: "Math", startDateOfSubject: Date(), schedules: [])
+        subject.attendance.totalClasses = 5
+        subject.attendance.attendedClasses = 3
+        subject.logs = [
+            AttendanceLogEntry(timestamp: Date(), subjectName: "Math", action: "+ Attended"),
+            AttendanceLogEntry(timestamp: Date().addingTimeInterval(-3600), subjectName: "Math", action: "- Missed")
+        ]
+        
+        try container.mainContext.insert(subject)
+        
+        return ProfileView(isShowingProfileView: .constant(true))
+            .modelContainer(container)
+    } catch {
+        return Text("Failed to create container: \(error.localizedDescription)")
+    }
 }
+
+
+

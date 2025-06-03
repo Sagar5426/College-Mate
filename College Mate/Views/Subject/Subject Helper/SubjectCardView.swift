@@ -62,28 +62,38 @@ struct SubjectCardView: View {
     }
 
     // MARK: Attendance Modification Functions
+    private func addLog(_ action: String) {
+        let log = AttendanceLogEntry(timestamp: Date(), subjectName: subject.name, action: action)
+        subject.logs.append(log)
+    }
+
     private func incrementAttended() {
         subject.attendance.attendedClasses += 1
         subject.attendance.totalClasses += 1
+        addLog("+ Attended")
     }
 
     private func decrementAttended() {
         if subject.attendance.attendedClasses > 0 {
             subject.attendance.attendedClasses -= 1
             subject.attendance.totalClasses -= 1
+            addLog("− Attended")
         }
     }
 
     private func incrementMissed() {
         subject.attendance.totalClasses += 1
+        addLog("+ Missed")
     }
 
     private func decrementMissed() {
         let missed = subject.attendance.totalClasses - subject.attendance.attendedClasses
         if missed > 0 {
             subject.attendance.totalClasses -= 1
+            addLog("− Missed")
         }
     }
+
 
 }
 

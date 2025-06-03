@@ -9,6 +9,8 @@ class Subject {
     var schedules: [Schedule]
     var attendance: Attendance
     var notes: [Note] // New property to store notes
+    
+    var logs: [AttendanceLogEntry] = []
 
     init(name: String, startDateOfSubject: Date = .now, schedules: [Schedule] = [], attendance: Attendance = Attendance(totalClasses: 0, attendedClasses: 0), notes: [Note] = []) {
         self.id = UUID()

@@ -21,17 +21,6 @@ class Attendance {
         return (Double(attendedClasses) / Double(totalClasses)) * 100
     }
     
-    // Calculate the number of additional classes required to meet the minimum percentage
-    var requiredClassesToMeetRequirement: Int {
-        guard minimumPercentageRequirement > percentage else { return 0 }
-        
-        let requiredAttendedClasses = Int(ceil(minimumPercentageRequirement / 100.0 * Double(totalClasses)))
-        
-        // Calculate additional classes required
-        let additionalClassesNeeded = max(0, requiredAttendedClasses - attendedClasses)
-        
-        return additionalClassesNeeded
-    }
 
 }
 
