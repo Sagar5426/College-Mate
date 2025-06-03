@@ -57,12 +57,14 @@ struct ProfileView: View {
                         )
 
                         UserDetailsSection(email: $email, userDob: $userDob, gender: $gender)
+                        
+                        AttendanceHistorySection(subjects: subjects)
                     }
                     .scrollContentBackground(.hidden)
                     .background(Color.clear)
 
-                    AttendanceHistorySection(subjects: subjects)
-                        .padding(20)
+                    
+                    
                 }
                 .navigationTitle("Profile")
                 .toolbar {
@@ -198,68 +200,50 @@ struct AttendanceHistorySection: View {
     }
 
     var body: some View {
-        Section {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Text("Filter:")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-
-                    Spacer()
-
-                    Menu {
-                        ForEach(FilterType.allCases) { filter in
-                            Button {
-                                selectedFilter = filter
-                            } label: {
-                                Text(filter.rawValue)
-                            }
-                        }
-                    } label: {
-                        HStack(spacing: 4) {
-                            Image(systemName: "line.3.horizontal.decrease.circle")
-                            Text(selectedFilter.rawValue)
-                                .font(.subheadline)
-                        }
-                        .foregroundColor(.blue)
-                    }
-                }
-
-                ScrollView {
-                    LazyVStack(spacing: 0) {
-                        if filteredLogs.isEmpty {
-                            Text("No attendance changes in this period.")
-                                .foregroundColor(.gray)
-                                .padding(.vertical)
-                        } else {
-                            ForEach(filteredLogs.indices, id: \.self) { index in
-                                let log = filteredLogs[index]
-                                VStack(alignment: .leading, spacing: 4) {
-                                    HStack {
-                                        Text(log.action)
-                                            .font(.body)
-                                        Spacer()
-                                        Text(log.timestamp.formatted(date: .abbreviated, time: .shortened))
-                                            .font(.caption)
-                                            .foregroundColor(.gray)
-                                    }
-                                    Text(log.subjectName)
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                }
-                                .padding(.vertical, 10)
-
-                                if index < filteredLogs.count - 1 {
-                                    Divider()
-                                }
-                            }
+        Section(header: Text("Attendance History")) {
+            HStack {
+                Text("Filter:")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                Spacer()
+                Menu {
+                    ForEach(FilterType.allCases) { filter in
+                        Button {
+                            selectedFilter = filter
+                        } label: {
+                            Text(filter.rawValue)
                         }
                     }
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "line.3.horizontal.decrease.circle")
+                        Text(selectedFilter.rawValue)
+                    }
+                    .foregroundColor(.blue)
                 }
-                .frame(minHeight: 150, maxHeight: 350)
             }
-        } header: {
-            Text("Attendance History")
+
+            if filteredLogs.isEmpty {
+                Text("No attendance changes in this period.")
+                    .foregroundColor(.gray)
+                    .padding(.vertical)
+            } else {
+                ForEach(filteredLogs.indices, id: \.self) { index in
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack {
+                            Text(filteredLogs[index].action)
+                            Spacer()
+                            Text(filteredLogs[index].timestamp.formatted(date: .abbreviated, time: .shortened))
+                                .font(.caption)
+                                .foregroundColor(.gray)
+                        }
+                        Text(filteredLogs[index].subjectName)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(.vertical, 4)
+                }
+            }
         }
     }
 }
