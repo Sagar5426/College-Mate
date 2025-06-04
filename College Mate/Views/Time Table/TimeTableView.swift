@@ -19,7 +19,22 @@ enum Day: String, CaseIterable {
 struct TimeTableView: View {
     @Environment(\.modelContext) var modelContext
     @Query var subjects: [Subject]
-    @State private var expandedDays: Set<Day> = Set(Day.allCases) // All days expanded by default
+    @State private var expandedDays: Set<Day> = {
+        let today = Calendar.current.component(.weekday, from: Date())
+        let swiftDay: Day? = {
+            switch today {
+            case 2: return .monday
+            case 3: return .tuesday
+            case 4: return .wednesday
+            case 5: return .thursday
+            case 6: return .friday
+            case 7: return .saturday
+            default: return nil // Sunday or unknown
+            }
+        }()
+        return swiftDay.map { Set([$0]) } ?? []
+    }()
+
     @State private var isShowingProfileView = false
     
     var body: some View {

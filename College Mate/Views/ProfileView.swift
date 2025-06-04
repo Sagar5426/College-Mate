@@ -165,6 +165,7 @@ struct AttendanceHistorySection: View {
     let subjects: [Subject]
 
     @State private var selectedFilter: FilterType = .sevenDays
+    @State private var selectedSubjectName: String = "All Subjects"
 
     enum FilterType: String, CaseIterable, Identifiable {
         case oneDay = "1 Day"
@@ -190,10 +191,16 @@ struct AttendanceHistorySection: View {
     }
 
     var filteredLogs: [AttendanceLogEntry] {
-        let allLogs = subjects.flatMap { $0.logs }
+        let allLogs = subjects.flatMap { subject in
+            selectedSubjectName == "All Subjects" || selectedSubjectName == subject.name
+                ? subject.logs
+                : []
+        }
+
         guard let threshold = selectedFilter.dateThreshold() else {
             return allLogs.sorted { $0.timestamp > $1.timestamp }
         }
+
         return allLogs
             .filter { $0.timestamp >= threshold }
             .sorted { $0.timestamp > $1.timestamp }
@@ -201,52 +208,79 @@ struct AttendanceHistorySection: View {
 
     var body: some View {
         Section(header: Text("Attendance History")) {
-            HStack {
-                Text("Filter:")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-                Spacer()
-                Menu {
-                    ForEach(FilterType.allCases) { filter in
-                        Button {
-                            selectedFilter = filter
-                        } label: {
-                            Text(filter.rawValue)
-                        }
-                    }
-                } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: "line.3.horizontal.decrease.circle")
-                        Text(selectedFilter.rawValue)
-                    }
-                    .foregroundColor(.blue)
-                }
-            }
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    
+                    
+                    
+                    
+                    
 
-            if filteredLogs.isEmpty {
-                Text("No attendance changes in this period.")
-                    .foregroundColor(.gray)
-                    .padding(.vertical)
-            } else {
-                ForEach(filteredLogs.indices, id: \.self) { index in
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack {
-                            Text(filteredLogs[index].action)
-                            Spacer()
-                            Text(filteredLogs[index].timestamp.formatted(date: .abbreviated, time: .shortened))
-                                .font(.caption)
-                                .foregroundColor(.gray)
+                    // Subject Filter Menu
+                    Menu {
+                        Button("All Subjects") {
+                            selectedSubjectName = "All Subjects"
                         }
-                        Text(filteredLogs[index].subjectName)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+
+                        ForEach(subjects, id: \.id) { subject in
+                            Button(subject.name) {
+                                selectedSubjectName = subject.name
+                            }
+                        }
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "book.closed")
+                            Text(selectedSubjectName)
+                        }
+                        .foregroundColor(.blue)
                     }
-                    .padding(.vertical, 4)
+                    
+                    Spacer()
+                    
+                    // Time Filter Menu
+                    Menu {
+                        ForEach(FilterType.allCases) { filter in
+                            Button {
+                                selectedFilter = filter
+                            } label: {
+                                Text(filter.rawValue)
+                            }
+                        }
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "calendar")
+                            Text(selectedFilter.rawValue)
+                        }
+                        .foregroundColor(.blue)
+                    }
+                }
+
+                if filteredLogs.isEmpty {
+                    Text("No attendance changes in this period.")
+                        .foregroundColor(.gray)
+                        .padding(.vertical)
+                } else {
+                    ForEach(filteredLogs.indices, id: \.self) { index in
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack {
+                                Text(filteredLogs[index].action)
+                                Spacer()
+                                Text(filteredLogs[index].timestamp.formatted(date: .abbreviated, time: .shortened))
+                                    .font(.caption)
+                                    .foregroundColor(.gray)
+                            }
+                            Text(filteredLogs[index].subjectName)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        .padding(.vertical, 4)
+                    }
                 }
             }
         }
     }
 }
+
 
 
 
