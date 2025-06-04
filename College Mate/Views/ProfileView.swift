@@ -358,7 +358,7 @@ struct ProfileImagePicker: View {
             AttendanceLogEntry(timestamp: Date().addingTimeInterval(-3600), subjectName: "Math", action: "- Missed")
         ]
         
-        try container.mainContext.insert(subject)
+        container.mainContext.insert(subject)
         
         return ProfileView(isShowingProfileView: .constant(true))
             .modelContainer(container)

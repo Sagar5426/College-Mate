@@ -269,19 +269,26 @@ struct CardDetailView: View {
         GeometryReader { geometry in
             ZStack {
                 Color.black.ignoresSafeArea()
-                
+
                 Image(uiImage: identifiableImage.image)
                     .resizable()
                     .aspectRatio(contentMode: .fit)
                     .scaleEffect(scale)
                     .offset(x: imageOffset.width, y: imageOffset.height)
+                    .onAppear {
+                        scale = 1.0
+                        imageOffset = .zero
+                        lastOffset = .zero
+                    }
+
                     .gesture(
                         DragGesture()
                             .onChanged { gesture in
                                 let maxOffsetX = (geometry.size.width * (scale - 1)) / 2
                                 let maxOffsetY = (geometry.size.height * (scale - 1)) / 2
-
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                
+                                // Disable implicit animations during drag
+                                withTransaction(Transaction(animation: nil)) {
                                     imageOffset.width = min(max(gesture.translation.width + lastOffset.width, -maxOffsetX), maxOffsetX)
                                     imageOffset.height = min(max(gesture.translation.height + lastOffset.height, -maxOffsetY), maxOffsetY)
                                 }
@@ -290,7 +297,7 @@ struct CardDetailView: View {
                                 lastOffset = imageOffset
                             }
                     )
-                    .gesture(magnification)
+                    .gesture(magnification(in: geometry.size))
 
                 VStack {
                     HStack {
@@ -312,20 +319,32 @@ struct CardDetailView: View {
             }
         }
     }
+
     
     // MARK: - Helper Methods
-    private var magnification: some Gesture {
+    private func magnification(in size: CGSize) -> some Gesture {
         MagnificationGesture()
             .onChanged { state in
                 adjustScale(from: state)
             }
-            .onEnded { state in
-                withAnimation {
+            .onEnded { _ in
+                withAnimation(.easeOut(duration: 0.3)) {
                     validateScaleLimits()
                 }
                 lastScale = 1.0
+
+                // Auto-center image after zooming out
+                if scale <= 1.01 {
+                    withAnimation(.easeOut(duration: 0.8)) {
+                        imageOffset = .zero
+                        lastOffset = .zero
+                    }
+                }
             }
     }
+
+
+
     
     private func adjustScale(from state: MagnificationGesture.Value) {
         let delta = state / lastScale
