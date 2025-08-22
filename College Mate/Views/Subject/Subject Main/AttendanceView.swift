@@ -5,43 +5,49 @@ struct AttendanceView: View {
     @Environment(\.modelContext) private var modelContext
     @Query var subjects: [Subject]
     
-    // The View creates and owns the ViewModel.
     @StateObject private var viewModel = AttendanceViewModel()
+    @State private var isShowingDatePicker = false
+    
+    // --- FIX IS HERE (Part 1) ---
+    // We add a new state variable to hold a unique ID for our view.
+    @State private var viewID = UUID()
     
     var body: some View {
         ZStack {
-            NavigationStack {
-                ScrollView(.vertical) {
-                    LazyVStack(spacing: 16, pinnedViews: [.sectionHeaders]) {
-                        Section {
-                            DatePickerHeader(viewModel: viewModel)
-                            HolidayButton(viewModel: viewModel)
-                            Divider().padding(.vertical)
-                            ClassesList(viewModel: viewModel)
-                        } header: {
-                            GeometryReader { proxy in
-                                HeaderView(size: proxy.size, title: "Attendance 🙋", isShowingProfileView: $viewModel.isShowingProfileView)
-                            }
-                            .frame(height: 50)
+            ScrollView(.vertical) {
+                LazyVStack(spacing: 16, pinnedViews: [.sectionHeaders]) {
+                    Section {
+                        DatePickerHeader(viewModel: viewModel, isShowingDatePicker: $isShowingDatePicker)
+                        HolidayButton(viewModel: viewModel)
+                        Divider().padding(.vertical)
+                        ClassesList(viewModel: viewModel)
+                    } header: {
+                        GeometryReader { proxy in
+                            HeaderView(size: proxy.size, title: "Attendance 🙋", isShowingProfileView: $viewModel.isShowingProfileView)
                         }
+                        .frame(height: 50)
                     }
-                    .padding()
                 }
-                .background(LinearGradient(colors: [.gray.opacity(0.1), .black.opacity(0.1), .gray.opacity(0.07)], startPoint: .top, endPoint: .bottom))
-                .blur(radius: viewModel.isShowingDatePicker ? 8 : 0)
-                .disabled(viewModel.isShowingDatePicker)
-                .fullScreenCover(isPresented: $viewModel.isShowingProfileView) {
-                    ProfileView(isShowingProfileView: $viewModel.isShowingProfileView)
-                }
+                .padding()
+            }
+            // --- FIX IS HERE (Part 2) ---
+            // We attach the unique ID to the ScrollView. When this ID changes,
+            // SwiftUI destroys the old ScrollView and creates a brand new one,
+            // which forces a full layout recalculation.
+            .id(viewID)
+            .background(LinearGradient(colors: [.gray.opacity(0.1), .black.opacity(0.1), .gray.opacity(0.07)], startPoint: .top, endPoint: .bottom))
+            .blur(radius: isShowingDatePicker ? 8 : 0)
+            .disabled(isShowingDatePicker)
+            .fullScreenCover(isPresented: $viewModel.isShowingProfileView) {
+                ProfileView(isShowingProfileView: $viewModel.isShowingProfileView)
             }
             
-            if viewModel.isShowingDatePicker {
+            if isShowingDatePicker {
                 Color.black.opacity(0.4)
                     .ignoresSafeArea()
                     .onTapGesture {
-                        // Use withAnimation here as well for a smooth dismissal
                         withAnimation(.snappy) {
-                            viewModel.isShowingDatePicker = false
+                            isShowingDatePicker = false
                         }
                     }
                     .transition(.opacity)
@@ -51,23 +57,25 @@ struct AttendanceView: View {
                     onSubmit: { start in
                         withAnimation(.snappy) {
                             viewModel.selectedDate = start
-                            viewModel.isShowingDatePicker = false
+                            isShowingDatePicker = false
+                            // --- FIX IS HERE (Part 3) ---
+                            // When the picker is dismissed, we generate a new UUID.
+                            // This changes the ScrollView's identity and forces it to redraw correctly.
+                            viewID = UUID()
                         }
                     },
                     onClose: {
                         withAnimation(.snappy) {
-                            viewModel.isShowingDatePicker = false
+                            isShowingDatePicker = false
+                            // --- FIX IS HERE (Part 3) ---
+                            // We do the same on close.
+                            viewID = UUID()
                         }
                     }
                 )
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
-        // --- FIX IS HERE ---
-        // The global .animation() modifier has been removed.
-        // The withAnimation block in DatePickerHeader and the new ones
-        // added above are now solely responsible for the transition,
-        // which prevents the main view's frame from being animated.
         .onAppear {
             viewModel.setup(subjects: subjects, modelContext: modelContext)
         }
@@ -81,6 +89,7 @@ struct AttendanceView: View {
 
 struct DatePickerHeader: View {
     @ObservedObject var viewModel: AttendanceViewModel
+    @Binding var isShowingDatePicker: Bool
     
     private var isNextDayDisabled: Bool { Calendar.current.isDateInToday(viewModel.selectedDate) }
     
@@ -90,9 +99,8 @@ struct DatePickerHeader: View {
             Spacer()
             Text(viewModel.selectedDate, formatter: Self.dateFormatter).font(.headline)
                 .onTapGesture {
-                    // This withAnimation block is now the trigger for the transitions.
                     withAnimation(.snappy) {
-                        viewModel.isShowingDatePicker.toggle()
+                        isShowingDatePicker.toggle()
                     }
                 }
             Spacer()
@@ -113,7 +121,7 @@ struct HolidayButton: View {
     
     var body: some View {
         Button(action: { viewModel.isHoliday.toggle() }) {
-            Text(viewModel.isHoliday ? "Marked as Holiday" : "Mark today as Holiday")
+            Text(viewModel.isHoliday ? "Marked as Holiday" : "Today is a Holiday")
                 .frame(maxWidth: .infinity).padding().foregroundColor(.white)
                 .background(viewModel.isHoliday ? Color.red : Color.blue)
                 .clipShape(RoundedRectangle(cornerRadius: 10)).padding(.horizontal)
@@ -183,7 +191,6 @@ struct ClassAttendanceRow: View {
     }
 }
 
-// MARK: - Preview
 #Preview {
     do {
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
