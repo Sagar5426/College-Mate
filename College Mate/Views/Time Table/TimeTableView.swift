@@ -53,18 +53,21 @@ struct TimeTableView: View {
                                     
                                     // Classes for the Day
                                     if expandedDays.contains(day) {
+                                        let sortedItems = sortedSchedules(for: day)
+
                                         VStack(alignment: .leading, spacing: 10) {
-                                            ForEach(subjects) { subject in
-                                                ForEach(subject.schedules) { schedule in
-                                                    if schedule.day == day.rawValue {
-                                                        ScheduleCard(subject: subject, schedule: schedule)
-                                                            .frame(maxWidth: .infinity) // Allow centering
-                                                            .padding(.horizontal, 20) // Smaller width than DayHeaderView
-                                                    }
-                                                }
+                                            ForEach(sortedItems, id: \.1.id) { subject, schedule in
+                                                ScheduleCard(subject: subject, schedule: schedule)
+                                                    .frame(maxWidth: .infinity)
+                                                    .padding(.horizontal, 20)
                                             }
                                         }
                                     }
+
+
+
+
+
                                 }
                             }
                         } header: {
@@ -164,4 +167,31 @@ struct ScheduleCard: View {
 #Preview {
     TimeTableView()
         .modelContainer(for: Subject.self, inMemory: true)
+}
+
+
+extension TimeTableView {
+    private func sortedSchedules(for day: Day) -> [(Subject, Schedule)] {
+        var result: [(Subject, Schedule, Date?)] = []
+
+        for subject in subjects {
+            for schedule in subject.schedules where schedule.day == day.rawValue {
+                let startTime = schedule.classTimes.first?.startTime
+                result.append((subject, schedule, startTime))
+            }
+        }
+
+        result.sort {
+            switch ($0.2, $1.2) {
+            case let (t0?, t1?): return t0 < t1
+            case (_?, nil): return true
+            case (nil, _?): return false
+            case (nil, nil): return false
+            }
+        }
+
+        // Return only the subject and schedule (not startTime)
+        return result.map { ($0.0, $0.1) }
+    }
+
 }

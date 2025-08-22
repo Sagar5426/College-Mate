@@ -1,45 +1,24 @@
 import SwiftUI
 import SwiftData
-import UniformTypeIdentifiers
-import PDFKit
-import PhotosUI
-
-// MARK: - IdentifiableImage
-struct IdentifiableImage: Identifiable {
-    let id = UUID()
-    let image: UIImage
-}
+import PhotosUI // Keep for ImagePicker
 
 // MARK: - CardDetailView
 struct CardDetailView: View {
     
     // MARK: - Properties
-    @Query var subjects: [Subject]
-    @Environment(\.modelContext) var modelContext
-    @Environment(\.dismiss) var dismiss
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
     
-    @State private var isShowingDeleteAlert = false
-    @State private var isShowingEditView = false
-    @State private var selectedImageForPreview: IdentifiableImage? = nil
-    @State private var zoomScale: CGFloat = 1.0
-    @State private var isShowingFileImporter = false
-    @State private var isShowingImagePicker = false
-    @State private var importedFileData: Data? = nil
-    @State private var isImportingFile = false
-    @State private var selectedImage: UIImage? = nil
-    @State private var selectedFilter: NoteFilter = .all
-    @State private var renamingFileURL: URL? = nil
-    @State private var newFileName: String = ""
-    @State private var scale = 1.0
-    @State private var lastScale = 1.0
-    @State private var offset = CGSize.zero
-    @State private var imageOffset = CGSize.zero
-    @State private var lastOffset = CGSize.zero
+    // The View now owns the ViewModel as its single source of truth for state and logic.
+    // @StateObject ensures the ViewModel's lifecycle is tied to the View.
+    @StateObject private var viewModel: CardDetailViewModel
     
-    private let minScale = 1.0
-    private let maxScale = 5.0
-    
-    let subject: Subject
+    // MARK: - Initializer
+    // The View's initializer now creates its ViewModel, injecting any dependencies it needs,
+    // like the 'subject' model and the 'modelContext'.
+    init(subject: Subject, modelContext: ModelContext) {
+        _viewModel = StateObject(wrappedValue: CardDetailViewModel(subject: subject, modelContext: modelContext))
+    }
     
     // MARK: - Main View
     var body: some View {
@@ -48,13 +27,14 @@ struct CardDetailView: View {
             contentView
         }
         .background(LinearGradient(colors: [.gray.opacity(0.1), .black.opacity(0.1), .gray.opacity(0.07)], startPoint: .top, endPoint: .bottom))
-        .alert("Rename PDF", isPresented: Binding<Bool>(get: { renamingFileURL != nil }, set: { _ in renamingFileURL = nil })) {
+        // All UI elements now bind directly to the ViewModel's @Published properties.
+        .alert("Rename PDF", isPresented: .constant(viewModel.renamingFileURL != nil)) {
             renameAlertContent
         }
         .overlay(alignment: .bottomTrailing) {
             addButton
         }
-        .navigationTitle(subject.name)
+        .navigationTitle(viewModel.subject.name)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {
@@ -62,26 +42,32 @@ struct CardDetailView: View {
                 deleteButton
             }
         }
-        .alert("Delete this Subject", isPresented: $isShowingDeleteAlert) {
+        .alert("Delete this Subject", isPresented: $viewModel.isShowingDeleteAlert) {
             deleteAlertContent
         } message: {
             Text("Deleting this subject will remove all associated data. Are you sure?")
         }
-        .fileImporter(isPresented: $isShowingFileImporter, allowedContentTypes: [.pdf], onCompletion: handleFileImport)
-        .sheet(isPresented: $isShowingImagePicker) {
-            ImagePicker(selectedImage: $selectedImage, onImageSelected: handleImageSelected)
+        .fileImporter(isPresented: $viewModel.isShowingFileImporter, allowedContentTypes: [.pdf], onCompletion: viewModel.handleFileImport)
+        .sheet(isPresented: $viewModel.isShowingImagePicker) {
+            // The ImagePicker now only needs the callback function from the ViewModel.
+            ImagePicker(onImageSelected: viewModel.handleImageSelected)
         }
-        .fullScreenCover(isPresented: $isShowingEditView) {
-            EditSubjectView(subject: subject, isShowingEditSubjectView: $isShowingEditView)
+        .fullScreenCover(isPresented: $viewModel.isShowingEditView) {
+            EditSubjectView(subject: viewModel.subject, isShowingEditSubjectView: $viewModel.isShowingEditView)
         }
-        .fullScreenCover(item: $selectedImageForPreview) { identifiableImage in
+        .fullScreenCover(item: $viewModel.selectedImageForPreview) { identifiableImage in
             imagePreviewView(for: identifiableImage)
+        }
+        // When the filter changes, we explicitly tell the ViewModel to re-filter the notes.
+        .onChange(of: viewModel.selectedFilter) {
+            viewModel.filterNotes()
         }
     }
     
-    // MARK: - Subviews
+    // MARK: - Subviews (UI Components)
+    
     private var filterPicker: some View {
-        Picker("Filter", selection: $selectedFilter) {
+        Picker("Filter", selection: $viewModel.selectedFilter) {
             ForEach(NoteFilter.allCases, id: \.self) { filter in
                 Text(filter.rawValue).tag(filter)
             }
@@ -90,34 +76,28 @@ struct CardDetailView: View {
         .padding()
     }
     
+    @ViewBuilder
     private var contentView: some View {
         ZStack {
-            let allFiles = FileHelper.loadFiles(from: subject)
-            Color.clear
-            VStack {
-                if allFiles.isEmpty {
-                    noNotesView
-                } else {
-                    notesGrid
-                }
-                
+            // The view is now declarative, showing UI based on ViewModel state.
+            if viewModel.allFiles.isEmpty {
+                noNotesView
+            } else {
+                notesGrid
             }
-            .overlay(
-                isImportingFile ?
-                    ZStack {
-                        Color.black.opacity(0.3) // Dim background
-                            .ignoresSafeArea()
-                        
-                        ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle())
-                            .scaleEffect(2) // Makes it larger
-                            .foregroundColor(.white)
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    : nil
-            )
+            
+            if viewModel.isImportingFile {
+                importingOverlay
+            }
         }
-        .ignoresSafeArea()
+        .ignoresSafeArea(.container, edges: .bottom)
+    }
+    
+    private var importingOverlay: some View {
+        ZStack {
+            Color.black.opacity(0.3).ignoresSafeArea()
+            ProgressView().progressViewStyle(.circular).scaleEffect(2)
+        }
     }
     
     private var noNotesView: some View {
@@ -125,27 +105,25 @@ struct CardDetailView: View {
             VStack {
                 Spacer(minLength: UIScreen.main.bounds.height / 6)
                 NoNotesView()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                Spacer(minLength: UIScreen.main.bounds.height / 4)
+                Spacer()
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
     
     private var notesGrid: some View {
         ScrollView {
             LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3)) {
-                ForEach(filteredNotes, id: \.self) { fileURL in
-                    if fileURL.pathExtension == "jpg" || fileURL.pathExtension == "png" {
-                        imageView(for: fileURL)
-                            .transition(.scale.combined(with: .opacity))
-                    } else if fileURL.pathExtension == "pdf" {
-                        pdfView(for: fileURL)
-                            .transition(.slide.combined(with: .opacity))
+                // The grid now reads from the ViewModel's 'filteredFiles' property.
+                ForEach(viewModel.filteredFiles, id: \.self) { fileURL in
+                    if fileURL.isImage {
+                        imageView(for: fileURL).transition(.scale.combined(with: .opacity))
+                    } else if fileURL.isPDF {
+                        pdfView(for: fileURL).transition(.slide.combined(with: .opacity))
                     }
                 }
-             }
-            Spacer(minLength: 37)
+            }
+            .padding(.horizontal)
+            Spacer(minLength: 70)
         }
     }
     
@@ -153,15 +131,14 @@ struct CardDetailView: View {
         Group {
             if let imageData = try? Data(contentsOf: fileURL), let image = UIImage(data: imageData) {
                 Image(uiImage: image)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(maxWidth: 100, maxHeight: 100)
+                    .resizable().scaledToFit().frame(maxWidth: 100, maxHeight: 100)
                     .clipShape(RoundedRectangle(cornerRadius: 8))
                     .onTapGesture {
-                        selectedImageForPreview = IdentifiableImage(image: image)
+                        // Action: Tell the ViewModel to show the image preview.
+                        viewModel.selectedImageForPreview = IdentifiableImage(image: image)
                     }
                     .contextMenu {
-                        Button(role: .destructive, action: { deleteFile(fileURL) }) {
+                        Button(role: .destructive) { viewModel.deleteFile(at: fileURL) } label: {
                             Label("Delete", systemImage: "trash")
                         }
                     }
@@ -172,63 +149,39 @@ struct CardDetailView: View {
     private func pdfView(for fileURL: URL) -> some View {
         NavigationLink(destination: PDFViewer(url: fileURL)) {
             VStack {
-                if let pdfThumbnail = generatePDFThumbnail(from: fileURL) {
+                // The view asks the ViewModel to generate the thumbnail.
+                if let pdfThumbnail = viewModel.generatePDFThumbnail(from: fileURL) {
                     Image(uiImage: pdfThumbnail)
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 80, height: 100)
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                        .resizable().scaledToFit().frame(width: 80, height: 100)
+                        .clipShape(RoundedRectangle(cornerRadius: 8)).shadow(radius: 2)
                 } else {
-                    Image(systemName: "doc.richtext")
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 50, height: 50)
-                        .foregroundColor(.blue)
+                    Image(systemName: "doc.richtext").resizable().scaledToFit().frame(width: 50, height: 50)
                 }
-                
-                Text(fileURL.lastPathComponent)
-                    .font(.caption)
-                    .lineLimit(1)
-                    .frame(maxWidth: 100)
+                Text(fileURL.lastPathComponent).font(.caption).lineLimit(1).frame(maxWidth: 100)
             }
         }
         .contextMenu {
-            Button(action: { renamePDF(fileURL) }) {
-                Label("Rename", systemImage: "pencil")
-            }
-            Button(role: .destructive, action: { deleteFile(fileURL) }) {
-                Label("Delete", systemImage: "trash")
-            }
+            Button { viewModel.renamingFileURL = fileURL } label: { Label("Rename", systemImage: "pencil") }
+            Button(role: .destructive) { viewModel.deleteFile(at: fileURL) } label: { Label("Delete", systemImage: "trash") }
         }
     }
     
     private var renameAlertContent: some View {
         Group {
-            TextField("New Name", text: $newFileName)
-            Button("Cancel", role: .cancel) { renamingFileURL = nil }
-            Button("Save") {
-                if let oldURL = renamingFileURL {
-                    let newURL = oldURL.deletingLastPathComponent().appendingPathComponent("\(newFileName).pdf")
-                    do {
-                        try FileManager.default.moveItem(at: oldURL, to: newURL)
-                    } catch {
-                        print("Rename failed: \(error.localizedDescription)")
-                    }
-                }
-                renamingFileURL = nil
-            }
+            TextField("New Name", text: $viewModel.newFileName)
+            Button("Cancel", role: .cancel) { viewModel.renamingFileURL = nil }
+            Button("Save") { viewModel.renameFile() }
         }
     }
     
     private var addButton: some View {
         Menu {
             Button("Image from Photos", systemImage: "photo.fill") {
-                isShowingImagePicker = true
+                viewModel.isShowingImagePicker = true
             }
-            .tag(0)
             Button("PDF from Files", systemImage: "text.document.fill") {
-                isShowingFileImporter = true
-            }.tag(1)
+                viewModel.isShowingFileImporter = true
+            }
         } label: {
             Image(systemName: "document.badge.plus.fill")
                 .resizable()
@@ -243,25 +196,18 @@ struct CardDetailView: View {
     }
     
     private var editButton: some View {
-        Button {
-            isShowingEditView.toggle()
-        } label: {
-            Label("Edit", systemImage: "pencil")
-        }
+        Button { viewModel.isShowingEditView.toggle() } label: { Label("Edit", systemImage: "pencil") }
     }
     
     private var deleteButton: some View {
-        Button {
-            isShowingDeleteAlert = true
-        } label: {
-            Label("Delete", systemImage: "trash")
-        }
+        Button(role: .destructive) { viewModel.isShowingDeleteAlert = true } label: { Label("Delete", systemImage: "trash") }
     }
     
     private var deleteAlertContent: some View {
-        Group {
-            Button("Delete", role: .destructive, action: deleteSubject)
-            Button("Cancel", role: .cancel, action: {})
+        Button("Delete", role: .destructive) {
+            // Action: Tell the ViewModel to delete the subject and pass the dismiss
+            // action from the environment as a callback.
+            viewModel.deleteSubject { dismiss() }
         }
     }
     
@@ -271,210 +217,39 @@ struct CardDetailView: View {
                 Color.black.ignoresSafeArea()
 
                 Image(uiImage: identifiableImage.image)
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .scaleEffect(scale)
-                    .offset(x: imageOffset.width, y: imageOffset.height)
-                    .onAppear {
-                        scale = 1.0
-                        imageOffset = .zero
-                        lastOffset = .zero
-                    }
-
+                    .resizable().aspectRatio(contentMode: .fit)
+                    .scaleEffect(viewModel.scale)
+                    .offset(viewModel.imageOffset)
+                    .onAppear(perform: viewModel.onImagePreviewAppear)
                     .gesture(
                         DragGesture()
-                            .onChanged { gesture in
-                                let maxOffsetX = (geometry.size.width * (scale - 1)) / 2
-                                let maxOffsetY = (geometry.size.height * (scale - 1)) / 2
-                                
-                                // Disable implicit animations during drag
-                                withTransaction(Transaction(animation: nil)) {
-                                    imageOffset.width = min(max(gesture.translation.width + lastOffset.width, -maxOffsetX), maxOffsetX)
-                                    imageOffset.height = min(max(gesture.translation.height + lastOffset.height, -maxOffsetY), maxOffsetY)
-                                }
-                            }
-                            .onEnded { _ in
-                                lastOffset = imageOffset
-                            }
+                            .onChanged { gesture in viewModel.adjustDragOffset(gesture: gesture, geometrySize: geometry.size) }
+                            .onEnded { _ in viewModel.onDragEnded() }
                     )
-                    .gesture(magnification(in: geometry.size))
+                    .gesture(
+                        MagnificationGesture()
+                            .onChanged(viewModel.adjustScale)
+                            .onEnded { _ in viewModel.onMagnificationEnded() }
+                    )
 
                 VStack {
                     HStack {
                         Spacer()
-                        Button(action: {
-                            selectedImageForPreview = nil
-                        }) {
-                            Image(systemName: "xmark.circle.fill")
-                                .resizable()
-                                .frame(width: 30, height: 30)
-                                .foregroundColor(.white)
-                                .background(Color.black.opacity(0.6))
-                                .clipShape(Circle())
-                                .padding()
+                        Button { viewModel.selectedImageForPreview = nil } label: {
+                            Image(systemName: "xmark.circle.fill").font(.largeTitle).foregroundColor(.white.opacity(0.7))
                         }
+                        .padding()
                     }
                     Spacer()
                 }
             }
         }
     }
-
-    
-    // MARK: - Helper Methods
-    private func magnification(in size: CGSize) -> some Gesture {
-        MagnificationGesture()
-            .onChanged { state in
-                adjustScale(from: state)
-            }
-            .onEnded { _ in
-                withAnimation(.easeOut(duration: 0.3)) {
-                    validateScaleLimits()
-                }
-                lastScale = 1.0
-
-                // Auto-center image after zooming out
-                if scale <= 1.01 {
-                    withAnimation(.easeOut(duration: 0.8)) {
-                        imageOffset = .zero
-                        lastOffset = .zero
-                    }
-                }
-            }
-    }
-
-
-
-    
-    private func adjustScale(from state: MagnificationGesture.Value) {
-        let delta = state / lastScale
-        scale *= delta
-        lastScale = state
-    }
-    
-    private func validateScaleLimits() {
-        scale = max(min(scale, maxScale), minScale)
-    }
-    
-    private func renamePDF(_ fileURL: URL) {
-        renamingFileURL = fileURL
-        newFileName = fileURL.deletingPathExtension().lastPathComponent
-    }
-    
-    private func deleteFile(_ fileURL: URL) {
-        do {
-            try FileManager.default.removeItem(at: fileURL)
-        } catch {
-            print("Failed to delete file: \(error.localizedDescription)")
-        }
-    }
-    
-    private func handleFileImport(result: Result<URL, Error>) {
-        isImportingFile = true
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            do {
-                let fileURL = try result.get()
-                print("Selected PDF URL: \(fileURL)")
-                
-                guard fileURL.startAccessingSecurityScopedResource() else {
-                    print("Failed to access security-scoped resource.")
-                    return
-                }
-
-                defer { fileURL.stopAccessingSecurityScopedResource() }
-                
-                let data = try Data(contentsOf: fileURL)
-                let fileName = "pdf_\(UUID().uuidString).pdf"
-                
-                if let savedURL = FileHelper.saveFile(data: data, fileName: fileName, to: subject) {
-                    print("PDF saved at: \(savedURL)")
-
-                    let newNote = Note(title: fileName, type: .pdf, content: Data(savedURL.absoluteString.utf8))
-                    withAnimation {
-                        subject.notes.append(newNote)
-                    }
-                    try? modelContext.save()
-                }
-            } catch {
-                print("Failed to import PDF: \(error.localizedDescription)")
-            }
-            isImportingFile = false
-        }
-    }
-    
-    private func handleImageSelected(_ image: UIImage?) {
-        guard let image = image, let imageData = image.jpegData(compressionQuality: 0.8) else { return }
-        
-        let fileName = "image_\(UUID().uuidString).jpg"
-        
-        if let fileURL = FileHelper.saveFile(data: imageData, fileName: fileName, to: subject) {
-            let newNote = Note(title: fileName, type: .image, content: Data(fileURL.absoluteString.utf8))
-            subject.notes.append(newNote)
-            try? modelContext.save()
-        }
-    }
-    
-    private func deleteSubject() {
-        FileHelper.deleteSubjectFolder(for: subject)
-        modelContext.delete(subject)
-        dismiss()
-    }
-    
-    private var filteredNotes: [URL] {
-        let allFiles = FileHelper.loadFiles(from: subject)
-
-        switch selectedFilter {
-        case .all:
-            return allFiles
-        case .images:
-            return allFiles.filter { $0.pathExtension.lowercased() == "jpg" || $0.pathExtension.lowercased() == "png" }
-        case .pdfs:
-            return allFiles.filter { $0.pathExtension.lowercased() == "pdf" }
-        }
-    }
-    
-    private func generatePDFThumbnail(from url: URL, pageNumber: Int = 1) -> UIImage? {
-        guard let document = PDFDocument(url: url), let page = document.page(at: pageNumber - 1) else {
-            return nil
-        }
-
-        let pageRect = page.bounds(for: .mediaBox)
-        let renderer = UIGraphicsImageRenderer(size: pageRect.size)
-        
-        return renderer.image { ctx in
-            UIColor.white.set()
-            ctx.fill(pageRect)
-            page.draw(with: .mediaBox, to: ctx.cgContext)
-        }
-    }
 }
 
-// MARK: - NoteFilter
-enum NoteFilter: String, CaseIterable {
-    case all = "All"
-    case images = "Images"
-    case pdfs = "PDFs"
-}
-
-// MARK: - Preview
-#Preview {
-    do {
-        let config = ModelConfiguration(isStoredInMemoryOnly: true)
-        let container = try ModelContainer(for: Subject.self, configurations: config)
-        let example = Subject(name: "Example")
-        
-        return NavigationStack {
-            CardDetailView(subject: example)
-                .modelContainer(container)
-        }
-    } catch {
-        return Text("Failed to create preview: \(error.localizedDescription)")
-    }
-}
-
-// MARK: - ImagePicker
+// MARK: - ImagePicker (Slightly Simplified)
 struct ImagePicker: UIViewControllerRepresentable {
-    @Binding var selectedImage: UIImage?
+    // We no longer need the @Binding, the closure is sufficient.
     var onImageSelected: (UIImage?) -> Void
     
     func makeUIViewController(context: Context) -> PHPickerViewController {
@@ -500,14 +275,34 @@ struct ImagePicker: UIViewControllerRepresentable {
         
         func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
             picker.dismiss(animated: true)
-            guard let provider = results.first?.itemProvider, provider.canLoadObject(ofClass: UIImage.self) else { return }
+            guard let provider = results.first?.itemProvider, provider.canLoadObject(ofClass: UIImage.self) else {
+                parent.onImageSelected(nil)
+                return
+            }
             
             provider.loadObject(ofClass: UIImage.self) { image, _ in
                 DispatchQueue.main.async {
-                    self.parent.selectedImage = image as? UIImage
-                    self.parent.onImageSelected(self.parent.selectedImage)
+                    self.parent.onImageSelected(image as? UIImage)
                 }
             }
         }
+    }
+}
+
+// MARK: - Preview
+// The preview needs to be updated to inject the modelContext into the view's new initializer.
+#Preview {
+    do {
+        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: Subject.self, configurations: config)
+        let example = Subject(name: "Example")
+        container.mainContext.insert(example) // Insert for the preview
+        
+        return NavigationStack {
+            CardDetailView(subject: example, modelContext: container.mainContext)
+                .modelContainer(container)
+        }
+    } catch {
+        return Text("Failed to create preview: \(error.localizedDescription)")
     }
 }

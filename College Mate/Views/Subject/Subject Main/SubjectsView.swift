@@ -29,7 +29,7 @@ struct SubjectsView: View {
                             // Show list of subjects if available
                             ForEach(subjects, id: \.id) { subject in
                                 NavigationLink {
-                                    CardDetailView(subject: subject)
+                                    CardDetailView(subject: subject, modelContext: modelContext)
                                 } label: {
                                     SubjectCardView(subject: subject)
                                 }
