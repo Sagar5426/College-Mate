@@ -6,18 +6,16 @@ struct AttendanceView: View {
     @Query var subjects: [Subject]
     
     @StateObject private var viewModel = AttendanceViewModel()
-    @State private var isShowingDatePicker = false
-    
-    // --- FIX IS HERE (Part 1) ---
-    // We add a new state variable to hold a unique ID for our view.
+    // This state variable is the key to fixing the layout bug.
     @State private var viewID = UUID()
     
     var body: some View {
-        ZStack {
+        // The NavigationStack is restored as the root view.
+        NavigationStack {
             ScrollView(.vertical) {
                 LazyVStack(spacing: 16, pinnedViews: [.sectionHeaders]) {
                     Section {
-                        DatePickerHeader(viewModel: viewModel, isShowingDatePicker: $isShowingDatePicker)
+                        DatePickerHeader(viewModel: viewModel)
                         HolidayButton(viewModel: viewModel)
                         Divider().padding(.vertical)
                         ClassesList(viewModel: viewModel)
@@ -30,52 +28,37 @@ struct AttendanceView: View {
                 }
                 .padding()
             }
-            // --- FIX IS HERE (Part 2) ---
-            // We attach the unique ID to the ScrollView. When this ID changes,
-            // SwiftUI destroys the old ScrollView and creates a brand new one,
-            // which forces a full layout recalculation.
+            // The .id() modifier is attached to the ScrollView.
             .id(viewID)
             .background(LinearGradient(colors: [.gray.opacity(0.1), .black.opacity(0.1), .gray.opacity(0.07)], startPoint: .top, endPoint: .bottom))
-            .blur(radius: isShowingDatePicker ? 8 : 0)
-            .disabled(isShowingDatePicker)
+            .blur(radius: viewModel.isShowingDatePicker ? 8 : 0)
+            .disabled(viewModel.isShowingDatePicker)
             .fullScreenCover(isPresented: $viewModel.isShowingProfileView) {
                 ProfileView(isShowingProfileView: $viewModel.isShowingProfileView)
             }
-            
-            if isShowingDatePicker {
-                Color.black.opacity(0.4)
-                    .ignoresSafeArea()
-                    .onTapGesture {
-                        withAnimation(.snappy) {
-                            isShowingDatePicker = false
-                        }
-                    }
-                    .transition(.opacity)
-                
-                DateFilterView(
-                    start: viewModel.selectedDate,
-                    onSubmit: { start in
-                        withAnimation(.snappy) {
+            // The original .overlay modifier is restored.
+            .overlay {
+                if viewModel.isShowingDatePicker {
+                    DateFilterView(
+                        start: viewModel.selectedDate,
+                        onSubmit: { start in
                             viewModel.selectedDate = start
-                            isShowingDatePicker = false
-                            // --- FIX IS HERE (Part 3) ---
-                            // When the picker is dismissed, we generate a new UUID.
-                            // This changes the ScrollView's identity and forces it to redraw correctly.
+                            viewModel.isShowingDatePicker = false
+                            // When the picker closes, we change the ID to force a redraw.
                             viewID = UUID()
-                        }
-                    },
-                    onClose: {
-                        withAnimation(.snappy) {
-                            isShowingDatePicker = false
-                            // --- FIX IS HERE (Part 3) ---
+                        },
+                        onClose: {
+                            viewModel.isShowingDatePicker = false
                             // We do the same on close.
                             viewID = UUID()
                         }
-                    }
-                )
-                .transition(.move(edge: .bottom).combined(with: .opacity))
+                    )
+                    .transition(.move(edge: .leading))
+                }
             }
         }
+        // The original global animation modifier is restored.
+        .animation(.snappy, value: viewModel.isShowingDatePicker)
         .onAppear {
             viewModel.setup(subjects: subjects, modelContext: modelContext)
         }
@@ -89,7 +72,6 @@ struct AttendanceView: View {
 
 struct DatePickerHeader: View {
     @ObservedObject var viewModel: AttendanceViewModel
-    @Binding var isShowingDatePicker: Bool
     
     private var isNextDayDisabled: Bool { Calendar.current.isDateInToday(viewModel.selectedDate) }
     
@@ -99,8 +81,8 @@ struct DatePickerHeader: View {
             Spacer()
             Text(viewModel.selectedDate, formatter: Self.dateFormatter).font(.headline)
                 .onTapGesture {
-                    withAnimation(.snappy) {
-                        isShowingDatePicker.toggle()
+                    withAnimation {
+                        viewModel.isShowingDatePicker.toggle()
                     }
                 }
             Spacer()
