@@ -6,11 +6,14 @@ class Subject {
     var id: UUID
     var name: String
     var startDateOfSubject: Date
-    var schedules: [Schedule]
-    var attendance: Attendance
-    var notes: [Note] // New property to store notes
-    
+    @Relationship(deleteRule: .cascade) var schedules: [Schedule]
+    @Relationship(deleteRule: .cascade) var attendance: Attendance
+    @Relationship(deleteRule: .cascade) var notes: [Note]
     var logs: [AttendanceLogEntry] = []
+    
+    // Each subject now has a list of its unique attendance records.
+    @Relationship(deleteRule: .cascade, inverse: \AttendanceRecord.subject)
+    var records: [AttendanceRecord] = []
 
     init(name: String, startDateOfSubject: Date = .now, schedules: [Schedule] = [], attendance: Attendance = Attendance(totalClasses: 0, attendedClasses: 0), notes: [Note] = []) {
         self.id = UUID()
@@ -21,7 +24,6 @@ class Subject {
         self.notes = notes
     }
 }
-
 
 
 

@@ -15,7 +15,9 @@ struct HomeView: View {
             Tab("Subjects", systemImage: "book.closed") {
                 SubjectsView()
             }
-            
+            Tab("Daily Log", systemImage: "calendar.circle.fill") {
+                AttendanceView()
+            }
             
             Tab("TimeTable", systemImage: "calendar") {
                 TimeTableView()

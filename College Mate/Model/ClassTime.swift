@@ -11,11 +11,11 @@ import SwiftData
 @Model
 class ClassTime {
     var id: UUID
+    // 'label' has been removed. This is now just a template for a time.
     var date: Date?
     var startTime: Date?
     var endTime: Date?
     var schedule: Schedule?
-    
     
     init(startTime: Date? = nil, endTime: Date? = nil, date: Date? = Date()) {
         self.id = UUID()
@@ -24,7 +24,6 @@ class ClassTime {
         self.date = date
     }
 }
-
 // Define a custom struct for class times
 struct ClassPeriodTime: Hashable {
     var startTime: Date?
