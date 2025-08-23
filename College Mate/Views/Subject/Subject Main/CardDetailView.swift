@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
 import PhotosUI // Keep for ImagePicker
+import AVFoundation // Import for system sounds
 
 // MARK: - CardDetailView
 struct CardDetailView: View {
@@ -200,13 +201,21 @@ struct CardDetailView: View {
     }
     
     private var deleteButton: some View {
-        Button(role: .destructive) { viewModel.isShowingDeleteAlert = true } label: { Label("Delete", systemImage: "trash") }
+        Button(role: .destructive) {
+            // --- FIX IS HERE (Part 1) ---
+            // Only trigger the haptic vibration when the user initiates the delete action.
+            triggerHapticFeedback()
+            viewModel.isShowingDeleteAlert = true
+        } label: {
+            Label("Delete", systemImage: "trash")
+        }
     }
     
     private var deleteAlertContent: some View {
         Button("Delete", role: .destructive) {
-            // Action: Tell the ViewModel to delete the subject and pass the dismiss
-            // action from the environment as a callback.
+            // --- FIX IS HERE (Part 2) ---
+            // Only play the sound when the user confirms the deletion.
+            playDeleteSound()
             viewModel.deleteSubject { dismiss() }
         }
     }
@@ -244,6 +253,20 @@ struct CardDetailView: View {
                 }
             }
         }
+    }
+
+    // MARK: - Helper Methods
+    
+    /// Triggers a strong haptic vibration for a destructive action.
+    private func triggerHapticFeedback() {
+        let generator = UINotificationFeedbackGenerator()
+        generator.prepare()
+        generator.notificationOccurred(.error)
+    }
+    
+    /// Plays the system delete sound.
+    private func playDeleteSound() {
+        SoundManager.shared.playDeleteSound()
     }
 }
 
