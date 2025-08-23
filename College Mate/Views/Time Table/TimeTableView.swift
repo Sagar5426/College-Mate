@@ -49,7 +49,8 @@ struct TimeTableView: View {
                                 .padding(.top, 100)
                         } else {
                             ForEach(Day.allCases, id: \.self) { day in
-                                let sortedItems = sortedSchedules(for: day)
+                                // FIX 1: We now get a list of individual class times.
+                                let sortedItems = sortedClassTimes(for: day)
                                 // Only show days that have classes scheduled.
                                 if !sortedItems.isEmpty {
                                     VStack(alignment: .leading, spacing: 12) {
@@ -61,8 +62,11 @@ struct TimeTableView: View {
                                         )
                                         
                                         if expandedDays.contains(day) {
-                                            ForEach(sortedItems, id: \.1.id) { subject, schedule in
-                                                ScheduleCard(subject: subject, schedule: schedule)
+                                            // FIX 2: The loop now iterates over each class time,
+                                            // using its unique ID.
+                                            ForEach(sortedItems, id: \.1.id) { subject, classTime in
+                                                // FIX 3: The card now receives the specific ClassTime.
+                                                ScheduleCard(subject: subject, classTime: classTime)
                                             }
                                         }
                                     }
@@ -79,7 +83,6 @@ struct TimeTableView: View {
             .fullScreenCover(isPresented: $isShowingProfileView) {
                 ProfileView(isShowingProfileView: $isShowingProfileView)
             }
-            // FIX 3: The background has been restored to the original gradient.
             .background(LinearGradient(colors: [.gray.opacity(0.1), .black], startPoint: .top, endPoint: .center))
             .navigationTitle("Time Table")
             .navigationBarHidden(true)
@@ -97,15 +100,20 @@ struct TimeTableView: View {
         }
     }
     
-    private func sortedSchedules(for day: Day) -> [(Subject, Schedule)] {
-        var result: [(Subject, Schedule, Date?)] = []
+    // This function now returns a tuple of (Subject, ClassTime) for each class.
+    private func sortedClassTimes(for day: Day) -> [(Subject, ClassTime)] {
+        var result: [(Subject, ClassTime)] = []
         for subject in subjects {
             for schedule in subject.schedules where schedule.day == day.rawValue {
-                result.append((subject, schedule, schedule.classTimes.first?.startTime))
+                // We iterate through every class time in the schedule.
+                for classTime in schedule.classTimes {
+                    result.append((subject, classTime))
+                }
             }
         }
-        result.sort { ($0.2 ?? .distantPast) < ($1.2 ?? .distantPast) }
-        return result.map { ($0.0, $0.1) }
+        // Sort the final list by the start time of each class.
+        result.sort { ($0.1.startTime ?? .distantPast) < ($1.1.startTime ?? .distantPast) }
+        return result
     }
 }
 
@@ -144,10 +152,9 @@ struct DayHeaderView: View {
 
 // MARK: - Schedule Card (Redesigned)
 struct ScheduleCard: View {
-    // FIX 1: Using @Bindable ensures that when the subject's attendance
-    // changes, this view will automatically update.
     @Bindable var subject: Subject
-    let schedule: Schedule
+    // The card now accepts a ClassTime object instead of a Schedule.
+    let classTime: ClassTime
 
     var body: some View {
         HStack(spacing: 15) {
@@ -161,8 +168,8 @@ struct ScheduleCard: View {
                     .font(.headline)
                     .foregroundStyle(.white)
                 
-                if let classTime = schedule.classTimes.first,
-                   let startTime = classTime.startTime,
+                // It now uses the specific start and end times from the ClassTime object.
+                if let startTime = classTime.startTime,
                    let endTime = classTime.endTime {
                     HStack {
                         Image(systemName: "clock")
@@ -175,7 +182,6 @@ struct ScheduleCard: View {
             
             Spacer()
             
-            // FIX 2: The frame is now larger to provide more padding.
             ZStack {
                 Circle()
                     .stroke(subject.attendance.percentage >= 75 ? .green : .red, lineWidth: 2.5)
@@ -222,19 +228,14 @@ extension Subject {
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         let container = try ModelContainer(for: Subject.self, configurations: config)
         
-        // Sample Data
-        let mathSchedule = Schedule(day: "Monday", classTimes: [ClassTime(startTime: Date().addingTimeInterval(-3600*2), endTime: Date().addingTimeInterval(-3600*1))])
+        // Sample Data with two classes on the same day.
+        let mathSchedule = Schedule(day: "Monday", classTimes: [
+            ClassTime(startTime: Date().addingTimeInterval(-3600*4), endTime: Date().addingTimeInterval(-3600*3)),
+            ClassTime(startTime: Date().addingTimeInterval(-3600*2), endTime: Date().addingTimeInterval(-3600*1))
+        ])
         let math = Subject(name: "Mathematics", schedules: [mathSchedule], attendance: Attendance(totalClasses: 10, attendedClasses: 8))
         
-        let physicsSchedule = Schedule(day: "Monday", classTimes: [ClassTime(startTime: Date().addingTimeInterval(-3600*4), endTime: Date().addingTimeInterval(-3600*3))])
-        let physics = Subject(name: "Physics", schedules: [physicsSchedule], attendance: Attendance(totalClasses: 12, attendedClasses: 7))
-        
-        let historySchedule = Schedule(day: "Wednesday", classTimes: [ClassTime(startTime: Date(), endTime: Date().addingTimeInterval(3600))])
-        let history = Subject(name: "History", schedules: [historySchedule])
-        
         container.mainContext.insert(math)
-        container.mainContext.insert(physics)
-        container.mainContext.insert(history)
         
         return TimeTableView()
             .modelContainer(container)
