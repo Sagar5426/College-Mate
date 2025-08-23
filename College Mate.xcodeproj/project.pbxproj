@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		45C5A75D2E599E580025FC0B /* Mantis in Frameworks */ = {isa = PBXBuildFile; productRef = 45C5A75C2E599E580025FC0B /* Mantis */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		452D1A5C2D283ED7006E2FAA /* College Mate.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "College Mate.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -28,6 +32,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				45C5A75D2E599E580025FC0B /* Mantis in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -72,6 +77,7 @@
 			);
 			name = "College Mate";
 			packageProductDependencies = (
+				45C5A75C2E599E580025FC0B /* Mantis */,
 			);
 			productName = "College Mate";
 			productReference = 452D1A5C2D283ED7006E2FAA /* College Mate.app */;
@@ -101,6 +107,9 @@
 			);
 			mainGroup = 452D1A532D283ED7006E2FAA;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				45C5A75B2E599E580025FC0B /* XCRemoteSwiftPackageReference "Mantis" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 452D1A5D2D283ED7006E2FAA /* Products */;
 			projectDirPath = "";
@@ -359,6 +368,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		45C5A75B2E599E580025FC0B /* XCRemoteSwiftPackageReference "Mantis" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/guoyingtao/Mantis.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.7.5;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		45C5A75C2E599E580025FC0B /* Mantis */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 45C5A75B2E599E580025FC0B /* XCRemoteSwiftPackageReference "Mantis" */;
+			productName = Mantis;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 452D1A542D283ED7006E2FAA /* Project object */;
 }

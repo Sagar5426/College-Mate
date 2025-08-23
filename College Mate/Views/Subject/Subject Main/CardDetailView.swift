@@ -1,34 +1,25 @@
 import SwiftUI
 import SwiftData
-import PhotosUI // Keep for ImagePicker
-import AVFoundation // Import for system sounds
+import PhotosUI
 
 // MARK: - CardDetailView
 struct CardDetailView: View {
     
-    // MARK: - Properties
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     
-    // The View now owns the ViewModel as its single source of truth for state and logic.
-    // @StateObject ensures the ViewModel's lifecycle is tied to the View.
     @StateObject private var viewModel: CardDetailViewModel
     
-    // MARK: - Initializer
-    // The View's initializer now creates its ViewModel, injecting any dependencies it needs,
-    // like the 'subject' model and the 'modelContext'.
     init(subject: Subject, modelContext: ModelContext) {
         _viewModel = StateObject(wrappedValue: CardDetailViewModel(subject: subject, modelContext: modelContext))
     }
     
-    // MARK: - Main View
     var body: some View {
         VStack {
             filterPicker
             contentView
         }
         .background(LinearGradient(colors: [.gray.opacity(0.1), .black.opacity(0.1), .gray.opacity(0.07)], startPoint: .top, endPoint: .bottom))
-        // All UI elements now bind directly to the ViewModel's @Published properties.
         .alert("Rename PDF", isPresented: .constant(viewModel.renamingFileURL != nil)) {
             renameAlertContent
         }
@@ -50,22 +41,25 @@ struct CardDetailView: View {
         }
         .fileImporter(isPresented: $viewModel.isShowingFileImporter, allowedContentTypes: [.pdf], onCompletion: viewModel.handleFileImport)
         .sheet(isPresented: $viewModel.isShowingImagePicker) {
-            // The ImagePicker now only needs the callback function from the ViewModel.
-            ImagePicker(onImageSelected: viewModel.handleImageSelected)
+            ImagePicker(sourceType: .photoLibrary, onImageSelected: viewModel.handleImageSelected)
         }
-        .fullScreenCover(isPresented: $viewModel.isShowingEditView) {
-            EditSubjectView(subject: viewModel.subject, isShowingEditSubjectView: $viewModel.isShowingEditView)
+        .fullScreenCover(isPresented: $viewModel.isShowingCamera) {
+            ImagePicker(sourceType: .camera, onImageSelected: viewModel.handleImageSelected)
+        }
+        .fullScreenCover(isPresented: $viewModel.isShowingCropper) {
+            if let imageToCrop = viewModel.imageToCrop {
+                ImageCropperView(image: imageToCrop, onCrop: viewModel.handleCroppedImage, isPresented: $viewModel.isShowingCropper)
+            }
         }
         .fullScreenCover(item: $viewModel.selectedImageForPreview) { identifiableImage in
             imagePreviewView(for: identifiableImage)
         }
-        // When the filter changes, we explicitly tell the ViewModel to re-filter the notes.
         .onChange(of: viewModel.selectedFilter) {
             viewModel.filterNotes()
         }
     }
     
-    // MARK: - Subviews (UI Components)
+    // MARK: - Subviews
     
     private var filterPicker: some View {
         Picker("Filter", selection: $viewModel.selectedFilter) {
@@ -80,7 +74,6 @@ struct CardDetailView: View {
     @ViewBuilder
     private var contentView: some View {
         ZStack {
-            // The view is now declarative, showing UI based on ViewModel state.
             if viewModel.allFiles.isEmpty {
                 noNotesView
             } else {
@@ -114,7 +107,6 @@ struct CardDetailView: View {
     private var notesGrid: some View {
         ScrollView {
             LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3)) {
-                // The grid now reads from the ViewModel's 'filteredFiles' property.
                 ForEach(viewModel.filteredFiles, id: \.self) { fileURL in
                     if fileURL.isImage {
                         imageView(for: fileURL).transition(.scale.combined(with: .opacity))
@@ -135,7 +127,6 @@ struct CardDetailView: View {
                     .resizable().scaledToFit().frame(maxWidth: 100, maxHeight: 100)
                     .clipShape(RoundedRectangle(cornerRadius: 8))
                     .onTapGesture {
-                        // Action: Tell the ViewModel to show the image preview.
                         viewModel.selectedImageForPreview = IdentifiableImage(image: image)
                     }
                     .contextMenu {
@@ -150,7 +141,6 @@ struct CardDetailView: View {
     private func pdfView(for fileURL: URL) -> some View {
         NavigationLink(destination: PDFViewer(url: fileURL)) {
             VStack {
-                // The view asks the ViewModel to generate the thumbnail.
                 if let pdfThumbnail = viewModel.generatePDFThumbnail(from: fileURL) {
                     Image(uiImage: pdfThumbnail)
                         .resizable().scaledToFit().frame(width: 80, height: 100)
@@ -177,6 +167,9 @@ struct CardDetailView: View {
     
     private var addButton: some View {
         Menu {
+            Button("Camera", systemImage: "camera.fill") {
+                viewModel.isShowingCamera = true
+            }
             Button("Image from Photos", systemImage: "photo.fill") {
                 viewModel.isShowingImagePicker = true
             }
@@ -202,8 +195,6 @@ struct CardDetailView: View {
     
     private var deleteButton: some View {
         Button(role: .destructive) {
-            // --- FIX IS HERE (Part 1) ---
-            // Only trigger the haptic vibration when the user initiates the delete action.
             triggerHapticFeedback()
             viewModel.isShowingDeleteAlert = true
         } label: {
@@ -213,8 +204,6 @@ struct CardDetailView: View {
     
     private var deleteAlertContent: some View {
         Button("Delete", role: .destructive) {
-            // --- FIX IS HERE (Part 2) ---
-            // Only play the sound when the user confirms the deletion.
             playDeleteSound()
             viewModel.deleteSubject { dismiss() }
         }
@@ -255,71 +244,64 @@ struct CardDetailView: View {
         }
     }
 
-    // MARK: - Helper Methods
-    
-    /// Triggers a strong haptic vibration for a destructive action.
     private func triggerHapticFeedback() {
         let generator = UINotificationFeedbackGenerator()
         generator.prepare()
         generator.notificationOccurred(.error)
     }
     
-    /// Plays the system delete sound.
     private func playDeleteSound() {
         SoundManager.shared.playDeleteSound()
     }
 }
 
-// MARK: - ImagePicker (Slightly Simplified)
+// MARK: - ImagePicker (Updated)
+/// A more versatile ImagePicker that can handle both the camera and the photo library.
 struct ImagePicker: UIViewControllerRepresentable {
-    // We no longer need the @Binding, the closure is sufficient.
+    
+    var sourceType: UIImagePickerController.SourceType
     var onImageSelected: (UIImage?) -> Void
     
-    func makeUIViewController(context: Context) -> PHPickerViewController {
-        var config = PHPickerConfiguration()
-        config.filter = .images
-        let picker = PHPickerViewController(configuration: config)
+    func makeUIViewController(context: Context) -> UIImagePickerController {
+        let picker = UIImagePickerController()
+        picker.sourceType = sourceType
         picker.delegate = context.coordinator
         return picker
     }
     
-    func updateUIViewController(_ uiViewController: PHPickerViewController, context: Context) {}
+    func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {}
     
     func makeCoordinator() -> Coordinator {
         Coordinator(self)
     }
     
-    class Coordinator: NSObject, PHPickerViewControllerDelegate {
+    class Coordinator: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
         let parent: ImagePicker
         
         init(_ parent: ImagePicker) {
             self.parent = parent
         }
         
-        func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
+        func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey : Any]) {
+            if let image = info[.originalImage] as? UIImage {
+                parent.onImageSelected(image)
+            }
             picker.dismiss(animated: true)
-            guard let provider = results.first?.itemProvider, provider.canLoadObject(ofClass: UIImage.self) else {
-                parent.onImageSelected(nil)
-                return
-            }
-            
-            provider.loadObject(ofClass: UIImage.self) { image, _ in
-                DispatchQueue.main.async {
-                    self.parent.onImageSelected(image as? UIImage)
-                }
-            }
+        }
+        
+        func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
+            parent.onImageSelected(nil)
+            picker.dismiss(animated: true)
         }
     }
 }
 
-// MARK: - Preview
-// The preview needs to be updated to inject the modelContext into the view's new initializer.
 #Preview {
     do {
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         let container = try ModelContainer(for: Subject.self, configurations: config)
         let example = Subject(name: "Example")
-        container.mainContext.insert(example) // Insert for the preview
+        container.mainContext.insert(example)
         
         return NavigationStack {
             CardDetailView(subject: example, modelContext: container.mainContext)
