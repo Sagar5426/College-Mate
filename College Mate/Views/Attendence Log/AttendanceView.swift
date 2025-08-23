@@ -15,8 +15,8 @@ struct AttendanceView: View {
             ScrollView(.vertical) {
                 LazyVStack(spacing: 16, pinnedViews: [.sectionHeaders]) {
                     Section {
-                        DatePickerHeader(viewModel: viewModel)
-                        HolidayButton(viewModel: viewModel)
+                        // The two separate views are now replaced by the single control panel.
+                        ControlPanelView(viewModel: viewModel)
                         Divider().padding(.vertical)
                         ClassesList(viewModel: viewModel)
                     } header: {
@@ -68,55 +68,83 @@ struct AttendanceView: View {
     }
 }
 
-// MARK: - Subviews
-
-struct DatePickerHeader: View {
+// MARK: - Redesigned Control Panel View
+struct ControlPanelView: View {
     @ObservedObject var viewModel: AttendanceViewModel
     
     private var isNextDayDisabled: Bool { Calendar.current.isDateInToday(viewModel.selectedDate) }
     
     var body: some View {
-        HStack {
-            Button(action: viewModel.moveToPreviousDay) { Image(systemName: "chevron.left").font(.title2).padding() }
-            Spacer()
-            Text(viewModel.selectedDate, formatter: Self.dateFormatter).font(.headline)
-                .onTapGesture {
-                    withAnimation {
+        VStack(spacing: 16) {
+            // --- Date Controls ---
+            HStack {
+                Button(action: viewModel.moveToPreviousDay) {
+                    Image(systemName: "chevron.left.circle.fill")
+                }
+                
+                Spacer()
+                
+                Button(action: {
+                    withAnimation(.snappy) {
                         viewModel.isShowingDatePicker.toggle()
                     }
+                }) {
+                    // New detailed date format
+                    Text(viewModel.selectedDate.formatted(.dateTime.day().month(.wide).year().weekday(.wide)))
+                        .font(.headline)
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
                 }
-            Spacer()
-            Button(action: viewModel.moveToNextDay) {
-                Image(systemName: "chevron.right").font(.title2).padding()
-                    .foregroundColor(isNextDayDisabled ? .gray : .accentColor)
-            }.disabled(isNextDayDisabled)
-        }.padding(.horizontal)
-    }
-    
-    static var dateFormatter: DateFormatter {
-        let formatter = DateFormatter(); formatter.dateStyle = .full; return formatter
+                .buttonStyle(.plain)
+                
+                Spacer()
+                
+                Button(action: viewModel.moveToNextDay) {
+                    Image(systemName: "chevron.right.circle.fill")
+                }
+                .disabled(isNextDayDisabled)
+                .opacity(isNextDayDisabled ? 0.5 : 1.0)
+            }
+            .font(.title)
+            .foregroundStyle(.blue)
+            
+            // --- Holiday Button ---
+            Button(action: { viewModel.isHoliday.toggle() }) {
+                Text(viewModel.isHoliday ? "Marked as Holiday" : "Mark Today as Holiday")
+                    .fontWeight(.semibold)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(viewModel.isHoliday ? .orange.opacity(0.8) : .gray.opacity(0.2))
+                    .foregroundStyle(.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+            }
+            .buttonStyle(.plain)
+        }
+        .padding()
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 15))
     }
 }
 
-struct HolidayButton: View {
-    @ObservedObject var viewModel: AttendanceViewModel
-    
-    var body: some View {
-        Button(action: { viewModel.isHoliday.toggle() }) {
-            Text(viewModel.isHoliday ? "Marked as Holiday" : "Today is a Holiday")
-                .frame(maxWidth: .infinity).padding().foregroundColor(.white)
-                .background(viewModel.isHoliday ? Color.red : Color.blue)
-                .clipShape(RoundedRectangle(cornerRadius: 10)).padding(.horizontal)
-        }
-    }
-}
+
+// MARK: - Other Subviews (ClassesList, ClassAttendanceRow)
 
 struct ClassesList: View {
     @ObservedObject var viewModel: AttendanceViewModel
     
     var body: some View {
         if viewModel.isHoliday {
-            Text("No classes today. Enjoy your holiday!").font(.subheadline).foregroundColor(.gray).padding()
+            VStack(spacing: 10) {
+                Image(systemName: "sun.max.fill")
+                    .font(.largeTitle)
+                    .foregroundStyle(.orange)
+                Text("Enjoy your holiday!")
+                    .font(.subheadline)
+                    .foregroundColor(.gray)
+            }
+            .padding(.vertical, 50)
+            
         } else if viewModel.scheduledSubjects.isEmpty {
             Text("No classes scheduled for this day.").font(.subheadline).foregroundColor(.gray).padding()
         } else {
@@ -166,8 +194,8 @@ struct ClassAttendanceRow: View {
     private var labelColor: Color {
         switch record.status {
         case "Attended": return .green
-        case "Not Attended": return .blue
-        case "Canceled": return .red
+        case "Not Attended": return .red
+        case "Canceled": return .blue
         default: return .gray
         }
     }

@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
 import PhotosUI
+import AVFoundation
 
 // MARK: - CardDetailView
 struct CardDetailView: View {
@@ -50,6 +51,10 @@ struct CardDetailView: View {
             if let imageToCrop = viewModel.imageToCrop {
                 ImageCropperView(image: imageToCrop, onCrop: viewModel.handleCroppedImage, isPresented: $viewModel.isShowingCropper)
             }
+        }
+        .fullScreenCover(isPresented: $viewModel.isShowingEditView) {
+            // This line is correct and relies on the button to work.
+            EditSubjectView(subject: viewModel.subject, isShowingEditSubjectView: $viewModel.isShowingEditView)
         }
         .fullScreenCover(item: $viewModel.selectedImageForPreview) { identifiableImage in
             imagePreviewView(for: identifiableImage)
@@ -190,16 +195,26 @@ struct CardDetailView: View {
     }
     
     private var editButton: some View {
-        Button { viewModel.isShowingEditView.toggle() } label: { Label("Edit", systemImage: "pencil") }
+        // --- DEFINITIVE FIX ---
+        // This structure is the most reliable for toolbar buttons.
+        // It provides a clear tap target and works correctly with .tint().
+        Button(action: {
+            viewModel.isShowingEditView.toggle()
+        }) {
+            Image(systemName: "pencil")
+        }
+        .tint(.blue)
     }
     
     private var deleteButton: some View {
-        Button(role: .destructive) {
+        // Applying the same robust structure for consistency.
+        Button(action: {
             triggerHapticFeedback()
             viewModel.isShowingDeleteAlert = true
-        } label: {
-            Label("Delete", systemImage: "trash")
+        }) {
+            Image(systemName: "trash")
         }
+        .tint(.red)
     }
     
     private var deleteAlertContent: some View {
@@ -256,7 +271,6 @@ struct CardDetailView: View {
 }
 
 // MARK: - ImagePicker (Updated)
-/// A more versatile ImagePicker that can handle both the camera and the photo library.
 struct ImagePicker: UIViewControllerRepresentable {
     
     var sourceType: UIImagePickerController.SourceType
