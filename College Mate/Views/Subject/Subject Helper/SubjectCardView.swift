@@ -17,9 +17,11 @@ struct SubjectCardView: View {
                 HStack {
                     VStack(alignment: .leading, spacing: 20) {
                         Text(subject.name)
-                            .font(.title2)
+                            // If the name is longer than 12 characters, use a smaller font.
+                            .font(subject.name.count > 12 ? .headline : .title2)
                             .fontWeight(.bold)
                             .foregroundColor(.white)
+                            .lineLimit(2) // Allow wrapping to a second line if needed
 
                         VStack(alignment: .leading, spacing: 4) {
                             AttendanceStatView(label: "Attended", value: subject.attendance.attendedClasses)
@@ -46,7 +48,7 @@ struct SubjectCardView: View {
                 }
             }
             .padding()
-            .frame(maxHeight: 210)
+            // Removed fixed height to prevent clipping with longer, wrapped text.
             .padding(.vertical, 10)
             .background(Color.gray.opacity(0.2))
             .cornerRadius(16)
@@ -101,9 +103,9 @@ struct SubjectCardView: View {
     do {
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         let container = try ModelContainer(for: Subject.self, configurations: config)
-        let subject = Subject(name: "Math", startDateOfSubject: Date(), schedules: [])
-        subject.attendance.totalClasses = 5
-        subject.attendance.attendedClasses = 3
+        let subject = Subject(name: "Operating Systems", startDateOfSubject: Date(), schedules: [])
+        subject.attendance.totalClasses = 6
+        subject.attendance.attendedClasses = 4
         return SubjectCardView(subject: subject)
             .modelContainer(container)
             .background(.black.opacity(0.2))
@@ -240,8 +242,17 @@ extension SubjectCardView {
                    // Calculate future classes needed to meet the requirement
                    let futureClassesToAttend: Int = {
                        var futureClasses = 0
-                       while Double(attendedClasses + futureClasses) / Double(totalClasses + futureClasses) * 100 < minimumRequiredPercentage {
+                       var tempTotal = totalClasses
+                       var tempAttended = attendedClasses
+                       // Avoid division by zero
+                       if tempTotal <= 0 {
+                           return 0
+                       }
+                       
+                       while (Double(tempAttended) / Double(tempTotal)) * 100 < minimumRequiredPercentage {
                            futureClasses += 1
+                           tempTotal += 1
+                           tempAttended += 1
                        }
                        return futureClasses
                    }()
@@ -250,16 +261,13 @@ extension SubjectCardView {
                    let requiredClasses = Int(ceil((Double(minimumRequiredPercentage) / 100) * Double(totalClasses)))
                    let skippableClasses = max(0, attendedClasses - requiredClasses)
                    
-                   // Calculate the potential attendance percentage if a class is skipped
-                   let newPercentageIfSkipped = Double(attendedClasses - 1) / Double(totalClasses) * 100
-                   
                    // Display appropriate messages
                    if futureClassesToAttend > 0 {
                        Text("Need to attend \(futureClassesToAttend) \(futureClassesToAttend == 1 ? "class" : "classes").")
                            .font(.footnote)
                            .foregroundColor(.yellow)
                            .lineLimit(2)
-                   } else if newPercentageIfSkipped >= minimumRequiredPercentage {
+                   } else if skippableClasses > 0 {
                        Text("Can skip \(skippableClasses) \(skippableClasses == 1 ? "class" : "classes").")
                            .font(.footnote)
                            .foregroundColor(.green)

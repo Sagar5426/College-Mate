@@ -103,7 +103,12 @@ struct ControlPanelView: View {
             
             // The button is now only visible if there are scheduled subjects for the selected day.
             if !viewModel.scheduledSubjects.isEmpty {
-                Button(action: { viewModel.toggleHoliday() }) {
+                Button(action: {
+                    // This line triggers a light vibration.
+                    let generator = UIImpactFeedbackGenerator(style: .medium)
+                    generator.impactOccurred()
+                    viewModel.toggleHoliday()
+                }) {
                     Text(viewModel.isHoliday ? "Marked as Holiday" : "Mark Today as Holiday")
                         .fontWeight(.semibold)
                         .frame(maxWidth: .infinity)

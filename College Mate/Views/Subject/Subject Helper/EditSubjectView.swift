@@ -7,6 +7,7 @@ struct EditSubjectView: View {
     @State private var originalSubjectName: String = ""
     
     let daysOfWeek = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+    let characterLimit = 20 // Stricter character limit
     
     @State private var selectedDays: Set<String> = []
     @State private var classTimes: [String: [ClassPeriodTime]] = [:]
@@ -18,7 +19,12 @@ struct EditSubjectView: View {
                 LinearGradient(colors: [.gray.opacity(0.1), .black.opacity(0.1), .gray.opacity(0.07)], startPoint: .top, endPoint: .bottom)
                     .ignoresSafeArea()
                 Form {
-                    SubjectDetailsSection(subjectName: $subject.name)
+                    Section(header: Text("Subject Details")) {
+                        TextField("Subject Name (Max 20 Characters)", text: $subject.name)
+                            .onChange(of: subject.name) {
+                                subject.name = String(subject.name.prefix(characterLimit))
+                            }
+                    }
                     FirstSubjectDatePicker(startDateOfSubject: $subject.startDateOfSubject)
                     MinimumAttendenceStepper(MinimumAttendancePercentage: Binding<Int>(
                         get: { Int(subject.attendance.minimumPercentageRequirement) }, // Convert Double to Int
@@ -132,5 +138,3 @@ extension EditSubjectView {
         return documentsDirectory.appendingPathComponent("Subjects").appendingPathComponent(subjectName)
     }
 }
-
-

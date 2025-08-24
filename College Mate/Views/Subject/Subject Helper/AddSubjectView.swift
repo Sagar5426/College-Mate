@@ -109,10 +109,14 @@ struct AddSubjectView: View {
 // MARK: Helper Views
 struct SubjectDetailsSection: View {
     @Binding var subjectName: String
-    
+    let characterLimit = 20 // Stricter character limit
+
     var body: some View {
         Section(header: Text("Subject Details")) {
-            TextField("Subject Name", text: $subjectName)
+            TextField("Subject Name (Max 20 Characters)", text: $subjectName)
+                .onChange(of: subjectName) {
+                    subjectName = String(subjectName.prefix(characterLimit))
+                }
         }
     }
 }
@@ -309,5 +313,3 @@ struct MinimumAttendenceStepper: View {
         }
     }
 }
-
-
