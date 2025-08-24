@@ -84,7 +84,7 @@ struct TimeTableView: View {
             .fullScreenCover(isPresented: $isShowingProfileView) {
                 ProfileView(isShowingProfileView: $isShowingProfileView)
             }
-            .background(LinearGradient(colors: [.gray.opacity(0.1), .black], startPoint: .top, endPoint: .center))
+            .background(LinearGradient(colors: [.gray.opacity(0.1), .black.opacity(0.1), .gray.opacity(0.07)], startPoint: .top, endPoint: .bottom))
             .navigationTitle("Time Table")
             .navigationBarHidden(true)
         }
