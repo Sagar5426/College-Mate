@@ -9,6 +9,7 @@ enum Day: String, CaseIterable {
     case thursday = "Thursday"
     case friday = "Friday"
     case saturday = "Saturday"
+    case sunday = "Sunday"
     
     var displayName: String {
         return self.rawValue

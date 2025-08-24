@@ -20,11 +20,6 @@
 			path = "College Mate";
 			sourceTree = "<group>";
 		};
-		45C63D072E588289002E0743 /* ViewModel */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = ViewModel;
-			sourceTree = "<group>";
-		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -44,7 +39,6 @@
 			children = (
 				452D1A5E2D283ED7006E2FAA /* College Mate */,
 				452D1A5D2D283ED7006E2FAA /* Products */,
-				45C63D072E588289002E0743 /* ViewModel */,
 			);
 			sourceTree = "<group>";
 		};
@@ -73,7 +67,6 @@
 			);
 			fileSystemSynchronizedGroups = (
 				452D1A5E2D283ED7006E2FAA /* College Mate */,
-				45C63D072E588289002E0743 /* ViewModel */,
 			);
 			name = "College Mate";
 			packageProductDependencies = (

@@ -6,20 +6,19 @@ struct AttendanceView: View {
     @Query var subjects: [Subject]
     
     @StateObject private var viewModel = AttendanceViewModel()
-    // This state variable is the key to fixing the layout bug.
     @State private var viewID = UUID()
     
     var body: some View {
-        // The NavigationStack is restored as the root view.
         NavigationStack {
             ScrollView(.vertical) {
                 LazyVStack(spacing: 16, pinnedViews: [.sectionHeaders]) {
                     Section {
-                        // The two separate views are now replaced by the single control panel.
                         ControlPanelView(viewModel: viewModel)
                         Divider().padding(.vertical)
                         ClassesList(viewModel: viewModel)
                     } header: {
+                        // A GeometryReader is used here to get the size of the parent view.
+                        // This can be useful for creating responsive layouts.
                         GeometryReader { proxy in
                             HeaderView(size: proxy.size, title: "Attendance 🙋", isShowingProfileView: $viewModel.isShowingProfileView)
                         }
@@ -28,7 +27,6 @@ struct AttendanceView: View {
                 }
                 .padding()
             }
-            // The .id() modifier is attached to the ScrollView.
             .id(viewID)
             .background(LinearGradient(colors: [.gray.opacity(0.1), .black.opacity(0.1), .gray.opacity(0.07)], startPoint: .top, endPoint: .bottom))
             .blur(radius: viewModel.isShowingDatePicker ? 8 : 0)
@@ -36,7 +34,6 @@ struct AttendanceView: View {
             .fullScreenCover(isPresented: $viewModel.isShowingProfileView) {
                 ProfileView(isShowingProfileView: $viewModel.isShowingProfileView)
             }
-            // The original .overlay modifier is restored.
             .overlay {
                 if viewModel.isShowingDatePicker {
                     DateFilterView(
@@ -44,12 +41,10 @@ struct AttendanceView: View {
                         onSubmit: { start in
                             viewModel.selectedDate = start
                             viewModel.isShowingDatePicker = false
-                            // When the picker closes, we change the ID to force a redraw.
                             viewID = UUID()
                         },
                         onClose: {
                             viewModel.isShowingDatePicker = false
-                            // We do the same on close.
                             viewID = UUID()
                         }
                     )
@@ -57,7 +52,6 @@ struct AttendanceView: View {
                 }
             }
         }
-        // The original global animation modifier is restored.
         .animation(.snappy, value: viewModel.isShowingDatePicker)
         .onAppear {
             viewModel.setup(subjects: subjects, modelContext: modelContext)
@@ -68,7 +62,7 @@ struct AttendanceView: View {
     }
 }
 
-// MARK: - Redesigned Control Panel View
+// MARK: - Control Panel View
 struct ControlPanelView: View {
     @ObservedObject var viewModel: AttendanceViewModel
     
@@ -76,7 +70,6 @@ struct ControlPanelView: View {
     
     var body: some View {
         VStack(spacing: 16) {
-            // --- Date Controls ---
             HStack {
                 Button(action: viewModel.moveToPreviousDay) {
                     Image(systemName: "chevron.left.circle.fill")
@@ -89,7 +82,6 @@ struct ControlPanelView: View {
                         viewModel.isShowingDatePicker.toggle()
                     }
                 }) {
-                    // New detailed date format
                     Text(viewModel.selectedDate.formatted(.dateTime.day().month(.wide).year().weekday(.wide)))
                         .font(.headline)
                         .foregroundStyle(.primary)
@@ -109,27 +101,32 @@ struct ControlPanelView: View {
             .font(.title)
             .foregroundStyle(.blue)
             
-            // --- Holiday Button ---
-            Button(action: { viewModel.isHoliday.toggle() }) {
-                Text(viewModel.isHoliday ? "Marked as Holiday" : "Mark Today as Holiday")
-                    .fontWeight(.semibold)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(viewModel.isHoliday ? .orange.opacity(0.8) : .gray.opacity(0.2))
-                    .foregroundStyle(.white)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
+            // The button is now only visible if there are scheduled subjects for the selected day.
+            if !viewModel.scheduledSubjects.isEmpty {
+                Button(action: { viewModel.toggleHoliday() }) {
+                    Text(viewModel.isHoliday ? "Marked as Holiday" : "Mark Today as Holiday")
+                        .fontWeight(.semibold)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(viewModel.isHoliday ? .orange.opacity(0.8) : .gray.opacity(0.2))
+                        .foregroundStyle(.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                }
+                .buttonStyle(.plain)
+                // The transition is changed to move from the top edge.
+                .transition(.move(edge: .top).combined(with: .opacity))
             }
-            .buttonStyle(.plain)
         }
         .padding()
         .background(.ultraThinMaterial)
         .clipShape(RoundedRectangle(cornerRadius: 15))
+        // The animation is now faster with a specific duration.
+        .animation(.easeOut(duration: 0.25), value: viewModel.scheduledSubjects.isEmpty)
     }
 }
 
 
-// MARK: - Other Subviews (ClassesList, ClassAttendanceRow)
-
+// MARK: - Other Subviews
 struct ClassesList: View {
     @ObservedObject var viewModel: AttendanceViewModel
     
