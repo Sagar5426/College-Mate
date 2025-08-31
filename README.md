@@ -86,10 +86,10 @@ That’s why I created **College Mate** — to:
 ---
 
 ## 🎥 Demo Video 
-**App running on iPhone simulator**:  
+**App running on iPhone simulator(This is full demo except notes View)**:  
 🔗 [Watch Demo on GitHub](https://github.com/user-attachments/assets/c2967243-07c9-4cc7-98ca-bd228efafa66)
 
-**App running on iPhone 15(Adding Notes)**: 
+**App running on iPhone 15(Adding Notes: Only Notes View working)**: 
 🔗 [Watch Demo on GitHub](https://github.com/user-attachments/assets/f48304cc-0374-43d3-83c2-44b507310598)
 
 ---
