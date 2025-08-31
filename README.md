@@ -109,9 +109,6 @@ Hi! I'm **Sagar Jangra**, a BCA student passionate about solving real-life probl
 This app started as a personal need and is now something I use every day.
 
 📍 Gurugram, Haryana  
-📧 Email: *[your-email@example.com]*  
-💻 GitHub: [@your-username](https://github.com/your-username)
-
 ---
 
 ## ⭐️ Show Your Support
