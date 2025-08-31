@@ -80,6 +80,12 @@ That’s why I created **College Mate** — to:
 <img width="220" alt="Screenshot 2025-08-31 at 11 49 46 AM" src="https://github.com/user-attachments/assets/60c9800c-2d33-4a6b-ba2b-3288e75a633a" />
 <img width="220" alt="Screenshot 2025-08-31 at 11 49 55 AM" src="https://github.com/user-attachments/assets/815da267-ece6-411b-8f1c-11a922d28ca1" />
 
+### 📝 Notes View
+<img width="220" alt="Screenshot 2025-08-31 at 12 38 11 PM" src="https://github.com/user-attachments/assets/fec7fe26-7599-4ae3-afe7-9fdf7a112785" />
+<img width="220" alt="Screenshot 2025-08-31 at 12 38 29 PM" src="https://github.com/user-attachments/assets/0aac4e16-a1d4-457a-80df-c9bd91655d9b" />
+<img width="220" alt="Screenshot 2025-08-31 at 12 46 39 PM" src="https://github.com/user-attachments/assets/fafb7d9f-cbec-4846-9bb2-5297fc26c2f2" />
+<img width="220" alt="Screenshot 2025-08-31 at 12 45 46 PM" src="https://github.com/user-attachments/assets/606eb314-7f3d-42c2-aa9f-c90128326491" />
+
 
 
 
