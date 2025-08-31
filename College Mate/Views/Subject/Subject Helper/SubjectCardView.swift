@@ -48,8 +48,6 @@ struct SubjectCardView: View {
                 }
             }
             .padding()
-            // Removed fixed height to prevent clipping with longer, wrapped text.
-            .padding(.vertical, 10)
             .background(Color.gray.opacity(0.2))
             .cornerRadius(16)
             .shadow(radius: 4)
