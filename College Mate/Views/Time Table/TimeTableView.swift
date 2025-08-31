@@ -16,6 +16,15 @@ enum Day: String, CaseIterable {
     }
 }
 
+// MARK: - Identifiable Wrapper
+/// A helper struct to ensure each class instance is uniquely identifiable for SwiftUI's ForEach.
+/// This can resolve issues where views don't update correctly for items with the same subject.
+struct ScheduledClass: Identifiable {
+    let id: UUID // Use the ClassTime's UUID for a stable, unique ID
+    let subject: Subject
+    let classTime: ClassTime
+}
+
 struct TimeTableView: View {
     @Query var subjects: [Subject]
     @State private var expandedDays: Set<Day> = {
@@ -50,7 +59,7 @@ struct TimeTableView: View {
                                 .padding(.top, 100)
                         } else {
                             ForEach(Day.allCases, id: \.self) { day in
-                                // FIX 1: We now get a list of individual class times.
+                                // The function now returns a list of identifiable `ScheduledClass` objects.
                                 let sortedItems = sortedClassTimes(for: day)
                                 // Only show days that have classes scheduled.
                                 if !sortedItems.isEmpty {
@@ -63,11 +72,10 @@ struct TimeTableView: View {
                                         )
                                         
                                         if expandedDays.contains(day) {
-                                            // FIX 2: The loop now iterates over each class time,
-                                            // using its unique ID.
-                                            ForEach(sortedItems, id: \.1.id) { subject, classTime in
-                                                // FIX 3: The card now receives the specific ClassTime.
-                                                ScheduleCard(subject: subject, classTime: classTime)
+                                            // The loop now directly uses the identifiable `ScheduledClass` items.
+                                            // This is a more robust and idiomatic way to handle dynamic lists in SwiftUI.
+                                            ForEach(sortedItems) { item in
+                                                ScheduleCard(subject: item.subject, classTime: item.classTime)
                                             }
                                         }
                                     }
@@ -101,19 +109,19 @@ struct TimeTableView: View {
         }
     }
     
-    // This function now returns a tuple of (Subject, ClassTime) for each class.
-    private func sortedClassTimes(for day: Day) -> [(Subject, ClassTime)] {
-        var result: [(Subject, ClassTime)] = []
+    // This function now returns a list of our new `ScheduledClass` structs.
+    private func sortedClassTimes(for day: Day) -> [ScheduledClass] {
+        var result: [ScheduledClass] = []
         for subject in subjects {
             for schedule in subject.schedules where schedule.day == day.rawValue {
-                // We iterate through every class time in the schedule.
                 for classTime in schedule.classTimes {
-                    result.append((subject, classTime))
+                    // Each class time becomes a unique, identifiable object.
+                    result.append(ScheduledClass(id: classTime.id, subject: subject, classTime: classTime))
                 }
             }
         }
         // Sort the final list by the start time of each class.
-        result.sort { ($0.1.startTime ?? .distantPast) < ($1.1.startTime ?? .distantPast) }
+        result.sort { ($0.classTime.startTime ?? .distantPast) < ($1.classTime.startTime ?? .distantPast) }
         return result
     }
 }
@@ -154,7 +162,7 @@ struct DayHeaderView: View {
 // MARK: - Schedule Card (Redesigned)
 struct ScheduleCard: View {
     @Bindable var subject: Subject
-    // The card now accepts a ClassTime object instead of a Schedule.
+    // The card still accepts a ClassTime object as before.
     let classTime: ClassTime
 
     var body: some View {
@@ -170,15 +178,14 @@ struct ScheduleCard: View {
                     .foregroundStyle(.white)
                 
                 // It now uses the specific start and end times from the ClassTime object.
-                if let startTime = classTime.startTime,
-                   let endTime = classTime.endTime {
-                    HStack {
-                        Image(systemName: "clock")
-                        Text("\(formattedTime(startTime)) - \(formattedTime(endTime))")
-                    }
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                HStack {
+                    Image(systemName: "clock")
+                    // FIX: Use nil coalescing to provide a default value for startTime and endTime.
+                    // This prevents the view from failing to render if a time is unexpectedly nil.
+                    Text("\(formattedTime(classTime.startTime ?? Date())) - \(formattedTime(classTime.endTime ?? Date()))")
                 }
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
             }
             
             Spacer()
@@ -246,3 +253,4 @@ extension Subject {
         return Text("Failed to create preview: \(error.localizedDescription)")
     }
 }
+
