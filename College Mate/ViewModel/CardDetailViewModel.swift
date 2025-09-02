@@ -1,20 +1,7 @@
 import SwiftUI
 import SwiftData
 import PDFKit
-
-// It's good practice to keep these small, related structs and enums with the ViewModel
-// if they aren't used elsewhere, or in their own file if they are.
-
-struct IdentifiableImage: Identifiable {
-    let id = UUID()
-    let image: UIImage
-}
-
-enum NoteFilter: String, CaseIterable {
-    case all = "All"
-    case images = "Images"
-    case pdfs = "PDFs"
-}
+import QuickLook // Import for thumbnail generation
 
 // The @MainActor attribute ensures that all UI updates happen on the main thread.
 @MainActor
@@ -43,6 +30,9 @@ class CardDetailViewModel: ObservableObject {
     @Published var isShowingCamera = false
     @Published var isShowingCropper = false
     @Published var imageToCrop: UIImage?
+    
+    // --- Document Preview State ---
+    @Published var documentToPreview: PreviewableDocument? = nil
     
     @Published var selectedFilter: NoteFilter = .all
     
@@ -80,6 +70,7 @@ class CardDetailViewModel: ObservableObject {
     }
     
     func filterNotes() {
+        // FIXED: Removed logic for PPTs
         switch selectedFilter {
         case .all:
             filteredFiles = allFiles
@@ -87,6 +78,8 @@ class CardDetailViewModel: ObservableObject {
             filteredFiles = allFiles.filter { $0.isImage }
         case .pdfs:
             filteredFiles = allFiles.filter { $0.isPDF }
+        case .docs:
+            filteredFiles = allFiles.filter { $0.isDocx }
         }
     }
     
@@ -106,8 +99,11 @@ class CardDetailViewModel: ObservableObject {
     }
     
     func renameFile() {
-        guard let oldURL = renamingFileURL else { return }
-        let newURL = oldURL.deletingLastPathComponent().appendingPathComponent("\(newFileName).pdf")
+        guard let oldURL = renamingFileURL, !newFileName.isEmpty else { return }
+        
+        let fileExtension = oldURL.pathExtension
+        let newURL = oldURL.deletingLastPathComponent().appendingPathComponent("\(newFileName).\(fileExtension)")
+        
         do {
             try FileManager.default.moveItem(at: oldURL, to: newURL)
             loadFiles()
@@ -123,43 +119,34 @@ class CardDetailViewModel: ObservableObject {
             guard let self = self else { return }
             defer { self.isImportingFile = false }
             do {
-                let fileURL = try result.get()
-                guard fileURL.startAccessingSecurityScopedResource() else { return }
-                defer { fileURL.stopAccessingSecurityScopedResource() }
+                let sourceURL = try result.get()
+                guard sourceURL.startAccessingSecurityScopedResource() else { return }
+                defer { sourceURL.stopAccessingSecurityScopedResource() }
                 
-                let data = try Data(contentsOf: fileURL)
-                let fileName = "pdf_\(UUID().uuidString).pdf"
+                let data = try Data(contentsOf: sourceURL)
+                let originalFilename = sourceURL.lastPathComponent
                 
-                if let savedURL = FileHelper.saveFile(data: data, fileName: fileName, to: self.subject) {
-                    let newNote = Note(title: fileName, type: .pdf, content: Data(savedURL.absoluteString.utf8))
-                    self.subject.notes.append(newNote)
-                    try? self.modelContext.save()
+                if FileHelper.saveFile(data: data, fileName: originalFilename, to: self.subject) != nil {
                     self.loadFiles()
                 }
             } catch {
-                print("Failed to import PDF: \(error.localizedDescription)")
+                print("Failed to import file: \(error.localizedDescription)")
             }
         }
     }
     
-    /// This function now handles the initial image from the camera or photo library.
     func handleImageSelected(_ image: UIImage?) {
         guard let image = image else { return }
-        // When an image is selected, store it and present the cropper view.
         imageToCrop = image
         isShowingCropper = true
     }
     
-    /// This new function handles the final, cropped image.
     func handleCroppedImage(_ image: UIImage?) {
         guard let image = image, let imageData = image.jpegData(compressionQuality: 0.8) else { return }
         
         let fileName = "image_\(UUID().uuidString).jpg"
         
-        if let fileURL = FileHelper.saveFile(data: imageData, fileName: fileName, to: subject) {
-            let newNote = Note(title: fileName, type: .image, content: Data(fileURL.absoluteString.utf8))
-            subject.notes.append(newNote)
-            try? modelContext.save()
+        if FileHelper.saveFile(data: imageData, fileName: fileName, to: subject) != nil {
             loadFiles()
         }
     }
@@ -173,6 +160,37 @@ class CardDetailViewModel: ObservableObject {
             UIColor.white.set()
             ctx.fill(pageRect)
             page.draw(with: .mediaBox, to: ctx.cgContext)
+        }
+    }
+    
+    // --- NEW ---
+    // Asynchronously generates a thumbnail for a document URL (like .docx).
+    func generateDocxThumbnail(from url: URL, completion: @escaping (UIImage?) -> Void) {
+        let size = CGSize(width: 80, height: 100) // Desired thumbnail size
+        let scale = UIScreen.main.scale
+        
+        // Create a thumbnail request.
+        let request = QLThumbnailGenerator.Request(
+            fileAt: url,
+            size: size,
+            scale: scale,
+            representationTypes: .thumbnail
+        )
+        
+        // Generate the thumbnail.
+        QLThumbnailGenerator.shared.generateRepresentations(for: request) { representations, error in
+            if let error = error {
+                print("Failed to generate thumbnail: \(error.localizedDescription)")
+                DispatchQueue.main.async { completion(nil) }
+                return
+            }
+            
+            // Get the first available representation and pass it to the completion handler.
+            if let thumbnail = representations?.first?.uiImage {
+                DispatchQueue.main.async { completion(thumbnail) }
+            } else {
+                DispatchQueue.main.async { completion(nil) }
+            }
         }
     }
     
@@ -224,8 +242,16 @@ class CardDetailViewModel: ObservableObject {
 extension URL {
     var isImage: Bool {
         let ext = self.pathExtension.lowercased()
-        return ext == "jpg" || ext == "png"
+        return ext == "jpg" || ext == "jpeg" || ext == "png"
     }
     
     var isPDF: Bool { self.pathExtension.lowercased() == "pdf" }
+    
+    var isDocx: Bool {
+        self.pathExtension.lowercased() == "docx"
+    }
+    
+    // Removed isPptx
 }
+
+

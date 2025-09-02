@@ -2,6 +2,8 @@ import SwiftUI
 import SwiftData
 import PhotosUI
 import AVFoundation
+import UniformTypeIdentifiers
+import QuickLook // Import for document previews
 
 // MARK: - CardDetailView
 struct CardDetailView: View {
@@ -16,12 +18,13 @@ struct CardDetailView: View {
     }
     
     var body: some View {
-        VStack {
-            filterPicker
+        VStack(spacing: 0) {
+            filterView
+            Divider()
             contentView
         }
         .background(LinearGradient(colors: [.gray.opacity(0.1), .black.opacity(0.1), .gray.opacity(0.07)], startPoint: .top, endPoint: .bottom))
-        .alert("Rename PDF", isPresented: .constant(viewModel.renamingFileURL != nil)) {
+        .alert("Rename File", isPresented: .constant(viewModel.renamingFileURL != nil)) {
             renameAlertContent
         }
         .overlay(alignment: .bottomTrailing) {
@@ -54,9 +57,33 @@ struct CardDetailView: View {
         } message: {
             Text("Deleting this subject will remove all associated data. Are you sure?")
         }
-        .fileImporter(isPresented: $viewModel.isShowingFileImporter, allowedContentTypes: [.pdf], onCompletion: viewModel.handleFileImport)
+        .fileImporter(
+            isPresented: $viewModel.isShowingFileImporter,
+            allowedContentTypes: [
+                UTType(filenameExtension: "pdf")!,
+                UTType(filenameExtension: "docx")!
+            ],
+            onCompletion: viewModel.handleFileImport
+        )
         .sheet(isPresented: $viewModel.isShowingImagePicker) {
             ImagePicker(sourceType: .photoLibrary, onImageSelected: viewModel.handleImageSelected)
+        }
+        .fullScreenCover(item: $viewModel.documentToPreview) { document in
+            ZStack(alignment: .topTrailing) {
+                DocumentPreviewView(url: document.url)
+                    .ignoresSafeArea()
+
+                // FIXED: Updated button style for high contrast on any background
+                Button {
+                    viewModel.documentToPreview = nil
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.largeTitle)
+                        .symbolRenderingMode(.palette)
+                        .foregroundStyle(.black, Color(.systemGray5).opacity(0.8))
+                }
+                .padding()
+            }
         }
         .fullScreenCover(isPresented: $viewModel.isShowingCamera) {
             ImagePicker(sourceType: .camera, onImageSelected: viewModel.handleImageSelected)
@@ -67,7 +94,6 @@ struct CardDetailView: View {
             }
         }
         .fullScreenCover(isPresented: $viewModel.isShowingEditView) {
-            // This line is correct and relies on the button to work.
             EditSubjectView(subject: viewModel.subject, isShowingEditSubjectView: $viewModel.isShowingEditView)
         }
         .fullScreenCover(item: $viewModel.selectedImageForPreview) { identifiableImage in
@@ -80,14 +106,29 @@ struct CardDetailView: View {
     
     // MARK: - Subviews
     
-    private var filterPicker: some View {
-        Picker("Filter", selection: $viewModel.selectedFilter) {
-            ForEach(NoteFilter.allCases, id: \.self) { filter in
-                Text(filter.rawValue).tag(filter)
+    private var filterView: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 12) {
+                ForEach(NoteFilter.allCases, id: \.self) { filter in
+                    Button(action: {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            viewModel.selectedFilter = filter
+                        }
+                    }) {
+                        Text(filter.rawValue)
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .padding(.vertical, 8)
+                            .padding(.horizontal, 16)
+                            .background(viewModel.selectedFilter == filter ? Color.blue : Color.gray.opacity(0.2))
+                            .foregroundColor(viewModel.selectedFilter == filter ? .white : .primary)
+                            .clipShape(Capsule())
+                    }
+                }
             }
+            .padding(.horizontal)
+            .padding(.vertical, 10)
         }
-        .pickerStyle(.segmented)
-        .padding()
     }
     
     @ViewBuilder
@@ -130,12 +171,19 @@ struct CardDetailView: View {
                     if fileURL.isImage {
                         imageView(for: fileURL).transition(.scale.combined(with: .opacity))
                     } else if fileURL.isPDF {
-                        pdfView(for: fileURL).transition(.slide.combined(with: .opacity))
+                        pdfView(for: fileURL).onTapGesture {
+                            viewModel.documentToPreview = PreviewableDocument(url: fileURL)
+                        }
+                    } else if fileURL.isDocx {
+                        documentView(for: fileURL, icon: "doc.text.fill", color: .blue).onTapGesture {
+                            viewModel.documentToPreview = PreviewableDocument(url: fileURL)
+                        }
                     }
                 }
             }
+            .padding(.vertical)
             .padding(.horizontal)
-            Spacer(minLength: 70)
+            Spacer(minLength: 100)
         }
     }
     
@@ -148,32 +196,53 @@ struct CardDetailView: View {
                     .onTapGesture {
                         viewModel.selectedImageForPreview = IdentifiableImage(image: image)
                     }
-                    .contextMenu {
-                        Button(role: .destructive) { viewModel.deleteFile(at: fileURL) } label: {
-                            Label("Delete", systemImage: "trash")
-                        }
-                    }
+                    .contextMenu { fileContextMenu(for: fileURL) }
             }
         }
     }
     
     private func pdfView(for fileURL: URL) -> some View {
-        NavigationLink(destination: PDFViewer(url: fileURL)) {
-            VStack {
-                if let pdfThumbnail = viewModel.generatePDFThumbnail(from: fileURL) {
-                    Image(uiImage: pdfThumbnail)
-                        .resizable().scaledToFit().frame(width: 80, height: 100)
-                        .clipShape(RoundedRectangle(cornerRadius: 8)).shadow(radius: 2)
-                } else {
-                    Image(systemName: "doc.richtext").resizable().scaledToFit().frame(width: 50, height: 50)
-                }
-                Text(fileURL.lastPathComponent).font(.caption).lineLimit(1).frame(maxWidth: 100)
+        VStack {
+            if let pdfThumbnail = viewModel.generatePDFThumbnail(from: fileURL) {
+                Image(uiImage: pdfThumbnail)
+                    .resizable().scaledToFit().frame(width: 80, height: 100)
+                    .clipShape(RoundedRectangle(cornerRadius: 8)).shadow(radius: 2)
+            } else {
+                Image(systemName: "doc.richtext").resizable().scaledToFit().frame(width: 50, height: 50)
             }
+            // FIXED: Allowed text to wrap up to 3 lines
+            Text(fileURL.lastPathComponent)
+                .font(.caption)
+                .multilineTextAlignment(.center)
+                .lineLimit(3)
+                .frame(maxWidth: 100)
         }
-        .contextMenu {
-            Button { viewModel.renamingFileURL = fileURL } label: { Label("Rename", systemImage: "pencil") }
-            Button(role: .destructive) { viewModel.deleteFile(at: fileURL) } label: { Label("Delete", systemImage: "trash") }
+        .contextMenu { fileContextMenu(for: fileURL) }
+    }
+    
+    private func documentView(for fileURL: URL, icon: String, color: Color) -> some View {
+        VStack {
+            Image(systemName: icon)
+                .resizable().scaledToFit().frame(width: 50, height: 50)
+                .foregroundColor(color)
+                .padding(25)
+                .background(color.opacity(0.1))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+
+            // FIXED: Allowed text to wrap up to 3 lines
+            Text(fileURL.lastPathComponent)
+                .font(.caption)
+                .multilineTextAlignment(.center)
+                .lineLimit(3)
+                .frame(maxWidth: 100)
         }
+        .contextMenu { fileContextMenu(for: fileURL) }
+    }
+    
+    @ViewBuilder
+    private func fileContextMenu(for fileURL: URL) -> some View {
+        Button { viewModel.renamingFileURL = fileURL } label: { Label("Rename", systemImage: "pencil") }
+        Button(role: .destructive) { viewModel.deleteFile(at: fileURL) } label: { Label("Delete", systemImage: "trash") }
     }
     
     private var renameAlertContent: some View {
@@ -186,24 +255,13 @@ struct CardDetailView: View {
     
     private var addButton: some View {
         Menu {
-            Button("Camera", systemImage: "camera.fill") {
-                viewModel.isShowingCamera = true
-            }
-            Button("Image from Photos", systemImage: "photo.fill") {
-                viewModel.isShowingImagePicker = true
-            }
-            Button("PDF from Files", systemImage: "text.document.fill") {
-                viewModel.isShowingFileImporter = true
-            }
+            Button("Camera", systemImage: "camera.fill") { viewModel.isShowingCamera = true }
+            Button("Image from Photos", systemImage: "photo.fill") { viewModel.isShowingImagePicker = true }
+            Button("Document from Files", systemImage: "doc.fill") { viewModel.isShowingFileImporter = true }
         } label: {
-            Image(systemName: "document.badge.plus.fill")
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-                .foregroundColor(.white)
-                .frame(width: 35, height: 35, alignment: .leading)
-                .padding(12)
-                .background(Circle().fill(Color.blue.opacity(0.8)))
-                .shadow(radius: 10)
+            Image(systemName: "plus.circle.fill")
+                .resizable().aspectRatio(contentMode: .fit).foregroundColor(.blue)
+                .background(Circle().fill(.white)).frame(width: 55, height: 55).shadow(radius: 8)
         }
         .padding()
     }
@@ -261,9 +319,42 @@ struct CardDetailView: View {
     }
 }
 
-// MARK: - ImagePicker (Updated)
-struct ImagePicker: UIViewControllerRepresentable {
+// MARK: - DocumentPreviewView (for DOCX, PDF, etc.)
+struct DocumentPreviewView: UIViewControllerRepresentable {
+    let url: URL
+
+    func makeUIViewController(context: Context) -> QLPreviewController {
+        let controller = QLPreviewController()
+        controller.dataSource = context.coordinator
+        return controller
+    }
     
+    func updateUIViewController(_ uiViewController: QLPreviewController, context: Context) {}
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(parent: self)
+    }
+
+    class Coordinator: NSObject, QLPreviewControllerDataSource {
+        let parent: DocumentPreviewView
+
+        init(parent: DocumentPreviewView) {
+            self.parent = parent
+        }
+
+        func numberOfPreviewItems(in controller: QLPreviewController) -> Int {
+            return 1
+        }
+
+        func previewController(_ controller: QLPreviewController, previewItemAt index: Int) -> QLPreviewItem {
+            return parent.url as QLPreviewItem
+        }
+    }
+}
+
+
+// MARK: - ImagePicker
+struct ImagePicker: UIViewControllerRepresentable {
     var sourceType: UIImagePickerController.SourceType
     var onImageSelected: (UIImage?) -> Void
     
@@ -301,6 +392,7 @@ struct ImagePicker: UIViewControllerRepresentable {
     }
 }
 
+// MARK: - Preview
 #Preview {
     do {
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
@@ -316,3 +408,4 @@ struct ImagePicker: UIViewControllerRepresentable {
         return Text("Failed to create preview: \(error.localizedDescription)")
     }
 }
+
