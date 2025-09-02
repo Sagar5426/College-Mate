@@ -30,9 +30,23 @@ struct CardDetailView: View {
         .navigationTitle(viewModel.subject.name)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItemGroup(placement: .topBarTrailing) {
-                editButton
-                deleteButton
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu {
+                    Button {
+                        viewModel.isShowingEditView.toggle()
+                    } label: {
+                        Label("Edit Subject", systemImage: "pencil")
+                    }
+                    
+                    Button(role: .destructive) {
+                        triggerHapticFeedback()
+                        viewModel.isShowingDeleteAlert = true
+                    } label: {
+                        Label("Delete Subject", systemImage: "trash")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                }
             }
         }
         .alert("Delete this Subject", isPresented: $viewModel.isShowingDeleteAlert) {
@@ -79,7 +93,7 @@ struct CardDetailView: View {
     @ViewBuilder
     private var contentView: some View {
         ZStack {
-            if viewModel.allFiles.isEmpty {
+            if viewModel.filteredFiles.isEmpty {
                 noNotesView
             } else {
                 notesGrid
@@ -192,29 +206,6 @@ struct CardDetailView: View {
                 .shadow(radius: 10)
         }
         .padding()
-    }
-    
-    private var editButton: some View {
-        // --- DEFINITIVE FIX ---
-        // This structure is the most reliable for toolbar buttons.
-        // It provides a clear tap target and works correctly with .tint().
-        Button(action: {
-            viewModel.isShowingEditView.toggle()
-        }) {
-            Image(systemName: "pencil")
-        }
-        .tint(.blue)
-    }
-    
-    private var deleteButton: some View {
-        // Applying the same robust structure for consistency.
-        Button(action: {
-            triggerHapticFeedback()
-            viewModel.isShowingDeleteAlert = true
-        }) {
-            Image(systemName: "trash")
-        }
-        .tint(.red)
     }
     
     private var deleteAlertContent: some View {
