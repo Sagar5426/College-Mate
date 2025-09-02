@@ -1,7 +1,28 @@
 import SwiftUI
 import SwiftData
 import PDFKit
-import QuickLook // Import for thumbnail generation
+
+// It's good practice to keep these small, related structs and enums with the ViewModel
+// if they aren't used elsewhere, or in their own file if they are.
+
+struct IdentifiableImage: Identifiable {
+    let id = UUID()
+    let image: UIImage
+}
+
+// FIXED: Removed the PPTs case
+enum NoteFilter: String, CaseIterable {
+    case all = "All"
+    case images = "Images"
+    case pdfs = "PDFs"
+    case docs = "Docs"
+}
+
+// Wrapper to make URL Identifiable for the .sheet modifier
+struct PreviewableDocument: Identifiable {
+    let id = UUID()
+    let url: URL
+}
 
 // The @MainActor attribute ensures that all UI updates happen on the main thread.
 @MainActor
@@ -163,37 +184,6 @@ class CardDetailViewModel: ObservableObject {
         }
     }
     
-    // --- NEW ---
-    // Asynchronously generates a thumbnail for a document URL (like .docx).
-    func generateDocxThumbnail(from url: URL, completion: @escaping (UIImage?) -> Void) {
-        let size = CGSize(width: 80, height: 100) // Desired thumbnail size
-        let scale = UIScreen.main.scale
-        
-        // Create a thumbnail request.
-        let request = QLThumbnailGenerator.Request(
-            fileAt: url,
-            size: size,
-            scale: scale,
-            representationTypes: .thumbnail
-        )
-        
-        // Generate the thumbnail.
-        QLThumbnailGenerator.shared.generateRepresentations(for: request) { representations, error in
-            if let error = error {
-                print("Failed to generate thumbnail: \(error.localizedDescription)")
-                DispatchQueue.main.async { completion(nil) }
-                return
-            }
-            
-            // Get the first available representation and pass it to the completion handler.
-            if let thumbnail = representations?.first?.uiImage {
-                DispatchQueue.main.async { completion(thumbnail) }
-            } else {
-                DispatchQueue.main.async { completion(nil) }
-            }
-        }
-    }
-    
     // MARK: - Gesture Logic
     
     func onImagePreviewAppear() {
@@ -253,5 +243,4 @@ extension URL {
     
     // Removed isPptx
 }
-
 
