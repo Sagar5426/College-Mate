@@ -221,22 +221,13 @@ struct CardDetailView: View {
     }
     
     private func documentView(for fileURL: URL, icon: String, color: Color) -> some View {
-        VStack {
-            Image(systemName: icon)
-                .resizable().scaledToFit().frame(width: 50, height: 50)
-                .foregroundColor(color)
-                .padding(25)
-                .background(color.opacity(0.1))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
-
-            // FIXED: Allowed text to wrap up to 3 lines
-            Text(fileURL.lastPathComponent)
-                .font(.caption)
-                .multilineTextAlignment(.center)
-                .lineLimit(3)
-                .frame(maxWidth: 100)
-        }
-        .contextMenu { fileContextMenu(for: fileURL) }
+        // This view wrapper handles the asynchronous loading of the thumbnail.
+        DocumentThumbnailView(
+            fileURL: fileURL,
+            icon: icon,
+            color: color,
+            viewModel: viewModel
+        )
     }
     
     @ViewBuilder
@@ -318,6 +309,54 @@ struct CardDetailView: View {
         SoundManager.shared.playDeleteSound()
     }
 }
+
+// MARK: - DocumentThumbnailView
+// A new helper view to manage loading and displaying docx thumbnails.
+struct DocumentThumbnailView: View {
+    let fileURL: URL
+    let icon: String
+    let color: Color
+    @ObservedObject var viewModel: CardDetailViewModel
+    
+    @State private var thumbnail: UIImage? = nil
+    
+    var body: some View {
+        VStack {
+            ZStack {
+                // Show the placeholder icon by default.
+                Image(systemName: icon)
+                    .resizable().scaledToFit().frame(width: 50, height: 50)
+                    .foregroundColor(color)
+                    .padding(25)
+                    .background(color.opacity(0.1))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+
+                // If a thumbnail has been loaded, display it on top.
+                if let thumbnail = thumbnail {
+                    Image(uiImage: thumbnail)
+                        .resizable().scaledToFit().frame(width: 80, height: 100)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                        .shadow(radius: 2)
+                }
+            }
+            .frame(width: 80, height: 100)
+
+
+            Text(fileURL.lastPathComponent)
+                .font(.caption)
+                .multilineTextAlignment(.center)
+                .lineLimit(3)
+                .frame(maxWidth: 100)
+        }
+        .onAppear {
+            // When the view appears, ask the ViewModel to generate the thumbnail.
+            viewModel.generateDocxThumbnail(from: fileURL) { image in
+                self.thumbnail = image
+            }
+        }
+    }
+}
+
 
 // MARK: - DocumentPreviewView (for DOCX, PDF, etc.)
 struct DocumentPreviewView: UIViewControllerRepresentable {
@@ -408,4 +447,5 @@ struct ImagePicker: UIViewControllerRepresentable {
         return Text("Failed to create preview: \(error.localizedDescription)")
     }
 }
+
 

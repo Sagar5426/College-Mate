@@ -1,28 +1,7 @@
 import SwiftUI
 import SwiftData
 import PDFKit
-
-// It's good practice to keep these small, related structs and enums with the ViewModel
-// if they aren't used elsewhere, or in their own file if they are.
-
-struct IdentifiableImage: Identifiable {
-    let id = UUID()
-    let image: UIImage
-}
-
-// FIXED: Removed the PPTs case
-enum NoteFilter: String, CaseIterable {
-    case all = "All"
-    case images = "Images"
-    case pdfs = "PDFs"
-    case docs = "Docs"
-}
-
-// Wrapper to make URL Identifiable for the .sheet modifier
-struct PreviewableDocument: Identifiable {
-    let id = UUID()
-    let url: URL
-}
+import QuickLook // Import for thumbnail generation
 
 // The @MainActor attribute ensures that all UI updates happen on the main thread.
 @MainActor
@@ -91,7 +70,6 @@ class CardDetailViewModel: ObservableObject {
     }
     
     func filterNotes() {
-        // FIXED: Removed logic for PPTs
         switch selectedFilter {
         case .all:
             filteredFiles = allFiles
@@ -184,6 +162,26 @@ class CardDetailViewModel: ObservableObject {
         }
     }
     
+    // FIXED: Corrected the thumbnail generation logic.
+    func generateDocxThumbnail(from url: URL, completion: @escaping (UIImage?) -> Void) {
+        let size = CGSize(width: 80, height: 100)
+        let scale = UIScreen.main.scale
+        
+        let request = QLThumbnailGenerator.Request(fileAt: url, size: size, scale: scale, representationTypes: .thumbnail)
+        
+        QLThumbnailGenerator.shared.generateBestRepresentation(for: request) { representation, error in
+            if let error = error {
+                print("Failed to generate thumbnail: \(error.localizedDescription)")
+                DispatchQueue.main.async { completion(nil) }
+                return
+            }
+            
+            DispatchQueue.main.async {
+                completion(representation?.uiImage)
+            }
+        }
+    }
+    
     // MARK: - Gesture Logic
     
     func onImagePreviewAppear() {
@@ -240,7 +238,5 @@ extension URL {
     var isDocx: Bool {
         self.pathExtension.lowercased() == "docx"
     }
-    
-    // Removed isPptx
 }
 
