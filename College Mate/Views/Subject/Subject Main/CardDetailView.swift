@@ -3,7 +3,7 @@ import SwiftData
 import PhotosUI
 import AVFoundation
 import UniformTypeIdentifiers
-import QuickLook // Import for document previews
+import QuickLook 
 
 // MARK: - CardDetailView
 struct CardDetailView: View {
@@ -68,12 +68,12 @@ struct CardDetailView: View {
         .sheet(isPresented: $viewModel.isShowingImagePicker) {
             ImagePicker(sourceType: .photoLibrary, onImageSelected: viewModel.handleImageSelected)
         }
+        // This single previewer now handles all file types
         .fullScreenCover(item: $viewModel.documentToPreview) { document in
             ZStack(alignment: .topTrailing) {
                 DocumentPreviewView(url: document.url)
                     .ignoresSafeArea()
 
-                // FIXED: Updated button style for high contrast on any background
                 Button {
                     viewModel.documentToPreview = nil
                 } label: {
@@ -84,6 +84,8 @@ struct CardDetailView: View {
                 }
                 .padding()
             }
+            // FIXED: This modifier prevents the swipe-down-to-dismiss gesture.
+            .interactiveDismissDisabled()
         }
         .fullScreenCover(isPresented: $viewModel.isShowingCamera) {
             ImagePicker(sourceType: .camera, onImageSelected: viewModel.handleImageSelected)
@@ -95,9 +97,6 @@ struct CardDetailView: View {
         }
         .fullScreenCover(isPresented: $viewModel.isShowingEditView) {
             EditSubjectView(subject: viewModel.subject, isShowingEditSubjectView: $viewModel.isShowingEditView)
-        }
-        .fullScreenCover(item: $viewModel.selectedImageForPreview) { identifiableImage in
-            imagePreviewView(for: identifiableImage)
         }
         .onChange(of: viewModel.selectedFilter) {
             viewModel.filterNotes()
@@ -169,7 +168,11 @@ struct CardDetailView: View {
             LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3)) {
                 ForEach(viewModel.filteredFiles, id: \.self) { fileURL in
                     if fileURL.isImage {
-                        imageView(for: fileURL).transition(.scale.combined(with: .opacity))
+                        imageView(for: fileURL)
+                            .onTapGesture {
+                                viewModel.documentToPreview = PreviewableDocument(url: fileURL)
+                            }
+                            .transition(.scale.combined(with: .opacity))
                     } else if fileURL.isPDF {
                         pdfView(for: fileURL).onTapGesture {
                             viewModel.documentToPreview = PreviewableDocument(url: fileURL)
@@ -193,9 +196,6 @@ struct CardDetailView: View {
                 Image(uiImage: image)
                     .resizable().scaledToFit().frame(maxWidth: 100, maxHeight: 100)
                     .clipShape(RoundedRectangle(cornerRadius: 8))
-                    .onTapGesture {
-                        viewModel.selectedImageForPreview = IdentifiableImage(image: image)
-                    }
                     .contextMenu { fileContextMenu(for: fileURL) }
             }
         }
@@ -210,7 +210,6 @@ struct CardDetailView: View {
             } else {
                 Image(systemName: "doc.richtext").resizable().scaledToFit().frame(width: 50, height: 50)
             }
-            // FIXED: Allowed text to wrap up to 3 lines
             Text(fileURL.lastPathComponent)
                 .font(.caption)
                 .multilineTextAlignment(.center)
@@ -221,7 +220,6 @@ struct CardDetailView: View {
     }
     
     private func documentView(for fileURL: URL, icon: String, color: Color) -> some View {
-        // This view wrapper handles the asynchronous loading of the thumbnail.
         DocumentThumbnailView(
             fileURL: fileURL,
             icon: icon,
@@ -250,52 +248,21 @@ struct CardDetailView: View {
             Button("Image from Photos", systemImage: "photo.fill") { viewModel.isShowingImagePicker = true }
             Button("Document from Files", systemImage: "doc.fill") { viewModel.isShowingFileImporter = true }
         } label: {
-            Image(systemName: "plus.circle.fill")
-                .resizable().aspectRatio(contentMode: .fit).foregroundColor(.blue)
-                .background(Circle().fill(.white)).frame(width: 55, height: 55).shadow(radius: 8)
+            Image(systemName: "plus")
+                .font(.title.weight(.semibold))
+                .padding()
+                .background(Color.blue)
+                .foregroundColor(.white)
+                .clipShape(Circle())
         }
         .padding()
+        .transition(.scale.combined(with: .opacity))
     }
     
     private var deleteAlertContent: some View {
         Button("Delete", role: .destructive) {
             playDeleteSound()
             viewModel.deleteSubject { dismiss() }
-        }
-    }
-    
-    private func imagePreviewView(for identifiableImage: IdentifiableImage) -> some View {
-        GeometryReader { geometry in
-            ZStack {
-                Color.black.ignoresSafeArea()
-
-                Image(uiImage: identifiableImage.image)
-                    .resizable().aspectRatio(contentMode: .fit)
-                    .scaleEffect(viewModel.scale)
-                    .offset(viewModel.imageOffset)
-                    .onAppear(perform: viewModel.onImagePreviewAppear)
-                    .gesture(
-                        DragGesture()
-                            .onChanged { gesture in viewModel.adjustDragOffset(gesture: gesture, geometrySize: geometry.size) }
-                            .onEnded { _ in viewModel.onDragEnded() }
-                    )
-                    .gesture(
-                        MagnificationGesture()
-                            .onChanged(viewModel.adjustScale)
-                            .onEnded { _ in viewModel.onMagnificationEnded() }
-                    )
-
-                VStack {
-                    HStack {
-                        Spacer()
-                        Button { viewModel.selectedImageForPreview = nil } label: {
-                            Image(systemName: "xmark.circle.fill").font(.largeTitle).foregroundColor(.white.opacity(0.7))
-                        }
-                        .padding()
-                    }
-                    Spacer()
-                }
-            }
         }
     }
 
@@ -311,7 +278,6 @@ struct CardDetailView: View {
 }
 
 // MARK: - DocumentThumbnailView
-// A new helper view to manage loading and displaying docx thumbnails.
 struct DocumentThumbnailView: View {
     let fileURL: URL
     let icon: String
@@ -323,7 +289,6 @@ struct DocumentThumbnailView: View {
     var body: some View {
         VStack {
             ZStack {
-                // Show the placeholder icon by default.
                 Image(systemName: icon)
                     .resizable().scaledToFit().frame(width: 50, height: 50)
                     .foregroundColor(color)
@@ -331,7 +296,6 @@ struct DocumentThumbnailView: View {
                     .background(color.opacity(0.1))
                     .clipShape(RoundedRectangle(cornerRadius: 8))
 
-                // If a thumbnail has been loaded, display it on top.
                 if let thumbnail = thumbnail {
                     Image(uiImage: thumbnail)
                         .resizable().scaledToFit().frame(width: 80, height: 100)
@@ -341,7 +305,6 @@ struct DocumentThumbnailView: View {
             }
             .frame(width: 80, height: 100)
 
-
             Text(fileURL.lastPathComponent)
                 .font(.caption)
                 .multilineTextAlignment(.center)
@@ -349,14 +312,12 @@ struct DocumentThumbnailView: View {
                 .frame(maxWidth: 100)
         }
         .onAppear {
-            // When the view appears, ask the ViewModel to generate the thumbnail.
             viewModel.generateDocxThumbnail(from: fileURL) { image in
                 self.thumbnail = image
             }
         }
     }
 }
-
 
 // MARK: - DocumentPreviewView (for DOCX, PDF, etc.)
 struct DocumentPreviewView: UIViewControllerRepresentable {
@@ -447,5 +408,4 @@ struct ImagePicker: UIViewControllerRepresentable {
         return Text("Failed to create preview: \(error.localizedDescription)")
     }
 }
-
 

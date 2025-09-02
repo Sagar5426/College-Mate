@@ -9,10 +9,7 @@ class CardDetailViewModel: ObservableObject {
     
     // MARK: - Properties
     
-    // The Model data for the view
     let subject: Subject
-    
-    // Dependencies like the model context are passed in.
     private let modelContext: ModelContext
     
     // --- UI State ---
@@ -21,21 +18,22 @@ class CardDetailViewModel: ObservableObject {
     
     @Published var isShowingDeleteAlert = false
     @Published var isShowingEditView = false
-    @Published var selectedImageForPreview: IdentifiableImage? = nil
     @Published var isShowingFileImporter = false
     @Published var isShowingImagePicker = false
     @Published var isImportingFile = false
     
-    // --- New UI State for Camera and Cropping ---
+    // --- Camera and Cropping State ---
     @Published var isShowingCamera = false
     @Published var isShowingCropper = false
     @Published var imageToCrop: UIImage?
     
-    // --- Document Preview State ---
+    // --- Universal Preview State ---
+    // This now handles PDFs, DOCX, and Images.
     @Published var documentToPreview: PreviewableDocument? = nil
     
     @Published var selectedFilter: NoteFilter = .all
     
+    // --- Renaming State ---
     @Published var renamingFileURL: URL? = nil {
         didSet {
             if let url = renamingFileURL {
@@ -45,14 +43,7 @@ class CardDetailViewModel: ObservableObject {
     }
     @Published var newFileName: String = ""
     
-    // --- Image Preview Gesture State ---
-    @Published var scale = 1.0
-    @Published var lastScale = 1.0
-    @Published var imageOffset = CGSize.zero
-    @Published var lastOffset = CGSize.zero
-    
-    private let minScale = 1.0
-    private let maxScale = 5.0
+    // REMOVED: All properties related to custom image preview gestures (scale, offset, etc.)
     
     // MARK: - Initializer
     
@@ -162,7 +153,6 @@ class CardDetailViewModel: ObservableObject {
         }
     }
     
-    // FIXED: Corrected the thumbnail generation logic.
     func generateDocxThumbnail(from url: URL, completion: @escaping (UIImage?) -> Void) {
         let size = CGSize(width: 80, height: 100)
         let scale = UIScreen.main.scale
@@ -182,49 +172,8 @@ class CardDetailViewModel: ObservableObject {
         }
     }
     
-    // MARK: - Gesture Logic
-    
-    func onImagePreviewAppear() {
-        scale = 1.0
-        imageOffset = .zero
-        lastOffset = .zero
-    }
-    
-    func adjustScale(from state: MagnificationGesture.Value) {
-        let delta = state / lastScale
-        scale *= delta
-        lastScale = state
-    }
-    
-    func onMagnificationEnded() {
-        withAnimation(.easeOut(duration: 0.3)) {
-            scale = max(min(scale, maxScale), minScale)
-        }
-        lastScale = 1.0
-
-        if scale <= 1.01 {
-            withAnimation(.easeOut(duration: 0.8)) {
-                imageOffset = .zero
-                lastOffset = .zero
-            }
-        }
-    }
-    
-    func adjustDragOffset(gesture: DragGesture.Value, geometrySize: CGSize) {
-        let maxOffsetX = (geometrySize.width * (scale - 1)) / 2
-        let maxOffsetY = (geometrySize.height * (scale - 1)) / 2
-        
-        withTransaction(Transaction(animation: nil)) {
-            imageOffset.width = min(max(gesture.translation.width + lastOffset.width, -maxOffsetX), maxOffsetX)
-            imageOffset.height = min(max(gesture.translation.height + lastOffset.height, -maxOffsetY), maxOffsetY)
-        }
-    }
-    
-    func onDragEnded() {
-        lastOffset = imageOffset
-    }
+    // REMOVED: All gesture logic functions (onImagePreviewAppear, adjustScale, etc.)
 }
-
 
 // MARK: - Helpers
 extension URL {
