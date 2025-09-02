@@ -3,7 +3,7 @@ import SwiftData
 import PhotosUI
 import AVFoundation
 import UniformTypeIdentifiers
-import QuickLook 
+import QuickLook
 
 // MARK: - CardDetailView
 struct CardDetailView: View {
@@ -196,7 +196,7 @@ struct CardDetailView: View {
                 Image(uiImage: image)
                     .resizable().scaledToFit().frame(maxWidth: 100, maxHeight: 100)
                     .clipShape(RoundedRectangle(cornerRadius: 8))
-                    .contextMenu { fileContextMenu(for: fileURL) }
+                    .contextMenu { imageContextMenu(for: fileURL) }
             }
         }
     }
@@ -226,11 +226,17 @@ struct CardDetailView: View {
             color: color,
             viewModel: viewModel
         )
+        .contextMenu { fileContextMenu(for: fileURL) }
     }
     
     @ViewBuilder
     private func fileContextMenu(for fileURL: URL) -> some View {
         Button { viewModel.renamingFileURL = fileURL } label: { Label("Rename", systemImage: "pencil") }
+        Button(role: .destructive) { viewModel.deleteFile(at: fileURL) } label: { Label("Delete", systemImage: "trash") }
+    }
+    
+    @ViewBuilder
+    private func imageContextMenu(for fileURL: URL) -> some View {
         Button(role: .destructive) { viewModel.deleteFile(at: fileURL) } label: { Label("Delete", systemImage: "trash") }
     }
     
