@@ -2,6 +2,7 @@ import SwiftUI
 import SwiftData
 import PDFKit
 import QuickLook // Import for thumbnail generation
+import PhotosUI // Import for modern photo picker
 
 // The @MainActor attribute ensures that all UI updates happen on the main thread.
 @MainActor
@@ -19,16 +20,22 @@ class CardDetailViewModel: ObservableObject {
     @Published var isShowingDeleteAlert = false
     @Published var isShowingEditView = false
     @Published var isShowingFileImporter = false
-    @Published var isShowingImagePicker = false
     @Published var isImportingFile = false
+    @Published var isShowingPhotoPicker = false
     
-    // --- Camera and Cropping State ---
+    // --- Camera and Cropping State (for single image capture) ---
     @Published var isShowingCamera = false
     @Published var isShowingCropper = false
     @Published var imageToCrop: UIImage?
     
+    // --- Photos Picker State (for multi-image selection) ---
+    @Published var selectedPhotoItems: [PhotosPickerItem] = [] {
+        didSet {
+            handlePhotoPickerSelection()
+        }
+    }
+    
     // --- Universal Preview State ---
-    // This now handles PDFs, DOCX, and Images.
     @Published var documentToPreview: PreviewableDocument? = nil
     
     @Published var selectedFilter: NoteFilter = .all
@@ -43,7 +50,11 @@ class CardDetailViewModel: ObservableObject {
     }
     @Published var newFileName: String = ""
     
-    // REMOVED: All properties related to custom image preview gestures (scale, offset, etc.)
+    // --- Selection State for Multi-Delete ---
+    @Published var isEditing = false
+    @Published var selectedFiles: Set<URL> = []
+    @Published var isShowingMultiDeleteAlert = false
+    
     
     // MARK: - Initializer
     
@@ -103,27 +114,78 @@ class CardDetailViewModel: ObservableObject {
         renamingFileURL = nil
     }
     
-    func handleFileImport(result: Result<URL, Error>) {
+    // --- File Import Handlers ---
+
+    func handleFileImport(result: Result<[URL], Error>) {
         isImportingFile = true
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
-            guard let self = self else { return }
-            defer { self.isImportingFile = false }
-            do {
-                let sourceURL = try result.get()
-                guard sourceURL.startAccessingSecurityScopedResource() else { return }
-                defer { sourceURL.stopAccessingSecurityScopedResource() }
-                
-                let data = try Data(contentsOf: sourceURL)
-                let originalFilename = sourceURL.lastPathComponent
-                
-                if FileHelper.saveFile(data: data, fileName: originalFilename, to: self.subject) != nil {
-                    self.loadFiles()
+
+        Task {
+            // This defer block ensures isImportingFile is always set back to false
+            // when the Task finishes, even if an error is thrown.
+            defer {
+                Task { @MainActor in
+                    isImportingFile = false
                 }
+            }
+
+            do {
+                let sourceURLs = try result.get()
+                for sourceURL in sourceURLs {
+                    let didStartAccessing = sourceURL.startAccessingSecurityScopedResource()
+                    if !didStartAccessing {
+                        print("Could not access security-scoped resource for \(sourceURL.lastPathComponent)")
+                        continue
+                    }
+
+                    // Perform blocking file I/O in a detached, background task to avoid freezing the UI.
+                    let data = try await Task.detached {
+                        // Stop accessing the resource as soon as the background task is done with it.
+                        defer { sourceURL.stopAccessingSecurityScopedResource() }
+                        return try Data(contentsOf: sourceURL)
+                    }.value
+                    
+                    // Now we are back on the MainActor, so it's safe to access self.subject.
+                    let originalFilename = sourceURL.lastPathComponent
+                    _ = FileHelper.saveFile(data: data, fileName: originalFilename, to: self.subject)
+                }
+                
+                // Refresh the file list on the main thread.
+                loadFiles()
+
             } catch {
-                print("Failed to import file: \(error.localizedDescription)")
+                print("Failed to import files: \(error.localizedDescription)")
             }
         }
     }
+    
+    private func handlePhotoPickerSelection() {
+        guard !selectedPhotoItems.isEmpty else { return }
+        isImportingFile = true
+        
+        let items = selectedPhotoItems
+        self.selectedPhotoItems = [] // Clear selection
+        
+        Task {
+            defer {
+                Task { @MainActor in
+                    isImportingFile = false
+                    if self.isEditing { self.toggleEditMode() }
+                    self.loadFiles()
+                }
+            }
+            
+            for item in items {
+                if let data = try? await item.loadTransferable(type: Data.self) {
+                    let fileName = "image_\(UUID().uuidString).jpg"
+                    // self.subject is safe to access here because a Task created in a MainActor-isolated
+                    // context will run on the main actor.
+                    _ = FileHelper.saveFile(data: data, fileName: fileName, to: self.subject)
+                }
+            }
+        }
+    }
+    
+    // --- Single Image Handlers (for Camera) ---
     
     func handleImageSelected(_ image: UIImage?) {
         guard let image = image else { return }
@@ -133,13 +195,15 @@ class CardDetailViewModel: ObservableObject {
     
     func handleCroppedImage(_ image: UIImage?) {
         guard let image = image, let imageData = image.jpegData(compressionQuality: 0.8) else { return }
-        
         let fileName = "image_\(UUID().uuidString).jpg"
         
         if FileHelper.saveFile(data: imageData, fileName: fileName, to: subject) != nil {
+            if self.isEditing { self.toggleEditMode() }
             loadFiles()
         }
     }
+
+    // --- Thumbnail Generation ---
     
     func generatePDFThumbnail(from url: URL) -> UIImage? {
         guard let document = PDFDocument(url: url), let page = document.page(at: 0) else { return nil }
@@ -172,7 +236,44 @@ class CardDetailViewModel: ObservableObject {
         }
     }
     
-    // REMOVED: All gesture logic functions (onImagePreviewAppear, adjustScale, etc.)
+    // --- Multi-Delete methods ---
+    
+    func toggleEditMode() {
+        withAnimation(.easeInOut) {
+            isEditing.toggle()
+        }
+        if !isEditing {
+            selectedFiles.removeAll()
+        }
+    }
+
+    func toggleSelection(for fileURL: URL) {
+        if selectedFiles.contains(fileURL) {
+            selectedFiles.remove(fileURL)
+        } else {
+            selectedFiles.insert(fileURL)
+        }
+    }
+
+    func deleteSelectedFiles() {
+        let urlsToDelete = selectedFiles
+        
+        for fileURL in urlsToDelete {
+            do {
+                try FileManager.default.removeItem(at: fileURL)
+            } catch {
+                print("Failed to delete file \(fileURL.lastPathComponent): \(error.localizedDescription)")
+            }
+        }
+        
+        DispatchQueue.main.async {
+            self.selectedFiles.removeAll()
+            withAnimation {
+                self.isEditing = false
+            }
+            self.loadFiles()
+        }
+    }
 }
 
 // MARK: - Helpers

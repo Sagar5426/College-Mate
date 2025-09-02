@@ -27,28 +27,46 @@ struct CardDetailView: View {
         .alert("Rename File", isPresented: .constant(viewModel.renamingFileURL != nil)) {
             renameAlertContent
         }
-        .overlay(alignment: .bottomTrailing) {
-            addButton
+        .overlay(alignment: .bottom) {
+            if viewModel.isEditing {
+                deleteSelectedButton
+            } else {
+                addButton
+            }
         }
         .navigationTitle(viewModel.subject.name)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Menu {
-                    Button {
-                        viewModel.isShowingEditView.toggle()
-                    } label: {
-                        Label("Edit Subject", systemImage: "pencil")
+                if viewModel.isEditing {
+                    Button("Cancel") {
+                        viewModel.toggleEditMode()
                     }
-                    
-                    Button(role: .destructive) {
-                        triggerHapticFeedback()
-                        viewModel.isShowingDeleteAlert = true
+                } else {
+                    Menu {
+                        if !viewModel.filteredFiles.isEmpty {
+                            Button {
+                                viewModel.toggleEditMode()
+                            } label: {
+                                Label("Select Files", systemImage: "checkmark.circle")
+                            }
+                        }
+                        
+                        Button {
+                            viewModel.isShowingEditView.toggle()
+                        } label: {
+                            Label("Edit Subject", systemImage: "pencil")
+                        }
+                        
+                        Button(role: .destructive) {
+                            triggerHapticFeedback()
+                            viewModel.isShowingDeleteAlert = true
+                        } label: {
+                            Label("Delete Subject", systemImage: "trash")
+                        }
                     } label: {
-                        Label("Delete Subject", systemImage: "trash")
+                        Image(systemName: "ellipsis.circle")
                     }
-                } label: {
-                    Image(systemName: "ellipsis.circle")
                 }
             }
         }
@@ -57,17 +75,21 @@ struct CardDetailView: View {
         } message: {
             Text("Deleting this subject will remove all associated data. Are you sure?")
         }
+        .alert("Delete \(viewModel.selectedFiles.count) files?", isPresented: $viewModel.isShowingMultiDeleteAlert) {
+            Button("Delete", role: .destructive) { viewModel.deleteSelectedFiles() }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("This action cannot be undone.")
+        }
         .fileImporter(
             isPresented: $viewModel.isShowingFileImporter,
             allowedContentTypes: [
-                UTType(filenameExtension: "pdf")!,
+                UTType.pdf,
                 UTType(filenameExtension: "docx")!
             ],
+            allowsMultipleSelection: true, // Allow multiple documents
             onCompletion: viewModel.handleFileImport
         )
-        .sheet(isPresented: $viewModel.isShowingImagePicker) {
-            ImagePicker(sourceType: .photoLibrary, onImageSelected: viewModel.handleImageSelected)
-        }
         // This single previewer now handles all file types
         .fullScreenCover(item: $viewModel.documentToPreview) { document in
             ZStack(alignment: .topTrailing) {
@@ -84,7 +106,6 @@ struct CardDetailView: View {
                 }
                 .padding()
             }
-            // FIXED: This modifier prevents the swipe-down-to-dismiss gesture.
             .interactiveDismissDisabled()
         }
         .fullScreenCover(isPresented: $viewModel.isShowingCamera) {
@@ -98,6 +119,11 @@ struct CardDetailView: View {
         .fullScreenCover(isPresented: $viewModel.isShowingEditView) {
             EditSubjectView(subject: viewModel.subject, isShowingEditSubjectView: $viewModel.isShowingEditView)
         }
+        .photosPicker(
+            isPresented: $viewModel.isShowingPhotoPicker,
+            selection: $viewModel.selectedPhotoItems,
+            matching: .images
+        )
         .onChange(of: viewModel.selectedFilter) {
             viewModel.filterNotes()
         }
@@ -149,7 +175,8 @@ struct CardDetailView: View {
     private var importingOverlay: some View {
         ZStack {
             Color.black.opacity(0.3).ignoresSafeArea()
-            ProgressView().progressViewStyle(.circular).scaleEffect(2)
+            ProgressView("Importing...").progressViewStyle(.circular).scaleEffect(1.5)
+                .tint(.white)
         }
     }
     
@@ -169,18 +196,14 @@ struct CardDetailView: View {
                 ForEach(viewModel.filteredFiles, id: \.self) { fileURL in
                     if fileURL.isImage {
                         imageView(for: fileURL)
-                            .onTapGesture {
-                                viewModel.documentToPreview = PreviewableDocument(url: fileURL)
-                            }
+                            .onTapGesture { handleTap(for: fileURL) }
                             .transition(.scale.combined(with: .opacity))
                     } else if fileURL.isPDF {
-                        pdfView(for: fileURL).onTapGesture {
-                            viewModel.documentToPreview = PreviewableDocument(url: fileURL)
-                        }
+                        pdfView(for: fileURL)
+                            .onTapGesture { handleTap(for: fileURL) }
                     } else if fileURL.isDocx {
-                        documentView(for: fileURL, icon: "doc.text.fill", color: .blue).onTapGesture {
-                            viewModel.documentToPreview = PreviewableDocument(url: fileURL)
-                        }
+                        documentView(for: fileURL, icon: "doc.text.fill", color: .blue)
+                            .onTapGesture { handleTap(for: fileURL) }
                     }
                 }
             }
@@ -190,13 +213,26 @@ struct CardDetailView: View {
         }
     }
     
+    private func handleTap(for fileURL: URL) {
+        if viewModel.isEditing {
+            viewModel.toggleSelection(for: fileURL)
+        } else {
+            viewModel.documentToPreview = PreviewableDocument(url: fileURL)
+        }
+    }
+    
     private func imageView(for fileURL: URL) -> some View {
         Group {
             if let imageData = try? Data(contentsOf: fileURL), let image = UIImage(data: imageData) {
                 Image(uiImage: image)
                     .resizable().scaledToFit().frame(maxWidth: 100, maxHeight: 100)
                     .clipShape(RoundedRectangle(cornerRadius: 8))
-                    .contextMenu { imageContextMenu(for: fileURL) }
+                    .contextMenu {
+                        if !viewModel.isEditing {
+                            imageContextMenu(for: fileURL)
+                        }
+                    }
+                    .selectionOverlay(isSelected: viewModel.selectedFiles.contains(fileURL), isEditing: viewModel.isEditing)
             }
         }
     }
@@ -216,7 +252,12 @@ struct CardDetailView: View {
                 .lineLimit(3)
                 .frame(maxWidth: 100)
         }
-        .contextMenu { fileContextMenu(for: fileURL) }
+        .contextMenu {
+            if !viewModel.isEditing {
+                fileContextMenu(for: fileURL)
+            }
+        }
+        .selectionOverlay(isSelected: viewModel.selectedFiles.contains(fileURL), isEditing: viewModel.isEditing)
     }
     
     private func documentView(for fileURL: URL, icon: String, color: Color) -> some View {
@@ -226,7 +267,12 @@ struct CardDetailView: View {
             color: color,
             viewModel: viewModel
         )
-        .contextMenu { fileContextMenu(for: fileURL) }
+        .contextMenu {
+            if !viewModel.isEditing {
+                fileContextMenu(for: fileURL)
+            }
+        }
+        .selectionOverlay(isSelected: viewModel.selectedFiles.contains(fileURL), isEditing: viewModel.isEditing)
     }
     
     @ViewBuilder
@@ -251,7 +297,11 @@ struct CardDetailView: View {
     private var addButton: some View {
         Menu {
             Button("Camera", systemImage: "camera.fill") { viewModel.isShowingCamera = true }
-            Button("Image from Photos", systemImage: "photo.fill") { viewModel.isShowingImagePicker = true }
+            
+            Button("Images from Photos", systemImage: "photo.on.rectangle.angled") {
+                viewModel.isShowingPhotoPicker = true
+            }
+            
             Button("Document from Files", systemImage: "doc.fill") { viewModel.isShowingFileImporter = true }
         } label: {
             Image(systemName: "plus")
@@ -260,9 +310,33 @@ struct CardDetailView: View {
                 .background(Color.blue)
                 .foregroundColor(.white)
                 .clipShape(Circle())
+                .shadow(radius: 4, x: 0, y: 2)
         }
         .padding()
         .transition(.scale.combined(with: .opacity))
+        .frame(maxWidth: .infinity, alignment: .bottomTrailing)
+    }
+    
+    private var deleteSelectedButton: some View {
+        Button(role: .destructive) {
+            viewModel.isShowingMultiDeleteAlert = true
+        } label: {
+            HStack {
+                Image(systemName: "trash")
+                Text("Delete (\(viewModel.selectedFiles.count))")
+            }
+            .fontWeight(.semibold)
+            .frame(maxWidth: .infinity)
+            .padding()
+            .background(viewModel.selectedFiles.isEmpty ? Color.gray.opacity(0.8) : Color.red)
+            .foregroundColor(.white)
+            .clipShape(Capsule())
+        }
+        .padding(.horizontal)
+        .padding(.bottom, 8)
+        .disabled(viewModel.selectedFiles.isEmpty)
+        .transition(.move(edge: .bottom).combined(with: .opacity))
+        .animation(.spring(), value: viewModel.selectedFiles.isEmpty)
     }
     
     private var deleteAlertContent: some View {
@@ -280,6 +354,45 @@ struct CardDetailView: View {
     
     private func playDeleteSound() {
         SoundManager.shared.playDeleteSound()
+    }
+}
+
+// MARK: - SelectionOverlay
+struct SelectionOverlay: ViewModifier {
+    let isSelected: Bool
+    let isEditing: Bool
+
+    func body(content: Content) -> some View {
+        ZStack {
+            content
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(isSelected ? Color.blue : Color.clear, lineWidth: 3)
+                )
+            if isEditing {
+                Rectangle()
+                    .fill(Color.black.opacity(isSelected ? 0.2 : 0))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                
+                if isSelected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.title2)
+                        .symbolRenderingMode(.palette)
+                        .foregroundStyle(.white, .blue)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                        .padding(4)
+                }
+            }
+        }
+        .animation(.easeInOut(duration: 0.2), value: isSelected)
+        .animation(.easeInOut(duration: 0.2), value: isEditing)
+
+    }
+}
+
+extension View {
+    func selectionOverlay(isSelected: Bool, isEditing: Bool) -> some View {
+        self.modifier(SelectionOverlay(isSelected: isSelected, isEditing: isEditing))
     }
 }
 
@@ -359,7 +472,7 @@ struct DocumentPreviewView: UIViewControllerRepresentable {
 }
 
 
-// MARK: - ImagePicker
+// MARK: - ImagePicker (For Camera)
 struct ImagePicker: UIViewControllerRepresentable {
     var sourceType: UIImagePickerController.SourceType
     var onImageSelected: (UIImage?) -> Void
