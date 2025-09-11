@@ -6,14 +6,17 @@ struct ProfileView: View {
     @Binding var isShowingProfileView: Bool
     @Query var subjects: [Subject]
     
-    // The ViewModel is now initialized directly.
     @StateObject private var viewModel = ProfileViewModel()
+    
+    // State to control the PhotosPicker is now here, in the parent view.
+    @State private var isShowingPhotoPicker = false
+    @State private var selectedPhoto: PhotosPickerItem?
     
     var body: some View {
         NavigationStack {
             ZStack {
-                LinearGradient(colors: [.gray.opacity(0.1), .black.opacity(0.1), .gray.opacity(0.07)], startPoint: .top, endPoint: .bottom)
-                    .ignoresSafeArea()
+                // Using a darker, more solid background for better contrast
+                Color(UIColor.systemGroupedBackground).ignoresSafeArea()
 
                 VStack {
                     Form {
@@ -33,22 +36,30 @@ struct ProfileView: View {
                     }
                 }
                 .sheet(isPresented: $viewModel.isEditingProfile) {
-                    EditProfileView(viewModel: viewModel)
+                    // We now pass a binding to our new state variable into the sheet.
+                    EditProfileView(viewModel: viewModel, isShowingPhotoPicker: $isShowingPhotoPicker)
                 }
-                // --- FIX IS HERE ---
-                // This block ensures the ViewModel always has the latest data.
                 .onAppear {
-                    // Update the ViewModel when the view first appears.
                     viewModel.subjects = subjects
                     viewModel.filterAttendanceLogs()
                 }
                 .onChange(of: subjects) {
-                    // Update the ViewModel whenever the @Query data changes.
                     viewModel.subjects = subjects
                     viewModel.filterAttendanceLogs()
                 }
                 .onChange(of: viewModel.selectedFilter) { viewModel.filterAttendanceLogs() }
                 .onChange(of: viewModel.selectedSubjectName) { viewModel.filterAttendanceLogs() }
+            }
+        }
+        // The PhotosPicker is now attached to the main view, not the sheet.
+        // It is presented when isShowingPhotoPicker becomes true.
+        .photosPicker(isPresented: $isShowingPhotoPicker, selection: $selectedPhoto, matching: .images)
+        // When a photo is selected, this modifier handles the data loading.
+        .onChange(of: selectedPhoto) {
+            Task {
+                if let data = try? await selectedPhoto?.loadTransferable(type: Data.self) {
+                    viewModel.profileImageData = data
+                }
             }
         }
     }
@@ -67,8 +78,14 @@ struct ProfileHeaderView: View {
                     ProfileImageView(profileImageData: viewModel.profileImageData)
                     
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(viewModel.username).font(.headline)
-                        Text(viewModel.collegeName).font(.subheadline).foregroundColor(.secondary)
+                        Text(viewModel.username.isEmpty ? "Your Name" : viewModel.username)
+                            .font(.headline)
+                            .foregroundColor(.primary) // Ensure primary visibility
+                        
+                        // FIX: Using .secondary semantic color for guaranteed visibility.
+                        Text(viewModel.collegeName.isEmpty ? "Your College" : viewModel.collegeName)
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
                     }
                     
                     Spacer()
@@ -83,6 +100,7 @@ struct ProfileHeaderView: View {
                 .padding(.vertical, 4)
             }
         }
+        .listRowBackground(Color(UIColor.secondarySystemGroupedBackground))
     }
 }
 
@@ -106,7 +124,7 @@ struct UserDetailsSection: View {
     @ObservedObject var viewModel: ProfileViewModel
     
     var body: some View {
-        Section("User Details") {
+        Section {
             TextField("Email", text: $viewModel.email)
             DatePicker("Date of Birth", selection: $viewModel.userDob, displayedComponents: .date)
             Picker("Gender", selection: $viewModel.gender) {
@@ -114,7 +132,11 @@ struct UserDetailsSection: View {
                     Text(genderOption.rawValue)
                 }
             }
+        } header: {
+            Text("User Details")
+                .foregroundColor(.gray)
         }
+        .listRowBackground(Color(UIColor.secondarySystemGroupedBackground))
     }
 }
 
@@ -123,7 +145,7 @@ struct AttendanceHistorySection: View {
     @ObservedObject var viewModel: ProfileViewModel
 
     var body: some View {
-        Section(header: Text("Attendance History")) {
+        Section {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
                     Menu {
@@ -153,6 +175,7 @@ struct AttendanceHistorySection: View {
                         .foregroundColor(.blue)
                     }
                 }
+                .padding(.bottom, 8)
 
                 if viewModel.filteredLogs.isEmpty {
                     Text("No attendance changes in this period.")
@@ -173,67 +196,89 @@ struct AttendanceHistorySection: View {
                     }
                 }
             }
+        } header: {
+            Text("Attendance History")
+                .foregroundColor(.gray)
         }
+        .listRowBackground(Color(UIColor.secondarySystemGroupedBackground))
     }
 }
 
-// MARK: - Edit Profile View
+// MARK: - Edit Profile View (UI Updated)
 struct EditProfileView: View {
     @ObservedObject var viewModel: ProfileViewModel
-    
-    @State private var selectedPhoto: PhotosPickerItem?
+    @Binding var isShowingPhotoPicker: Bool
     @Environment(\.dismiss) private var dismiss
     
     var body: some View {
         NavigationStack {
-            Form {
-                ProfileImagePicker(profileImageData: $viewModel.profileImageData, selectedPhoto: $selectedPhoto)
+            VStack(spacing: 32) {
+                Spacer()
                 
-                Section("Edit Details") {
-                    TextField("Enter your name", text: $viewModel.username)
-                    TextField("College name", text: $viewModel.collegeName)
-                }
-            }
-            .navigationTitle("Edit Profile")
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Save") { dismiss() }.bold()
-                }
-            }
-        }
-    }
-}
-
-// MARK: - Profile Image Picker
-struct ProfileImagePicker: View {
-    @Binding var profileImageData: Data?
-    @Binding var selectedPhoto: PhotosPickerItem?
-    
-    var body: some View {
-        Section {
-            HStack {
-                Spacer()
-                ProfileImageView(profileImageData: profileImageData)
-                    .frame(width: 100, height: 100)
-                Spacer()
-            }
-            .padding(.vertical, 8)
-            
-            PhotosPicker("Change Profile Photo", selection: $selectedPhoto, matching: .images)
-                .onChange(of: selectedPhoto) {
-                    Task {
-                        if let data = try? await selectedPhoto?.loadTransferable(type: Data.self) {
-                            profileImageData = data
+                // --- Profile Image Section ---
+                Button(action: {
+                    isShowingPhotoPicker = true
+                    dismiss()
+                }) {
+                    ZStack(alignment: .bottomTrailing) {
+                        if let imageData = viewModel.profileImageData, let uiImage = UIImage(data: imageData) {
+                            Image(uiImage: uiImage)
+                                .resizable().scaledToFill()
+                                .frame(width: 120, height: 120).clipShape(Circle())
+                        } else {
+                            Image(systemName: "person.circle.fill")
+                                .resizable().scaledToFill()
+                                .frame(width: 120, height: 120).foregroundColor(.gray.opacity(0.5))
                         }
+
+                        Image(systemName: "camera.circle.fill")
+                            .font(.system(size: 32)).foregroundColor(.accentColor)
+                            .background(Circle().fill(Color(UIColor.systemGroupedBackground)))
+                            .offset(x: 4, y: 4)
                     }
                 }
+                
+                // --- TextFields Section ---
+                VStack(spacing: 16) {
+                    // FIX: Simplified TextField and used semantic system colors for background.
+                    HStack {
+                        Image(systemName: "person.fill").foregroundColor(.gray)
+                        TextField("Enter your name", text: $viewModel.username)
+                            .foregroundColor(.primary)
+                    }
+                    .padding()
+                    .background(Color(UIColor.tertiarySystemFill))
+                    .cornerRadius(12)
+                    
+                    HStack {
+                        Image(systemName: "graduationcap.fill").foregroundColor(.gray)
+                        TextField("Enter your college name", text: $viewModel.collegeName)
+                             .foregroundColor(.primary)
+                    }
+                    .padding()
+                    .background(Color(UIColor.tertiarySystemFill))
+                    .cornerRadius(12)
+                }
+                .padding(.horizontal)
+                
+                Spacer()
+                Spacer()
+            }
+            .background(Color(UIColor.systemGroupedBackground).ignoresSafeArea())
+            .navigationTitle("Edit Profile")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) { Button("Save") { dismiss() }.bold() }
+            }
         }
     }
 }
 
+
 #Preview {
-    // The preview no longer needs to manually fetch and pass subjects.
-    // The @Query inside ProfileView will handle it within the preview context.
     ProfileView(isShowingProfileView: .constant(true))
         .modelContainer(for: Subject.self, inMemory: true)
+        .preferredColorScheme(.dark)
 }
+
