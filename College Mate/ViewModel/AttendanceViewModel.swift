@@ -64,7 +64,7 @@ class AttendanceViewModel: ObservableObject {
                         if record.status != "Canceled" {
                             updateAttendance(for: record, in: subject, to: "Canceled")
                         }
-                    } 
+                    }
                 }
             }
         }

@@ -14,7 +14,7 @@ struct College_MateApp: App {
             HomeView()
                 .preferredColorScheme(.dark)
         }
-        .modelContainer(for: Subject.self)
+        .modelContainer(for: [Subject.self, Folder.self, FileMetadata.self])
         
     }
 }

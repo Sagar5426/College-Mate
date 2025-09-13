@@ -12,6 +12,7 @@ struct CardDetailView: View {
     @Environment(\.dismiss) private var dismiss
     
     @StateObject private var viewModel: CardDetailViewModel
+    @FocusState private var isSearchFocused: Bool
     
     init(subject: Subject, modelContext: ModelContext) {
         _viewModel = StateObject(wrappedValue: CardDetailViewModel(subject: subject, modelContext: modelContext))
@@ -19,17 +20,21 @@ struct CardDetailView: View {
     
     var body: some View {
         VStack(spacing: 0) {
+            if viewModel.isSearchBarVisible {
+                searchBarView
+            }
             filterView
+            breadcrumbView
             Divider()
             contentView
         }
         .background(LinearGradient(colors: [.gray.opacity(0.1), .black.opacity(0.1), .gray.opacity(0.07)], startPoint: .top, endPoint: .bottom))
-        .alert("Rename File", isPresented: .constant(viewModel.renamingFileURL != nil)) {
+        .alert("Rename File", isPresented: .constant(viewModel.renamingFileMetadata != nil)) {
             renameAlertContent
         }
         .overlay(alignment: .bottom) {
             if viewModel.isEditing {
-                deleteSelectedButton
+                editingBottomBar
             } else {
                 addButton
             }
@@ -43,29 +48,40 @@ struct CardDetailView: View {
                         viewModel.toggleEditMode()
                     }
                 } else {
-                    Menu {
-                        if !viewModel.filteredFiles.isEmpty {
-                            Button {
-                                viewModel.toggleEditMode()
-                            } label: {
-                                Label("Select Files", systemImage: "checkmark.circle")
-                            }
-                        }
-                        
+                    HStack {
                         Button {
-                            viewModel.isShowingEditView.toggle()
+                            withAnimation(.easeOut(duration: 0.2)) {
+                                viewModel.toggleSearchBarVisibility()
+                            }
+                            isSearchFocused.toggle()
                         } label: {
-                            Label("Edit Subject", systemImage: "pencil")
+                            Image(systemName: "magnifyingglass")
                         }
                         
-                        Button(role: .destructive) {
-                            triggerHapticFeedback()
-                            viewModel.isShowingDeleteAlert = true
+                        Menu {
+                            if !viewModel.filteredFileMetadata.isEmpty {
+                                Button {
+                                    viewModel.toggleEditMode()
+                                } label: {
+                                    Label("Select Files", systemImage: "checkmark.circle")
+                                }
+                            }
+                            
+                            Button {
+                                viewModel.isShowingEditView.toggle()
+                            } label: {
+                                Label("Edit Subject", systemImage: "pencil")
+                            }
+                            
+                            Button(role: .destructive) {
+                                triggerHapticFeedback()
+                                viewModel.isShowingDeleteAlert = true
+                            } label: {
+                                Label("Delete Subject", systemImage: "trash")
+                            }
                         } label: {
-                            Label("Delete Subject", systemImage: "trash")
+                            Image(systemName: "ellipsis.circle")
                         }
-                    } label: {
-                        Image(systemName: "ellipsis.circle")
                     }
                 }
             }
@@ -75,11 +91,32 @@ struct CardDetailView: View {
         } message: {
             Text("Deleting this subject will remove all associated data. Are you sure?")
         }
-        .alert("Delete \(viewModel.selectedFiles.count) files?", isPresented: $viewModel.isShowingMultiDeleteAlert) {
+        .alert("Delete \(viewModel.selectedFileMetadata.count) files?", isPresented: $viewModel.isShowingMultiDeleteAlert) {
             Button("Delete", role: .destructive) { viewModel.deleteSelectedFiles() }
             Button("Cancel", role: .cancel) { }
         } message: {
             Text("This action cannot be undone.")
+        }
+        .alert("Create New Folder", isPresented: $viewModel.isShowingCreateFolderAlert) {
+            TextField("Folder Name", text: $viewModel.newFolderName)
+            Button("Create") {
+                viewModel.createFolder(named: viewModel.newFolderName)
+                viewModel.newFolderName = ""
+            }
+            Button("Cancel", role: .cancel) {
+                viewModel.newFolderName = ""
+            }
+        } message: {
+            Text("Enter a name for the new folder")
+        }
+        .alert("Rename File", isPresented: .constant(viewModel.renamingFileMetadata != nil)) {
+            TextField("New Name", text: $viewModel.newFileName)
+            Button("Cancel", role: .cancel) {
+                viewModel.renamingFileMetadata = nil
+            }
+            Button("Save") {
+                viewModel.renameFile()
+            }
         }
         .fileImporter(
             isPresented: $viewModel.isShowingFileImporter,
@@ -87,10 +124,9 @@ struct CardDetailView: View {
                 UTType.pdf,
                 UTType(filenameExtension: "docx")!
             ],
-            allowsMultipleSelection: true, // Allow multiple documents
+            allowsMultipleSelection: true,
             onCompletion: viewModel.handleFileImport
         )
-        // This single previewer now handles all file types
         .fullScreenCover(item: $viewModel.documentToPreview) { document in
             ZStack(alignment: .topTrailing) {
                 DocumentPreviewView(url: document.url)
@@ -125,17 +161,58 @@ struct CardDetailView: View {
             matching: .images
         )
         .onChange(of: viewModel.selectedFilter) {
-            viewModel.filterNotes()
+            viewModel.filterFileMetadata()
+        }
+        .sheet(isPresented: $viewModel.isShowingFolderPicker) {
+            FolderPickerView(
+                subjectName: viewModel.subject.name,
+                folders: viewModel.availableFolders,
+                onFolderSelected: { folder in
+                    viewModel.moveSelectedFiles(to: folder)
+                    viewModel.isShowingFolderPicker = false
+                },
+                onCancel: {
+                    viewModel.isShowingFolderPicker = false
+                }
+            )
         }
     }
     
     // MARK: - Subviews
+    
+    private var searchBarView: some View {
+        HStack {
+            Image(systemName: "magnifyingglass")
+                .foregroundColor(.secondary)
+            
+            TextField("Search in \(viewModel.subject.name)...", text: $viewModel.searchText)
+                .focused($isSearchFocused)
+                .onSubmit { viewModel.performSearch() }
+                .onChange(of: viewModel.searchText) { viewModel.performSearch() }
+            
+            if !viewModel.searchText.isEmpty {
+                Button(action: viewModel.clearSearch) {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundColor(.secondary)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(10)
+        .background(Color(.systemGray6))
+        .cornerRadius(10)
+        .padding(.horizontal)
+        .padding(.vertical, 8)
+        .zIndex(1) // Ensures search bar animates over other content
+        .transition(.move(edge: .top).combined(with: .opacity))
+    }
     
     private var filterView: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 12) {
                 ForEach(NoteFilter.allCases, id: \.self) { filter in
                     Button(action: {
+                        playTapSoundAndVibrate()
                         withAnimation(.easeInOut(duration: 0.2)) {
                             viewModel.selectedFilter = filter
                         }
@@ -156,13 +233,71 @@ struct CardDetailView: View {
         }
     }
     
+    private var breadcrumbView: some View {
+        Group {
+            if !viewModel.folderPath.isEmpty || viewModel.isSearching {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        if viewModel.isSearching {
+                            HStack {
+                                Image(systemName: "magnifyingglass")
+                                Text("Search Results for \"\(viewModel.searchText)\"")
+                            }
+                            .font(.caption)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(Color.blue.opacity(0.2))
+                            .foregroundColor(.blue)
+                            .clipShape(Capsule())
+                        } else {
+                            Button(action: viewModel.navigateToRoot) {
+                                HStack {
+                                    Image(systemName: "house.fill")
+                                    Text(viewModel.subject.name)
+                                }
+                                .font(.caption)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 6)
+                                .background(viewModel.folderPath.isEmpty ? Color.blue : Color.gray.opacity(0.3))
+                                .foregroundColor(viewModel.folderPath.isEmpty ? .white : .primary)
+                                .clipShape(Capsule())
+                            }
+                            
+                            ForEach(Array(viewModel.folderPath.enumerated()), id: \.element.id) { index, folder in
+                                HStack {
+                                    Image(systemName: "chevron.right")
+                                        .font(.caption2)
+                                        .foregroundColor(.gray)
+                                    
+                                    Button(action: {
+                                        viewModel.navigateToFolder(at: index)
+                                    }) {
+                                        Text(folder.name)
+                                            .font(.caption)
+                                            .padding(.horizontal, 12)
+                                            .padding(.vertical, 6)
+                                            .background(index == viewModel.folderPath.count - 1 ? Color.blue : Color.gray.opacity(0.3))
+                                            .foregroundColor(index == viewModel.folderPath.count - 1 ? .white : .primary)
+                                            .clipShape(Capsule())
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    .padding(.horizontal)
+                }
+                .padding(.vertical, 4)
+            }
+        }
+    }
+    
     @ViewBuilder
     private var contentView: some View {
         ZStack {
-            if viewModel.filteredFiles.isEmpty {
+            if viewModel.filteredFileMetadata.isEmpty && viewModel.subfolders.isEmpty {
                 noNotesView
             } else {
-                notesGrid
+                enhancedGrid
             }
             
             if viewModel.isImportingFile {
@@ -184,27 +319,38 @@ struct CardDetailView: View {
         ScrollView {
             VStack {
                 Spacer(minLength: UIScreen.main.bounds.height / 6)
-                NoNotesView()
+                if viewModel.isSearching {
+                    Text("No results found for \"\(viewModel.searchText)\"")
+                        .font(.headline)
+                        .foregroundColor(.secondary)
+                } else {
+                    NoNotesView()
+                }
                 Spacer()
             }
         }
     }
     
-    private var notesGrid: some View {
+    private var enhancedGrid: some View {
         ScrollView {
             LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3)) {
-                ForEach(viewModel.filteredFiles, id: \.self) { fileURL in
-                    if fileURL.isImage {
-                        imageView(for: fileURL)
-                            .onTapGesture { handleTap(for: fileURL) }
-                            .transition(.scale.combined(with: .opacity))
-                    } else if fileURL.isPDF {
-                        pdfView(for: fileURL)
-                            .onTapGesture { handleTap(for: fileURL) }
-                    } else if fileURL.isDocx {
-                        documentView(for: fileURL, icon: "doc.text.fill", color: .blue)
-                            .onTapGesture { handleTap(for: fileURL) }
+                if !viewModel.isSearching {
+                    ForEach(viewModel.subfolders, id: \.id) { folder in
+                        folderView(for: folder)
+                            .onTapGesture {
+                                if viewModel.isEditing {
+                                    // Folder selection in edit mode is not supported
+                                } else {
+                                    viewModel.navigateToFolder(folder)
+                                }
+                            }
                     }
+                }
+                
+                ForEach(viewModel.filteredFileMetadata, id: \.id) { fileMetadata in
+                    fileMetadataView(for: fileMetadata)
+                        .onTapGesture { handleTapForMetadata(fileMetadata) }
+                        .transition(.scale.combined(with: .opacity))
                 }
             }
             .padding(.vertical)
@@ -213,89 +359,214 @@ struct CardDetailView: View {
         }
     }
     
-    private func handleTap(for fileURL: URL) {
-        if viewModel.isEditing {
-            viewModel.toggleSelection(for: fileURL)
-        } else {
-            viewModel.documentToPreview = PreviewableDocument(url: fileURL)
-        }
-    }
-    
-    private func imageView(for fileURL: URL) -> some View {
-        Group {
-            if let imageData = try? Data(contentsOf: fileURL), let image = UIImage(data: imageData) {
-                Image(uiImage: image)
-                    .resizable().scaledToFit().frame(maxWidth: 100, maxHeight: 100)
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
-                    .contextMenu {
-                        if !viewModel.isEditing {
-                            imageContextMenu(for: fileURL)
-                        }
-                    }
-                    .selectionOverlay(isSelected: viewModel.selectedFiles.contains(fileURL), isEditing: viewModel.isEditing)
-            }
-        }
-    }
-    
-    private func pdfView(for fileURL: URL) -> some View {
+    private func folderView(for folder: Folder) -> some View {
         VStack {
-            if let pdfThumbnail = viewModel.generatePDFThumbnail(from: fileURL) {
-                Image(uiImage: pdfThumbnail)
-                    .resizable().scaledToFit().frame(width: 80, height: 100)
-                    .clipShape(RoundedRectangle(cornerRadius: 8)).shadow(radius: 2)
-            } else {
-                Image(systemName: "doc.richtext").resizable().scaledToFit().frame(width: 50, height: 50)
+            ZStack {
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color.blue.opacity(0.1))
+                    .frame(width: 80, height: 60)
+                
+                Image(systemName: "folder.fill")
+                    .font(.largeTitle)
+                    .foregroundColor(.blue)
+                
+                if folder.isFavorite {
+                    Image(systemName: "heart.fill")
+                        .font(.caption)
+                        .foregroundColor(.red)
+                        .padding(3)
+                        .background(.thinMaterial)
+                        .clipShape(Circle())
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                        .padding(4)
+                }
             }
-            Text(fileURL.lastPathComponent)
+            
+            Text(folder.name)
                 .font(.caption)
                 .multilineTextAlignment(.center)
-                .lineLimit(3)
+                .lineLimit(2)
+                .frame(maxWidth: 100)
+            
+            Text("\(folder.files.count) files")
+                .font(.caption2)
+                .foregroundColor(.gray)
+        }
+        .contextMenu {
+            if !viewModel.isEditing {
+                folderContextMenu(for: folder)
+            }
+        }
+    }
+    
+    private func fileMetadataView(for fileMetadata: FileMetadata) -> some View {
+        VStack {
+            ZStack(alignment: .bottom) {
+                // File icon/thumbnail based on type
+                switch fileMetadata.fileType {
+                case .image:
+                    if let fileURL = fileMetadata.getFileURL(),
+                       let imageData = try? Data(contentsOf: fileURL),
+                       let image = UIImage(data: imageData) {
+                        Image(uiImage: image)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: 80, height: 80)
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                    } else {
+                        Image(systemName: "photo.fill")
+                            .font(.largeTitle)
+                            .foregroundColor(.green)
+                            .frame(width: 80, height: 80)
+                            .background(Color.green.opacity(0.1))
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                    }
+                    
+                case .pdf:
+                     if let fileURL = fileMetadata.getFileURL(), let pdfThumbnail = viewModel.generatePDFThumbnail(from: fileURL) {
+                        Image(uiImage: pdfThumbnail)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 80, height: 80)
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                            .shadow(radius: 2)
+                    } else {
+                        Image(systemName: "doc.richtext.fill")
+                            .font(.largeTitle)
+                            .foregroundColor(.red)
+                            .frame(width: 80, height: 80)
+                            .background(Color.red.opacity(0.1))
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                    }
+                    
+                case .docx:
+                    if let fileURL = fileMetadata.getFileURL() {
+                        DocxThumbnailView(fileURL: fileURL, viewModel: viewModel)
+                    } else {
+                         Image(systemName: "doc.text.fill")
+                            .font(.largeTitle)
+                            .foregroundColor(.blue)
+                            .frame(width: 80, height: 80)
+                            .background(Color.blue.opacity(0.1))
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                    }
+                    
+                case .unknown:
+                    Image(systemName: "doc.fill")
+                        .font(.largeTitle)
+                        .foregroundColor(.gray)
+                        .frame(width: 80, height: 80)
+                        .background(Color.gray.opacity(0.1))
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                }
+                
+                // Favorite indicator
+                if fileMetadata.isFavorite {
+                    Image(systemName: "heart.fill")
+                        .font(.caption)
+                        .foregroundColor(.red)
+                        .padding(3)
+                        .background(.thinMaterial)
+                        .clipShape(Circle())
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                        .padding(4)
+                }
+            }
+            .frame(width: 80, height: 80)
+            
+            Text(fileMetadata.fileName)
+                .font(.caption)
+                .multilineTextAlignment(.center)
+                .lineLimit(2)
                 .frame(maxWidth: 100)
         }
         .contextMenu {
             if !viewModel.isEditing {
-                fileContextMenu(for: fileURL)
+                fileMetadataContextMenu(for: fileMetadata)
             }
         }
-        .selectionOverlay(isSelected: viewModel.selectedFiles.contains(fileURL), isEditing: viewModel.isEditing)
-    }
-    
-    private func documentView(for fileURL: URL, icon: String, color: Color) -> some View {
-        DocumentThumbnailView(
-            fileURL: fileURL,
-            icon: icon,
-            color: color,
-            viewModel: viewModel
+        .selectionOverlay(
+            isSelected: viewModel.selectedFileMetadata.contains(fileMetadata),
+            isEditing: viewModel.isEditing
         )
-        .contextMenu {
-            if !viewModel.isEditing {
-                fileContextMenu(for: fileURL)
+    }
+    
+    private func handleTapForMetadata(_ fileMetadata: FileMetadata) {
+        if viewModel.isEditing {
+            viewModel.toggleSelectionForMetadata(fileMetadata)
+        } else {
+            if let fileURL = fileMetadata.getFileURL() {
+                viewModel.documentToPreview = PreviewableDocument(url: fileURL)
             }
         }
-        .selectionOverlay(isSelected: viewModel.selectedFiles.contains(fileURL), isEditing: viewModel.isEditing)
     }
     
     @ViewBuilder
-    private func fileContextMenu(for fileURL: URL) -> some View {
-        Button { viewModel.renamingFileURL = fileURL } label: { Label("Rename", systemImage: "pencil") }
-        Button(role: .destructive) { viewModel.deleteFile(at: fileURL) } label: { Label("Delete", systemImage: "trash") }
+    private func folderContextMenu(for folder: Folder) -> some View {
+        Button {
+            viewModel.toggleFavorite(for: folder)
+        } label: {
+            Label(folder.isFavorite ? "Remove from Favorites" : "Add to Favorites",
+                  systemImage: folder.isFavorite ? "heart.slash" : "heart")
+        }
+
+        Button {
+            // Rename folder functionality
+        } label: {
+            Label("Rename", systemImage: "pencil")
+        }
+        
+        Button(role: .destructive) {
+            viewModel.deleteFolder(folder)
+        } label: {
+            Label("Delete", systemImage: "trash")
+        }
     }
     
     @ViewBuilder
-    private func imageContextMenu(for fileURL: URL) -> some View {
-        Button(role: .destructive) { viewModel.deleteFile(at: fileURL) } label: { Label("Delete", systemImage: "trash") }
+    private func fileMetadataContextMenu(for fileMetadata: FileMetadata) -> some View {
+        Button {
+            viewModel.toggleFavorite(for: fileMetadata)
+        } label: {
+            Label(fileMetadata.isFavorite ? "Remove from Favorites" : "Add to Favorites",
+                  systemImage: fileMetadata.isFavorite ? "heart.slash" : "heart")
+        }
+        
+        Button {
+            viewModel.showFolderPicker(for: fileMetadata)
+        } label: {
+            Label("Move to Folder", systemImage: "folder")
+        }
+        
+        Button {
+            viewModel.renamingFileMetadata = fileMetadata
+        } label: {
+            Label("Rename", systemImage: "pencil")
+        }
+        
+        Button(role: .destructive) {
+            viewModel.deleteFileMetadata(fileMetadata)
+        } label: {
+            Label("Delete", systemImage: "trash")
+        }
     }
     
     private var renameAlertContent: some View {
         Group {
             TextField("New Name", text: $viewModel.newFileName)
-            Button("Cancel", role: .cancel) { viewModel.renamingFileURL = nil }
+            Button("Cancel", role: .cancel) { viewModel.renamingFileMetadata = nil }
             Button("Save") { viewModel.renameFile() }
         }
     }
     
     private var addButton: some View {
         Menu {
+            if viewModel.currentFolder == nil {
+                Button("New Folder", systemImage: "folder.badge.plus") {
+                    viewModel.isShowingCreateFolderAlert = true
+                }
+            }
+            
             Button("Camera", systemImage: "camera.fill") { viewModel.isShowingCamera = true }
             
             Button("Images from Photos", systemImage: "photo.on.rectangle.angled") {
@@ -317,26 +588,39 @@ struct CardDetailView: View {
         .frame(maxWidth: .infinity, alignment: .bottomTrailing)
     }
     
-    private var deleteSelectedButton: some View {
-        Button(role: .destructive) {
-            viewModel.isShowingMultiDeleteAlert = true
-        } label: {
-            HStack {
-                Image(systemName: "trash")
-                Text("Delete (\(viewModel.selectedFiles.count))")
+    private var editingBottomBar: some View {
+        HStack(spacing: 16) {
+            // Move Button
+            Button {
+                viewModel.showFolderPickerForSelection()
+            } label: {
+                Label("Move", systemImage: "folder")
+                    .fontWeight(.semibold)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(viewModel.selectedFileMetadata.isEmpty ? Color.gray : Color.blue)
+                    .foregroundColor(.white)
+                    .clipShape(Capsule())
             }
-            .fontWeight(.semibold)
-            .frame(maxWidth: .infinity)
-            .padding()
-            .background(viewModel.selectedFiles.isEmpty ? Color.gray.opacity(0.8) : Color.red)
-            .foregroundColor(.white)
-            .clipShape(Capsule())
+            .disabled(viewModel.selectedFileMetadata.isEmpty)
+            
+            // Delete Button
+            Button(role: .destructive) {
+                viewModel.isShowingMultiDeleteAlert = true
+            } label: {
+                Label("Delete (\(viewModel.selectedFileMetadata.count))", systemImage: "trash")
+                    .fontWeight(.semibold)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(viewModel.selectedFileMetadata.isEmpty ? Color.gray : Color.red)
+                    .foregroundColor(.white)
+                    .clipShape(Capsule())
+            }
+            .disabled(viewModel.selectedFileMetadata.isEmpty)
         }
         .padding(.horizontal)
         .padding(.bottom, 8)
-        .disabled(viewModel.selectedFiles.isEmpty)
-        .transition(.move(edge: .bottom).combined(with: .opacity))
-        .animation(.spring(), value: viewModel.selectedFiles.isEmpty)
+        .transition(.move(edge: .bottom))
     }
     
     private var deleteAlertContent: some View {
@@ -345,7 +629,9 @@ struct CardDetailView: View {
             viewModel.deleteSubject { dismiss() }
         }
     }
-
+    
+    // MARK: - Feedback Helpers
+    
     private func triggerHapticFeedback() {
         let generator = UINotificationFeedbackGenerator()
         generator.prepare()
@@ -354,6 +640,48 @@ struct CardDetailView: View {
     
     private func playDeleteSound() {
         SoundManager.shared.playDeleteSound()
+    }
+
+    private func playTapSoundAndVibrate() {
+        // Haptic feedback for selection change
+        let generator = UIImpactFeedbackGenerator(style: .light)
+        generator.impactOccurred()
+        
+        // Play a more audible system tap sound
+        AudioServicesPlaySystemSound(1306)
+    }
+}
+
+// MARK: - DocxThumbnailView
+struct DocxThumbnailView: View {
+    let fileURL: URL
+    @ObservedObject var viewModel: CardDetailViewModel
+    
+    @State private var thumbnail: UIImage? = nil
+    
+    var body: some View {
+        ZStack {
+            if let thumbnail = thumbnail {
+                Image(uiImage: thumbnail)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 80, height: 80)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .shadow(radius: 2)
+            } else {
+                Image(systemName: "doc.text.fill")
+                    .font(.largeTitle)
+                    .foregroundColor(.blue)
+                    .frame(width: 80, height: 80)
+                    .background(Color.blue.opacity(0.1))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+            }
+        }
+        .onAppear {
+            viewModel.generateDocxThumbnail(from: fileURL) { image in
+                self.thumbnail = image
+            }
+        }
     }
 }
 
@@ -386,7 +714,6 @@ struct SelectionOverlay: ViewModifier {
         }
         .animation(.easeInOut(duration: 0.2), value: isSelected)
         .animation(.easeInOut(duration: 0.2), value: isEditing)
-
     }
 }
 
@@ -396,49 +723,7 @@ extension View {
     }
 }
 
-// MARK: - DocumentThumbnailView
-struct DocumentThumbnailView: View {
-    let fileURL: URL
-    let icon: String
-    let color: Color
-    @ObservedObject var viewModel: CardDetailViewModel
-    
-    @State private var thumbnail: UIImage? = nil
-    
-    var body: some View {
-        VStack {
-            ZStack {
-                Image(systemName: icon)
-                    .resizable().scaledToFit().frame(width: 50, height: 50)
-                    .foregroundColor(color)
-                    .padding(25)
-                    .background(color.opacity(0.1))
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
-
-                if let thumbnail = thumbnail {
-                    Image(uiImage: thumbnail)
-                        .resizable().scaledToFit().frame(width: 80, height: 100)
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
-                        .shadow(radius: 2)
-                }
-            }
-            .frame(width: 80, height: 100)
-
-            Text(fileURL.lastPathComponent)
-                .font(.caption)
-                .multilineTextAlignment(.center)
-                .lineLimit(3)
-                .frame(maxWidth: 100)
-        }
-        .onAppear {
-            viewModel.generateDocxThumbnail(from: fileURL) { image in
-                self.thumbnail = image
-            }
-        }
-    }
-}
-
-// MARK: - DocumentPreviewView (for DOCX, PDF, etc.)
+// MARK: - DocumentPreviewView
 struct DocumentPreviewView: UIViewControllerRepresentable {
     let url: URL
 
@@ -461,10 +746,7 @@ struct DocumentPreviewView: UIViewControllerRepresentable {
             self.parent = parent
         }
 
-        func numberOfPreviewItems(in controller: QLPreviewController) -> Int {
-            return 1
-        }
-
+        func numberOfPreviewItems(in controller: QLPreviewController) -> Int { 1 }
         func previewController(_ controller: QLPreviewController, previewItemAt index: Int) -> QLPreviewItem {
             return parent.url as QLPreviewItem
         }
@@ -472,7 +754,7 @@ struct DocumentPreviewView: UIViewControllerRepresentable {
 }
 
 
-// MARK: - ImagePicker (For Camera)
+// MARK: - ImagePicker
 struct ImagePicker: UIViewControllerRepresentable {
     var sourceType: UIImagePickerController.SourceType
     var onImageSelected: (UIImage?) -> Void
@@ -486,16 +768,12 @@ struct ImagePicker: UIViewControllerRepresentable {
     
     func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {}
     
-    func makeCoordinator() -> Coordinator {
-        Coordinator(self)
-    }
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
     
     class Coordinator: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
         let parent: ImagePicker
         
-        init(_ parent: ImagePicker) {
-            self.parent = parent
-        }
+        init(_ parent: ImagePicker) { self.parent = parent }
         
         func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey : Any]) {
             if let image = info[.originalImage] as? UIImage {
@@ -511,20 +789,50 @@ struct ImagePicker: UIViewControllerRepresentable {
     }
 }
 
-// MARK: - Preview
-#Preview {
-    do {
-        let config = ModelConfiguration(isStoredInMemoryOnly: true)
-        let container = try ModelContainer(for: Subject.self, configurations: config)
-        let example = Subject(name: "Example")
-        container.mainContext.insert(example)
-        
-        return NavigationStack {
-            CardDetailView(subject: example, modelContext: container.mainContext)
-                .modelContainer(container)
+// MARK: - FolderPickerView
+struct FolderPickerView: View {
+    let subjectName: String
+    let folders: [Folder]
+    let onFolderSelected: (Folder?) -> Void
+    let onCancel: () -> Void
+    
+    var body: some View {
+        NavigationView {
+            List {
+                Button(action: {
+                    onFolderSelected(nil) // `nil` represents the root
+                }) {
+                    HStack {
+                        Image(systemName: "house.fill")
+                            .foregroundColor(.blue)
+                        Text(subjectName) // Show Subject name for root
+                        Spacer()
+                    }
+                }
+                
+                ForEach(folders, id: \.id) { folder in
+                    Button(action: {
+                        onFolderSelected(folder)
+                    }) {
+                        HStack {
+                            Image(systemName: "folder.fill")
+                                .foregroundColor(.blue)
+                            Text(folder.name) // Just show the folder name, not the full path
+                            Spacer()
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Move to Folder")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Cancel") {
+                        onCancel()
+                    }
+                }
+            }
         }
-    } catch {
-        return Text("Failed to create preview: \(error.localizedDescription)")
     }
 }
 

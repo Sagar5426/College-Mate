@@ -2,9 +2,13 @@ import SwiftUI
 import SwiftData
 
 struct EditSubjectView: View {
+    @Environment(\.modelContext) private var modelContext
+    @Query var subjects: [Subject]
     @Bindable var subject: Subject
     @Binding var isShowingEditSubjectView: Bool
+    
     @State private var originalSubjectName: String = ""
+    @State private var isShowingDuplicateAlert = false
     
     let daysOfWeek = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
     let characterLimit = 20 // Stricter character limit
@@ -53,18 +57,37 @@ struct EditSubjectView: View {
                 .toolbar {
                     ToolbarItem(placement: .topBarTrailing) {
                         Button("Done") {
-                            if originalSubjectName != subject.name {
-                                moveFilesToNewFolder(oldName: originalSubjectName, newName: subject.name)
-                            }
-                            isShowingEditSubjectView = false
+                            validateAndSaveChanges()
                         }
-                        
-                        
                     }
+                }
+                .alert("Duplicate Subject", isPresented: $isShowingDuplicateAlert) {
+                    Button("OK") { }
+                } message: {
+                    Text("A subject with this name already exists. Please choose a different name.")
                 }
             }
         }
         
+    }
+    
+    private func validateAndSaveChanges() {
+        let newName = subject.name.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        // Check for duplicates only if the name has changed
+        if newName.lowercased() != originalSubjectName.lowercased() {
+            if subjects.contains(where: { $0.name.lowercased() == newName.lowercased() }) {
+                isShowingDuplicateAlert = true
+                subject.name = originalSubjectName // Revert to original name
+                return
+            }
+        }
+        
+        // If validation passes, move files and dismiss
+        if originalSubjectName != newName {
+            moveFilesToNewFolder(oldName: originalSubjectName, newName: newName)
+        }
+        isShowingEditSubjectView = false
     }
     
     private func populateExistingData() {

@@ -15,6 +15,7 @@ struct AddSubjectView: View {
     @State private var selectedDays: Set<String> = []
     @State private var classTimes: [String: [ClassPeriodTime]] = [:]
     @State private var classCount: [String: Int] = [:]
+    @State private var isShowingDuplicateAlert = false
     
     let daysOfWeek = [
         "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"
@@ -55,6 +56,11 @@ struct AddSubjectView: View {
                         }
                     }
                 }
+                .alert("Duplicate Subject", isPresented: $isShowingDuplicateAlert) {
+                    Button("OK") { }
+                } message: {
+                    Text("A subject with this name already exists. Please choose a different name.")
+                }
             }
         }
     }
@@ -62,6 +68,12 @@ struct AddSubjectView: View {
     private func saveSubject() {
         guard !subjectName.isEmpty else {
             print("Subject name cannot be empty.")
+            return
+        }
+        
+        // Check for duplicates (case-insensitive)
+        if subjects.contains(where: { $0.name.lowercased() == subjectName.lowercased() }) {
+            isShowingDuplicateAlert = true
             return
         }
         
@@ -313,3 +325,4 @@ struct MinimumAttendenceStepper: View {
         }
     }
 }
+

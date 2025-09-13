@@ -6,6 +6,12 @@ enum NoteFilter: String, CaseIterable {
     case images = "Images"
     case pdfs = "PDFs"
     case docs = "Docs"
+    case favorites = "Favorites"
+}
+
+enum SearchScope: String, CaseIterable {
+    case currentFolder = "Current Folder"
+    case allFolders = "All Folders"
 }
 
 struct IdentifiableImage: Identifiable {

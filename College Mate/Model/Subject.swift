@@ -14,6 +14,14 @@ class Subject {
     // Each subject now has a list of its unique attendance records.
     @Relationship(deleteRule: .cascade, inverse: \AttendanceRecord.subject)
     var records: [AttendanceRecord] = []
+    
+    // Folder system for organizing files
+    @Relationship(deleteRule: .cascade, inverse: \Folder.subject)
+    var rootFolders: [Folder] = []
+    
+    // File metadata for tracking files and favorites
+    @Relationship(deleteRule: .cascade, inverse: \FileMetadata.subject)
+    var fileMetadata: [FileMetadata] = []
 
     init(name: String, startDateOfSubject: Date = .now, schedules: [Schedule] = [], attendance: Attendance = Attendance(totalClasses: 0, attendedClasses: 0), notes: [Note] = []) {
         self.id = UUID()

@@ -6,7 +6,7 @@ import SwiftData
 class Schedule {
     var id: UUID
     var day: String
-    var classTimes: [ClassTime] = [] 
+    var classTimes: [ClassTime] = []
     
     init(day: String, classTimes: [ClassTime] = []) {
         self.id = UUID()

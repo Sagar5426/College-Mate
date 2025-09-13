@@ -37,7 +37,7 @@ extension View {
     // Updated Profile Icon in Header View
         @ViewBuilder
         func HeaderView(size: CGSize, title: String, isShowingProfileView: Binding<Bool>) -> some View {
-            let safeArea = self.safeArea 
+            let safeArea = self.safeArea
             HStack(spacing: 10) {
                 Text(title)
                     .font(.title.bold())
