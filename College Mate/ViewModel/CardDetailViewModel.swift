@@ -77,6 +77,10 @@ class CardDetailViewModel: ObservableObject {
     @Published var selectedFileMetadata: Set<FileMetadata> = []
     @Published var isShowingMultiDeleteAlert = false
     
+    // Sharing files and receiving
+    @Published var urlToShare: URL? = nil
+    @Published var isShowingShareSheet = false
+    
     
     // MARK: - Initializer
     
@@ -104,24 +108,40 @@ class CardDetailViewModel: ObservableObject {
     
     func filterFileMetadata() {
         let filesToFilter = isSearching ? searchResults : currentFiles
-        
+        let foldersToFilter = isSearching ? [] : (currentFolder?.subfolders ?? subject.rootFolders)
+
         switch selectedFilter {
         case .all:
             filteredFileMetadata = filesToFilter
+            subfolders = foldersToFilter.sorted { $0.name < $1.name }
         case .images:
             filteredFileMetadata = filesToFilter.filter { $0.fileType == .image }
+            subfolders = foldersToFilter.filter { folder in
+                !folder.files.filter { $0.fileType == .image }.isEmpty
+            }.sorted { $0.name < $1.name }
         case .pdfs:
             filteredFileMetadata = filesToFilter.filter { $0.fileType == .pdf }
+            subfolders = foldersToFilter.filter { folder in
+                !folder.files.filter { $0.fileType == .pdf }.isEmpty
+            }.sorted { $0.name < $1.name }
         case .docs:
             filteredFileMetadata = filesToFilter.filter { $0.fileType == .docx }
+            subfolders = foldersToFilter.filter { folder in
+                !folder.files.filter { $0.fileType == .docx }.isEmpty
+            }.sorted { $0.name < $1.name }
         case .favorites:
-            // Get all individually favorited files
+            // Get all individually favorited files within the subject
             let favoriteFiles = subject.fileMetadata.filter { $0.isFavorite }
-            // Get all files from favorited folders
+            // Get all files from favorited folders within the subject
             let filesInFavoriteFolders = subject.rootFolders.filter { $0.isFavorite }.flatMap { $0.files }
             // Combine and remove duplicates
             let allFavorites = Set(favoriteFiles).union(Set(filesInFavoriteFolders))
             filteredFileMetadata = Array(allFavorites).sorted { $0.createdDate > $1.createdDate }
+            
+            // Show folders that are favorited OR contain a favorited file
+            subfolders = subject.rootFolders.filter { folder in
+                folder.isFavorite || !folder.files.filter { $0.isFavorite }.isEmpty
+            }.sorted { $0.name < $1.name }
         }
     }
     

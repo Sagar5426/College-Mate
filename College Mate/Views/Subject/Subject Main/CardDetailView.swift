@@ -128,21 +128,20 @@ struct CardDetailView: View {
             onCompletion: viewModel.handleFileImport
         )
         .fullScreenCover(item: $viewModel.documentToPreview) { document in
-            ZStack(alignment: .topTrailing) {
-                DocumentPreviewView(url: document.url)
-                    .ignoresSafeArea()
-
-                Button {
-                    viewModel.documentToPreview = nil
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.largeTitle)
-                        .symbolRenderingMode(.palette)
-                        .foregroundStyle(.black, Color(.systemGray5).opacity(0.8))
+            // This is the new part for the Share Sheet
+            PreviewWithShareView(
+                document: document,
+                onDismiss: { viewModel.documentToPreview = nil },
+                onShare: {
+                    viewModel.urlToShare = document.url
+                    viewModel.isShowingShareSheet = true
                 }
-                .padding()
+            )
+        }
+        .sheet(isPresented: $viewModel.isShowingShareSheet) {
+            if let url = viewModel.urlToShare {
+                ShareSheetView(activityItems: [url])
             }
-            .interactiveDismissDisabled()
         }
         .fullScreenCover(isPresented: $viewModel.isShowingCamera) {
             ImagePicker(sourceType: .camera, onImageSelected: viewModel.handleImageSelected)
@@ -341,6 +340,7 @@ struct CardDetailView: View {
                                 if viewModel.isEditing {
                                     // Folder selection in edit mode is not supported
                                 } else {
+                                    playNavigationHaptic()
                                     viewModel.navigateToFolder(folder)
                                 }
                             }
@@ -650,7 +650,48 @@ struct CardDetailView: View {
         // Play a more audible system tap sound
         AudioServicesPlaySystemSound(1306)
     }
+    
+    private func playNavigationHaptic() {
+        let generator = UIImpactFeedbackGenerator(style: .light)
+        generator.impactOccurred()
+    }
 }
+
+// MARK: - PreviewWithShareView
+struct PreviewWithShareView: View {
+    let document: PreviewableDocument
+    let onDismiss: () -> Void
+    let onShare: () -> Void
+    
+    var body: some View {
+        NavigationView {
+            ZStack(alignment: .topTrailing) {
+                DocumentPreviewView(url: document.url)
+                    .ignoresSafeArea()
+                    .toolbar {
+                        ToolbarItem(placement: .bottomBar) {
+                            Button(action: onShare) {
+                                Image(systemName: "square.and.arrow.up")
+                            }
+                        }
+                        ToolbarItem(placement: .bottomBar) {
+                            Spacer() // To push the share button to the left
+                        }
+                    }
+
+                Button(action: onDismiss) {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.largeTitle)
+                        .symbolRenderingMode(.palette)
+                        .foregroundStyle(.black, Color(.systemGray5).opacity(0.8))
+                }
+                .padding()
+            }
+            .interactiveDismissDisabled()
+        }
+    }
+}
+
 
 // MARK: - DocxThumbnailView
 struct DocxThumbnailView: View {
@@ -723,7 +764,7 @@ extension View {
     }
 }
 
-// MARK: - DocumentPreviewView
+// MARK: - DocumentPreviewView & ShareSheet
 struct DocumentPreviewView: UIViewControllerRepresentable {
     let url: URL
 
@@ -751,6 +792,18 @@ struct DocumentPreviewView: UIViewControllerRepresentable {
             return parent.url as QLPreviewItem
         }
     }
+}
+
+struct ShareSheetView: UIViewControllerRepresentable {
+    let activityItems: [Any]
+    let applicationActivities: [UIActivity]? = nil
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        let controller = UIActivityViewController(activityItems: activityItems, applicationActivities: applicationActivities)
+        return controller
+    }
+
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }
 
 

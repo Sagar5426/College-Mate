@@ -7,22 +7,101 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		452B61142E76926B00E655B1 /* ShareToCollegeMate.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 452B610A2E76926B00E655B1 /* ShareToCollegeMate.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		45C5A75D2E599E580025FC0B /* Mantis in Frameworks */ = {isa = PBXBuildFile; productRef = 45C5A75C2E599E580025FC0B /* Mantis */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		452B61122E76926B00E655B1 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 452D1A542D283ED7006E2FAA /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 452B61092E76926B00E655B1;
+			remoteInfo = ShareToCollegeMate;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		452B61192E76926B00E655B1 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				452B61142E76926B00E655B1 /* ShareToCollegeMate.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
+		452B610A2E76926B00E655B1 /* ShareToCollegeMate.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ShareToCollegeMate.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		452D1A5C2D283ED7006E2FAA /* College Mate.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "College Mate.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		452B61152E76926B00E655B1 /* Exceptions for "ShareToCollegeMate" folder in "ShareToCollegeMate" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 452B61092E76926B00E655B1 /* ShareToCollegeMate */;
+		};
+		452B611F2E76993A00E655B1 /* Exceptions for "ShareToCollegeMate" folder in "College Mate" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				ShareView.swift,
+				ShareViewController.swift,
+			);
+			target = 452D1A5B2D283ED7006E2FAA /* College Mate */;
+		};
+		45BA4A3F2E769BA400743622 /* Exceptions for "College Mate" folder in "ShareToCollegeMate" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Helpers/FileHelper.swift,
+				Model/Attendance.swift,
+				Model/AttendanceRecord.swift,
+				Model/AttendenceLogEntry.swift,
+				Model/ClassTime.swift,
+				Model/FileMetaData.swift,
+				Model/Folder.swift,
+				Model/Note.swift,
+				Model/Schedule.swift,
+				Model/Subject.swift,
+			);
+			target = 452B61092E76926B00E655B1 /* ShareToCollegeMate */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		452B610B2E76926B00E655B1 /* ShareToCollegeMate */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				452B611F2E76993A00E655B1 /* Exceptions for "ShareToCollegeMate" folder in "College Mate" target */,
+				452B61152E76926B00E655B1 /* Exceptions for "ShareToCollegeMate" folder in "ShareToCollegeMate" target */,
+			);
+			path = ShareToCollegeMate;
+			sourceTree = "<group>";
+		};
 		452D1A5E2D283ED7006E2FAA /* College Mate */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				45BA4A3F2E769BA400743622 /* Exceptions for "College Mate" folder in "ShareToCollegeMate" target */,
+			);
 			path = "College Mate";
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		452B61072E76926B00E655B1 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		452D1A592D283ED7006E2FAA /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -38,6 +117,7 @@
 			isa = PBXGroup;
 			children = (
 				452D1A5E2D283ED7006E2FAA /* College Mate */,
+				452B610B2E76926B00E655B1 /* ShareToCollegeMate */,
 				452D1A5D2D283ED7006E2FAA /* Products */,
 			);
 			sourceTree = "<group>";
@@ -46,6 +126,7 @@
 			isa = PBXGroup;
 			children = (
 				452D1A5C2D283ED7006E2FAA /* College Mate.app */,
+				452B610A2E76926B00E655B1 /* ShareToCollegeMate.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -53,6 +134,28 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		452B61092E76926B00E655B1 /* ShareToCollegeMate */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 452B61162E76926B00E655B1 /* Build configuration list for PBXNativeTarget "ShareToCollegeMate" */;
+			buildPhases = (
+				452B61062E76926B00E655B1 /* Sources */,
+				452B61072E76926B00E655B1 /* Frameworks */,
+				452B61082E76926B00E655B1 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				452B610B2E76926B00E655B1 /* ShareToCollegeMate */,
+			);
+			name = ShareToCollegeMate;
+			packageProductDependencies = (
+			);
+			productName = ShareToCollegeMate;
+			productReference = 452B610A2E76926B00E655B1 /* ShareToCollegeMate.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 		452D1A5B2D283ED7006E2FAA /* College Mate */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 452D1A6A2D283ED8006E2FAA /* Build configuration list for PBXNativeTarget "College Mate" */;
@@ -60,10 +163,12 @@
 				452D1A582D283ED7006E2FAA /* Sources */,
 				452D1A592D283ED7006E2FAA /* Frameworks */,
 				452D1A5A2D283ED7006E2FAA /* Resources */,
+				452B61192E76926B00E655B1 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				452B61132E76926B00E655B1 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				452D1A5E2D283ED7006E2FAA /* College Mate */,
@@ -83,9 +188,13 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
-				LastSwiftUpdateCheck = 1620;
+				LastSwiftUpdateCheck = 1640;
 				LastUpgradeCheck = 1630;
 				TargetAttributes = {
+					452B61092E76926B00E655B1 = {
+						CreatedOnToolsVersion = 16.4;
+						LastSwiftMigration = 1640;
+					};
 					452D1A5B2D283ED7006E2FAA = {
 						CreatedOnToolsVersion = 16.2;
 					};
@@ -109,11 +218,19 @@
 			projectRoot = "";
 			targets = (
 				452D1A5B2D283ED7006E2FAA /* College Mate */,
+				452B61092E76926B00E655B1 /* ShareToCollegeMate */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		452B61082E76926B00E655B1 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		452D1A5A2D283ED7006E2FAA /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -124,6 +241,13 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		452B61062E76926B00E655B1 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		452D1A582D283ED7006E2FAA /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -133,7 +257,72 @@
 		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		452B61132E76926B00E655B1 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 452B61092E76926B00E655B1 /* ShareToCollegeMate */;
+			targetProxy = 452B61122E76926B00E655B1 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
+		452B61172E76926B00E655B1 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 75RPJYM6U7;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ShareToCollegeMate/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = ShareToCollegeMate;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.5;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.sagar.College-Mate.ShareToCollegeMate";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		452B61182E76926B00E655B1 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 75RPJYM6U7;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ShareToCollegeMate/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = ShareToCollegeMate;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.5;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.sagar.College-Mate.ShareToCollegeMate";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 		452D1A682D283ED8006E2FAA /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -260,6 +449,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = "College Mate/College Mate.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
@@ -302,6 +492,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = "College Mate/College Mate.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
@@ -342,6 +533,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		452B61162E76926B00E655B1 /* Build configuration list for PBXNativeTarget "ShareToCollegeMate" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				452B61172E76926B00E655B1 /* Debug */,
+				452B61182E76926B00E655B1 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		452D1A572D283ED7006E2FAA /* Build configuration list for PBXProject "College Mate" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

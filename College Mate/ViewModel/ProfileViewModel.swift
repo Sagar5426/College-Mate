@@ -17,12 +17,13 @@ class ProfileViewModel: ObservableObject {
     
     // --- UI State ---
     @Published var isEditingProfile = false
+    @Published var isShowingDatePicker = false
     
     // --- Attendance History State & Logic ---
-    // This is now a 'var' and will be updated by the View.
     var subjects: [Subject] = []
     @Published var filteredLogs: [AttendanceLogEntry] = []
     @Published var selectedFilter: FilterType = .sevenDays
+    @Published var selectedDate: Date = Date()
     @Published var selectedSubjectName: String = "All Subjects"
 
     // MARK: - Enums
@@ -37,9 +38,8 @@ class ProfileViewModel: ObservableObject {
         case oneDay = "1 Day"
         case sevenDays = "7 Days"
         case oneMonth = "1 Month"
-        case sixMonths = "6 Months"
-        case oneYear = "1 Year"
-        case allTime = "All Time"
+        case allHistory = "All History"
+        case selectDate = "Select Date"
 
         var id: String { rawValue }
 
@@ -49,9 +49,8 @@ class ProfileViewModel: ObservableObject {
             case .oneDay: return calendar.date(byAdding: .day, value: -1, to: date)
             case .sevenDays: return calendar.date(byAdding: .day, value: -7, to: date)
             case .oneMonth: return calendar.date(byAdding: .month, value: -1, to: date)
-            case .sixMonths: return calendar.date(byAdding: .month, value: -6, to: date)
-            case .oneYear: return calendar.date(byAdding: .year, value: -1, to: date)
-            case .allTime: return nil
+            case .allHistory: return nil
+            case .selectDate: return nil // Special handling
             }
         }
     }
@@ -66,7 +65,6 @@ class ProfileViewModel: ObservableObject {
     
     // MARK: - Initializer
     
-    // The initializer is now empty.
     init() {}
     
     // MARK: - Methods
@@ -76,6 +74,13 @@ class ProfileViewModel: ObservableObject {
             selectedSubjectName == "All Subjects" || selectedSubjectName == subject.name
                 ? subject.logs
                 : []
+        }
+
+        if selectedFilter == .selectDate {
+            filteredLogs = allLogs
+                .filter { Calendar.current.isDate($0.timestamp, inSameDayAs: selectedDate) }
+                .sorted { $0.timestamp > $1.timestamp }
+            return
         }
 
         guard let threshold = selectedFilter.dateThreshold() else {
@@ -88,3 +93,4 @@ class ProfileViewModel: ObservableObject {
             .sorted { $0.timestamp > $1.timestamp }
     }
 }
+

@@ -39,6 +39,34 @@ struct ProfileView: View {
                     // We now pass a binding to our new state variable into the sheet.
                     EditProfileView(viewModel: viewModel, isShowingPhotoPicker: $isShowingPhotoPicker)
                 }
+                .sheet(isPresented: $viewModel.isShowingDatePicker) {
+                    VStack {
+                        DatePicker(
+                            "Select a Date",
+                            selection: $viewModel.selectedDate,
+                            in: ...Date(), // Users can't select a future date
+                            displayedComponents: .date
+                        )
+                        .datePickerStyle(GraphicalDatePickerStyle())
+                        .padding() // Added padding around the date picker
+                        
+                        Button(action: {
+                            viewModel.isShowingDatePicker = false
+                            viewModel.filterAttendanceLogs()
+                        }) {
+                            Text("Done")
+                                .fontWeight(.semibold)
+                                .frame(maxWidth: .infinity)
+                        }
+                        .padding()
+                        .background(Color.blue)
+                        .foregroundColor(.white)
+                        .cornerRadius(10)
+                        .padding(.horizontal) // Padding for the button
+                    }
+                    .padding(.vertical) // Overall vertical padding for the sheet content
+                    .presentationDetents([.medium])
+                }
                 .onAppear {
                     viewModel.subjects = subjects
                     viewModel.filterAttendanceLogs()
@@ -47,7 +75,13 @@ struct ProfileView: View {
                     viewModel.subjects = subjects
                     viewModel.filterAttendanceLogs()
                 }
-                .onChange(of: viewModel.selectedFilter) { viewModel.filterAttendanceLogs() }
+                .onChange(of: viewModel.selectedFilter) {
+                    // We only need to filter if the selection is NOT for a specific date,
+                    // as that case is handled by its own button and the sheet's Done button.
+                    if viewModel.selectedFilter != .selectDate {
+                        viewModel.filterAttendanceLogs()
+                    }
+                }
                 .onChange(of: viewModel.selectedSubjectName) { viewModel.filterAttendanceLogs() }
             }
         }
@@ -164,13 +198,23 @@ struct AttendanceHistorySection: View {
                     Spacer()
                     
                     Menu {
-                        ForEach(ProfileViewModel.FilterType.allCases) { filter in
-                            Button(filter.rawValue) { viewModel.selectedFilter = filter }
+                        // Displaying the updated filter options
+                        Button(ProfileViewModel.FilterType.oneDay.rawValue) { viewModel.selectedFilter = .oneDay }
+                        Button(ProfileViewModel.FilterType.sevenDays.rawValue) { viewModel.selectedFilter = .sevenDays }
+                        Button(ProfileViewModel.FilterType.oneMonth.rawValue) { viewModel.selectedFilter = .oneMonth }
+                        Button(ProfileViewModel.FilterType.allHistory.rawValue) { viewModel.selectedFilter = .allHistory }
+                        
+                        // Select Date option is now separate and at the bottom
+                        Divider()
+                        Button(ProfileViewModel.FilterType.selectDate.rawValue) {
+                            viewModel.selectedFilter = .selectDate
+                            viewModel.isShowingDatePicker = true
                         }
+
                     } label: {
                         HStack(spacing: 4) {
                             Image(systemName: "calendar")
-                            Text(viewModel.selectedFilter.rawValue)
+                            Text(viewModel.selectedFilter == .selectDate ? viewModel.selectedDate.formatted(.dateTime.day().month().year()) : viewModel.selectedFilter.rawValue)
                         }
                         .foregroundColor(.blue)
                     }
