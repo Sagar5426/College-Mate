@@ -62,21 +62,35 @@ struct SubjectsView: View {
 
 struct AddSubjectButton: View {
     @Binding var isShowingAddSubject: Bool
-    
+
     var body: some View {
         Button {
             isShowingAddSubject = true
         } label: {
             Image(systemName: "plus")
-                .resizable()
-                .scaledToFit()
-                .foregroundColor(.white)
-                .frame(width: 30, height: 30)
-                .padding(12)
-                .background(Circle().fill(Color.blue.opacity(0.8)))
-                .shadow(radius: 10)
+                .font(.system(size: 28, weight: .bold, design: .rounded))
+                .foregroundColor(.white.opacity(0.9))
+                .frame(width: 60, height: 60)
+                .background(
+                    // This creates the frosted glass effect
+                    .ultraThinMaterial, in: Circle()
+                )
+                .overlay(
+                    // This adds a subtle "glass" border
+                    Circle()
+                        .stroke(
+                            LinearGradient(
+                                colors: [.white.opacity(0.4), .clear],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 2
+                        )
+                )
+                .shadow(color: .black.opacity(0.25), radius: 10, x: 0, y: 5)
         }
-        .padding()
+        .padding() // Reverted to original padding
+        .sensoryFeedback(.impact(weight: .medium), trigger: isShowingAddSubject)
     }
 }
 
@@ -84,6 +98,4 @@ struct AddSubjectButton: View {
 #Preview {
     SubjectsView()
 }
-
-
 
