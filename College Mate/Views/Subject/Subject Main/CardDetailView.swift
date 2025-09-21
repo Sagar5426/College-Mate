@@ -131,17 +131,11 @@ struct CardDetailView: View {
             // This is the new part for the Share Sheet
             PreviewWithShareView(
                 document: document,
-                onDismiss: { viewModel.documentToPreview = nil },
-                onShare: {
-                    viewModel.urlToShare = document.url
-                    viewModel.isShowingShareSheet = true
-                }
+                onDismiss: { viewModel.documentToPreview = nil }
             )
         }
-        .sheet(isPresented: $viewModel.isShowingShareSheet) {
-            if let url = viewModel.urlToShare {
-                ShareSheetView(activityItems: [url])
-            }
+        .sheet(isPresented: $viewModel.isShowingMultiShareSheet) {
+            ShareSheetView(activityItems: viewModel.urlsToShare)
         }
         .fullScreenCover(isPresented: $viewModel.isShowingCamera) {
             ImagePicker(sourceType: .camera, onImageSelected: viewModel.handleImageSelected)
@@ -504,6 +498,12 @@ struct CardDetailView: View {
     @ViewBuilder
     private func folderContextMenu(for folder: Folder) -> some View {
         Button {
+            viewModel.shareFolder(folder)
+        } label: {
+            Label("Share Folder", systemImage: "square.and.arrow.up")
+        }
+        
+        Button {
             viewModel.toggleFavorite(for: folder)
         } label: {
             Label(folder.isFavorite ? "Remove from Favorites" : "Add to Favorites",
@@ -589,12 +589,12 @@ struct CardDetailView: View {
     }
     
     private var editingBottomBar: some View {
-        HStack(spacing: 16) {
-            // Move Button
+        VStack(spacing: 12) {
+            // Share Button (Top row, full width)
             Button {
-                viewModel.showFolderPickerForSelection()
+                viewModel.shareSelectedFiles()
             } label: {
-                Label("Move", systemImage: "folder")
+                Label("Share", systemImage: "square.and.arrow.up")
                     .fontWeight(.semibold)
                     .frame(maxWidth: .infinity)
                     .padding()
@@ -603,23 +603,40 @@ struct CardDetailView: View {
                     .clipShape(Capsule())
             }
             .disabled(viewModel.selectedFileMetadata.isEmpty)
-            
-            // Delete Button
-            Button(role: .destructive) {
-                viewModel.isShowingMultiDeleteAlert = true
-            } label: {
-                Label("Delete (\(viewModel.selectedFileMetadata.count))", systemImage: "trash")
-                    .fontWeight(.semibold)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(viewModel.selectedFileMetadata.isEmpty ? Color.gray : Color.red)
-                    .foregroundColor(.white)
-                    .clipShape(Capsule())
+
+            // Move and Delete Buttons (Bottom row)
+            HStack(spacing: 16) {
+                // Move Button
+                Button {
+                    viewModel.showFolderPickerForSelection()
+                } label: {
+                    Label("Move", systemImage: "folder")
+                        .fontWeight(.semibold)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(viewModel.selectedFileMetadata.isEmpty ? Color.gray : Color.orange)
+                        .foregroundColor(.white)
+                        .clipShape(Capsule())
+                }
+                .disabled(viewModel.selectedFileMetadata.isEmpty)
+                
+                // Delete Button
+                Button(role: .destructive) {
+                    viewModel.isShowingMultiDeleteAlert = true
+                } label: {
+                    Label("Delete (\(viewModel.selectedFileMetadata.count))", systemImage: "trash")
+                        .fontWeight(.semibold)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(viewModel.selectedFileMetadata.isEmpty ? Color.gray : Color.red)
+                        .foregroundColor(.white)
+                        .clipShape(Capsule())
+                }
+                .disabled(viewModel.selectedFileMetadata.isEmpty)
             }
-            .disabled(viewModel.selectedFileMetadata.isEmpty)
         }
-        .padding(.horizontal)
-        .padding(.bottom, 8)
+        .padding()
+        .background(.thinMaterial) // Adding a background for better visual separation
         .transition(.move(edge: .bottom))
     }
     
@@ -661,7 +678,8 @@ struct CardDetailView: View {
 struct PreviewWithShareView: View {
     let document: PreviewableDocument
     let onDismiss: () -> Void
-    let onShare: () -> Void
+    
+    @State private var isShowingShareSheet = false
     
     var body: some View {
         NavigationView {
@@ -670,7 +688,7 @@ struct PreviewWithShareView: View {
                     .ignoresSafeArea()
                     .toolbar {
                         ToolbarItem(placement: .bottomBar) {
-                            Button(action: onShare) {
+                            Button(action: { isShowingShareSheet = true }) {
                                 Image(systemName: "square.and.arrow.up")
                             }
                         }
@@ -687,7 +705,11 @@ struct PreviewWithShareView: View {
                 }
                 .padding()
             }
-            .interactiveDismissDisabled()
+        }
+        // This modifier prevents the sheet from being dismissed by swiping down
+        .interactiveDismissDisabled()
+        .sheet(isPresented: $isShowingShareSheet) {
+            ShareSheetView(activityItems: [document.url])
         }
     }
 }

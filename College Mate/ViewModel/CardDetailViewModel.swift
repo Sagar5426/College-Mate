@@ -72,14 +72,14 @@ class CardDetailViewModel: ObservableObject {
     }
     @Published var newFileName: String = ""
     
-    // --- Selection State for Multi-Delete ---
+    // --- Selection State for Multi-Select ---
     @Published var isEditing = false
     @Published var selectedFileMetadata: Set<FileMetadata> = []
     @Published var isShowingMultiDeleteAlert = false
     
-    // Sharing files and receiving
-    @Published var urlToShare: URL? = nil
-    @Published var isShowingShareSheet = false
+    // --- Multi-Sharing State ---
+    @Published var urlsToShare: [URL] = []
+    @Published var isShowingMultiShareSheet = false
     
     
     // MARK: - Initializer
@@ -418,6 +418,37 @@ class CardDetailViewModel: ObservableObject {
                 completion(representation?.uiImage)
             }
         }
+    }
+    
+    // MARK: - Sharing Methods
+    
+    func shareSelectedFiles() {
+        let urls = selectedFileMetadata.compactMap { $0.getFileURL() }
+        guard !urls.isEmpty else { return }
+        
+        self.urlsToShare = urls
+        self.isShowingMultiShareSheet = true
+    }
+    
+    func shareFolder(_ folder: Folder) {
+        var urls: [URL] = []
+        
+        func recursivelyCollectFiles(from folder: Folder) {
+            urls.append(contentsOf: folder.files.compactMap { $0.getFileURL() })
+            for subfolder in folder.subfolders {
+                recursivelyCollectFiles(from: subfolder)
+            }
+        }
+        
+        recursivelyCollectFiles(from: folder)
+        
+        guard !urls.isEmpty else {
+            // Optionally show an alert that the folder is empty
+            return
+        }
+        
+        self.urlsToShare = urls
+        self.isShowingMultiShareSheet = true
     }
     
     // MARK: - Multi-Select / Editing Methods
