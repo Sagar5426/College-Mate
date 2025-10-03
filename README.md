@@ -1,125 +1,122 @@
 # 🎓 College Mate
 
-**College Mate** is a personal project turned daily essential — crafted using **SwiftUI**, **SwiftData**, and native Apple frameworks to help college students stay focused and organized. Track attendance, store subject-wise notes (PDFs & images only), and manage your timetable — all within a clean, beautifully designed interface.
+A focused study companion for college students — built with **SwiftUI**, **SwiftData**, and native Apple frameworks. Track attendance with the 75% rule in mind, keep subject‑wise notes (PDFs & images), and manage your weekly timetable — all in a clean, fast, and delightful interface.
+
+---
+
+## ✨ Highlights
+
+- 📚 Subject management with an intuitive, card‑based UI
+- ✅ Attendance tracking designed around the 75% requirement
+- 🖼️ Notes that accept PDFs and images (from Photos or Files)
+- 🗓️ Simple timetable view for your weekly schedule
+- ⚡️ Fast, minimal design focused on what matters
+
+> Personal project turned daily essential — made by a student for students.
 
 ---
 
 ## 🧠 Why I Built This
 
-As a student myself, I constantly ran into two frustrating problems:
+Two everyday pain points inspired College Mate:
 
-1. **Checking attendance was a hassle** – In my college, students need 75%+ attendance to appear in exams, but the current system is slow and outdated.
-2. **Notes got lost easily** – Important screenshots and PDFs would get buried under random images and memes in the gallery.
+1. Checking attendance was slow and frustrating — yet essential to meet the 75% rule.
+2. Important study notes (screenshots/PDFs) got buried among unrelated photos.
 
-That’s why I created **College Mate** — to:
-- Provide a fast, clean UI to **track attendance per subject**
-- Let users **store only subject-relevant images and PDFs** from the Photos or Files app
-- Offer a **visually rich card-style layout** that’s simple, organized, and intuitive
+College Mate solves this by:
+- Providing a fast, clean UI to track attendance per subject
+- Storing only subject‑relevant images and PDFs
+- Keeping everything organized in a beautiful, distraction‑free layout
 
 ---
 
-## ✨ Features
+## 📸 Screenshots
 
-- 📚 **Subject Management**
-  - Add, edit, and manage your college subjects easily
+### 🏠 Home Screen
 
-- ✅ **Attendance Tracking**
-  - Track individual attendance percentages
-  - Designed with the 75% rule in mind
+<img width="220" alt="Home 1" src="https://github.com/user-attachments/assets/1f3ed9b1-95dc-40fe-8b08-4d543391c423" />
+<img width="220" alt="Home 2" src="https://github.com/user-attachments/assets/0905c3de-16d6-4518-a2dd-b3a07dfa2a09" />
+<img width="220" alt="Home 3" src="https://github.com/user-attachments/assets/817b382c-0e19-412e-a2b3-b65f6221d133" />
 
-- 🖼️ **Notes (Image & PDF Storage)**
-  - Add notes from your **Photos app** or **Files app**
-  - Subject-specific file storage
-  - Supports **PDF, JPG, PNG**, and other common types
+### 📝 Daily Log View
 
-- 🗓️ **Timetable View**
-  - View your weekly class schedule in a simple layout
+<img width="220" alt="Daily 1" src="https://github.com/user-attachments/assets/2b08ae20-db82-4013-b5fc-cda13bb8e35d" />
+<img width="220" alt="Daily 2" src="https://github.com/user-attachments/assets/0fc049ca-626c-4c72-9b61-9efc13d01f8a" />
+<img width="220" alt="Daily 3" src="https://github.com/user-attachments/assets/6676ecd8-b88c-448e-a8e3-95144bb88d8b" />
+<img width="220" alt="Daily 4" src="https://github.com/user-attachments/assets/8903ce90-3e00-44a6-9880-bcc32c483728" />
 
-- 🎨 **Beautiful, Minimal UI**
-  - Built using card-based layouts for clarity and ease of use
+### 📅 Timetable View
+
+<img width="220" alt="Timetable" src="https://github.com/user-attachments/assets/228f53b0-2e11-43ce-8fa9-16e47f577bfd" />
+
+### 👤 Profile & Attendance History
+
+<img width="220" alt="Profile 1" src="https://github.com/user-attachments/assets/ad3a7cc1-3cf3-4b82-bd1c-268fff094dde" />
+<img width="220" alt="Profile 2" src="https://github.com/user-attachments/assets/c38cfe97-9d0a-4e29-99c2-5c99cc634f42" />
+<img width="220" alt="Profile 3" src="https://github.com/user-attachments/assets/60c9800c-2d33-4a6b-ba2b-3288e75a633a" />
+<img width="220" alt="Profile 4" src="https://github.com/user-attachments/assets/815da267-ece6-411b-8f1c-11a922d28ca1" />
+
+### 📝 Notes View
+
+<img width="220" alt="Notes 1" src="https://github.com/user-attachments/assets/fec7fe26-7599-4ae3-afe7-9fdf7a112785" />
+<img width="220" alt="Notes 2" src="https://github.com/user-attachments/assets/0aac4e16-a1d4-457a-80df-c9bd91655d9b" />
+<img width="220" alt="Notes 3" src="https://github.com/user-attachments/assets/fafb7d9f-cbec-4846-9bb2-5297fc26c2f2" />
+<img width="220" alt="Notes 4" src="https://github.com/user-attachments/assets/606eb314-7f3d-42c2-aa9f-c90128326491" />
+
+---
+
+## 🎥 Demo
+
+- iPhone Simulator (full demo except Notes view):
+  - 🔗 https://github.com/user-attachments/assets/c2967243-07c9-4cc7-98ca-bd228efafa66
+- iPhone 15 (Notes view only):
+  - 🔗 https://github.com/user-attachments/assets/f48304cc-0374-43d3-83c2-44b507310598
 
 ---
 
 ## 🧱 Tech Stack
 
-- **SwiftUI** – Apple’s declarative UI framework
-- **SwiftData** – For local data storage and persistence
+- **SwiftUI** — Declarative UI
+- **SwiftData** — Local persistence (CloudKit sync planned)
+- **PDFKit** — Displaying PDFs
+- **PhotosUI** — Image picking
+- **UniformTypeIdentifiers (UTType)** — File type handling
+
+> Targeting iOS 17+ (SwiftData). Built with Xcode 15+.
 
 ---
 
-## 📚 Frameworks & Libraries Used
+## 🔒 Data & Privacy
 
-- **PDFKit** – For displaying and rendering PDF notes  
-- **PhotosUI** – For image picking from the user's photo library  
-- **UniformTypeIdentifiers (UTType)** – For handling file types when importing from the Files app  
-
----
-
-## 📸 Screenshots  
-*Please also check out the demo video below for a full walkthrough*
-
-### 🏠 Home Screen 
-
-<img width="220"  alt="Screenshot 2025-08-31 at 11 22 08 AM" src="https://github.com/user-attachments/assets/1f3ed9b1-95dc-40fe-8b08-4d543391c423" />
-<img width="220"  alt="Screenshot 2025-08-31 at 11 27 04 AM" src="https://github.com/user-attachments/assets/0905c3de-16d6-4518-a2dd-b3a07dfa2a09" />
-<img width="220"  alt="Screenshot 2025-08-31 at 11 27 14 AM" src="https://github.com/user-attachments/assets/817b382c-0e19-412e-a2b3-b65f6221d133" />
-
-### 📝 Daily Log View 
-
-<img width="220" alt="Screenshot 2025-08-31 at 11 28 06 AM" src="https://github.com/user-attachments/assets/2b08ae20-db82-4013-b5fc-cda13bb8e35d" />
-<img width="220" alt="Screenshot 2025-08-31 at 11 28 17 AM" src="https://github.com/user-attachments/assets/0fc049ca-626c-4c72-9b61-9efc13d01f8a" />
-<img width="220" alt="Screenshot 2025-08-31 at 11 28 36 AM" src="https://github.com/user-attachments/assets/6676ecd8-b88c-448e-a8e3-95144bb88d8b" />
-<img width="220" alt="Screenshot 2025-08-31 at 11 28 52 AM" src="https://github.com/user-attachments/assets/8903ce90-3e00-44a6-9880-bcc32c483728" />
-
-### 📅 Time Table View
-<img width="220" alt="Screenshot 2025-08-31 at 11 45 49 AM" src="https://github.com/user-attachments/assets/228f53b0-2e11-43ce-8fa9-16e47f577bfd" />
-
-### 👤 Profile View & Attendance History 
-<img width="220" alt="Screenshot 2025-08-31 at 11 48 35 AM" src="https://github.com/user-attachments/assets/ad3a7cc1-3cf3-4b82-bd1c-268fff094dde" />
-<img width="220" alt="Screenshot 2025-08-31 at 11 48 54 AM" src="https://github.com/user-attachments/assets/c38cfe97-9d0a-4e29-99c2-5c99cc634f42" />
-<img width="220" alt="Screenshot 2025-08-31 at 11 49 46 AM" src="https://github.com/user-attachments/assets/60c9800c-2d33-4a6b-ba2b-3288e75a633a" />
-<img width="220" alt="Screenshot 2025-08-31 at 11 49 55 AM" src="https://github.com/user-attachments/assets/815da267-ece6-411b-8f1c-11a922d28ca1" />
-
-### 📝 Notes View
-<img width="220" alt="Screenshot 2025-08-31 at 12 38 11 PM" src="https://github.com/user-attachments/assets/fec7fe26-7599-4ae3-afe7-9fdf7a112785" />
-<img width="220" alt="Screenshot 2025-08-31 at 12 38 29 PM" src="https://github.com/user-attachments/assets/0aac4e16-a1d4-457a-80df-c9bd91655d9b" />
-<img width="220" alt="Screenshot 2025-08-31 at 12 46 39 PM" src="https://github.com/user-attachments/assets/fafb7d9f-cbec-4846-9bb2-5297fc26c2f2" />
-<img width="220" alt="Screenshot 2025-08-31 at 12 45 46 PM" src="https://github.com/user-attachments/assets/606eb314-7f3d-42c2-aa9f-c90128326491" />
-
-
-
+- Notes and attendance data are stored locally on‑device.
+- Only subject‑relevant images/PDFs are imported (from Photos/Files with user consent).
+- iCloud sync (Private Database) is planned for cross‑device access.
+- No third‑party analytics.
 
 ---
 
-## 🎥 Demo Video 
-**App running on iPhone simulator(This is full demo except notes View)**:  
-🔗 [Watch Demo on GitHub](https://github.com/user-attachments/assets/c2967243-07c9-4cc7-98ca-bd228efafa66)
+## 🚀 Roadmap
 
-**App running on iPhone 15(Adding Notes: Only Notes View working)**: 
-🔗 [Watch Demo on GitHub](https://github.com/user-attachments/assets/f48304cc-0374-43d3-83c2-44b507310598)
+- ☁️ iCloud sync across iPhone and iPad (SwiftData + CloudKit)
+- 👤 Sign in with Apple (start trial after login)
+- 💳 One‑time unlock after a 90‑day free period (StoreKit 2)
+- 📥 WhatsApp auto‑import
+- 📊 Weekly attendance analytics
+- 🔔 Smart alerts for low attendance
 
----
-
-## 🛣️ What's Next
-
-- ☁️ iCloud sync for cross-device support  
-- 📥 WhatsApp auto-import  
-- 📊 Weekly attendance analytics  
-- 🔔 Smart alerts for low attendance  
+If you have feature ideas, please open an issue or start a discussion!
 
 ---
 
-## 🙌 About Me
+## 🛠️ Getting Started
 
-Hi! I'm **Sagar Jangra**, a BCA student passionate about solving real-life problems using clean, functional iOS apps.  
-This app started as a personal need and is now something I use every day.
+### Requirements
+- iOS 17 or later
+- Xcode 15 or later
 
-📍 Gurugram, Haryana  
----
+### Build & Run
 
-## ⭐️ Show Your Support
-
-If you found **College Mate** useful, please consider giving it a ⭐️ on GitHub.  
-It keeps me motivated to keep building and improving.
-
-
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/<your-username>/college-mate.git
+   cd college-mate
