@@ -110,7 +110,7 @@ struct AddSubjectView: View {
         classTimes.removeAll()
         classCount.removeAll()
         
-        FileHelper.createSubjectFolder(for: newSubject)
+        FileDataService.createSubjectFolder(for: newSubject)
         
         print("Subject saved successfully.")
         isShowingAddSubjectView = false

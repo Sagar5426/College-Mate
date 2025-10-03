@@ -1,7 +1,7 @@
 import Foundation
 import SwiftData
 
-struct FileHelper {
+struct FileDataService {
     static let baseFolder: URL = {
         let paths = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
         return paths[0].appendingPathComponent("Subjects", isDirectory: true)

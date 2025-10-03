@@ -88,7 +88,7 @@ class CardDetailViewModel: ObservableObject {
         self.subject = subject
         self.modelContext = modelContext
         
-        FileHelper.migrateExistingFiles(for: subject, modelContext: modelContext)
+        FileDataService.migrateExistingFiles(for: subject, modelContext: modelContext)
         loadFolderContent()
     }
     
@@ -173,14 +173,14 @@ class CardDetailViewModel: ObservableObject {
         
         let folder = Folder(name: name, parentFolder: currentFolder, subject: subject)
         modelContext.insert(folder)
-        _ = FileHelper.createFolder(named: name, in: currentFolder, for: subject)
+        _ = FileDataService.createFolder(named: name, in: currentFolder, for: subject)
         
         try? modelContext.save()
         loadFolderContent()
     }
     
     func deleteFolder(_ folder: Folder) {
-        _ = FileHelper.deleteFolder(folder, in: subject)
+        _ = FileDataService.deleteFolder(folder, in: subject)
         modelContext.delete(folder)
         try? modelContext.save()
         loadFolderContent()
@@ -287,7 +287,7 @@ class CardDetailViewModel: ObservableObject {
         for fileMetadata in selectedFileMetadata {
             // We need to know the source subject to move correctly
             guard let sourceSubject = fileMetadata.subject else { continue }
-            _ = FileHelper.moveFile(fileMetadata, to: targetFolder, in: sourceSubject)
+            _ = FileDataService.moveFile(fileMetadata, to: targetFolder, in: sourceSubject)
         }
         
         Task {
@@ -316,7 +316,7 @@ class CardDetailViewModel: ObservableObject {
     }
     
     func deleteSubject(onDismiss: () -> Void) {
-        FileHelper.deleteSubjectFolder(for: subject)
+        FileDataService.deleteSubjectFolder(for: subject)
         modelContext.delete(subject)
         onDismiss()
     }
@@ -347,7 +347,7 @@ class CardDetailViewModel: ObservableObject {
                         defer { sourceURL.stopAccessingSecurityScopedResource() }
                         return try Data(contentsOf: sourceURL)
                     }.value
-                    _ = FileHelper.saveFile(data: data, fileName: sourceURL.lastPathComponent, to: self.currentFolder, in: self.subject, modelContext: self.modelContext)
+                    _ = FileDataService.saveFile(data: data, fileName: sourceURL.lastPathComponent, to: self.currentFolder, in: self.subject, modelContext: self.modelContext)
                 }
                 loadFolderContent()
             } catch {
@@ -372,7 +372,7 @@ class CardDetailViewModel: ObservableObject {
             for item in items {
                 if let data = try? await item.loadTransferable(type: Data.self) {
                     let fileName = "image_\(UUID().uuidString).jpg"
-                    _ = FileHelper.saveFile(data: data, fileName: fileName, to: self.currentFolder, in: self.subject, modelContext: self.modelContext)
+                    _ = FileDataService.saveFile(data: data, fileName: fileName, to: self.currentFolder, in: self.subject, modelContext: self.modelContext)
                 }
             }
         }
@@ -390,7 +390,7 @@ class CardDetailViewModel: ObservableObject {
         guard let image = image, let imageData = image.jpegData(compressionQuality: 0.8) else { return }
         let fileName = "image_\(UUID().uuidString).jpg"
         
-        if FileHelper.saveFile(data: imageData, fileName: fileName, to: currentFolder, in: subject, modelContext: modelContext) != nil {
+        if FileDataService.saveFile(data: imageData, fileName: fileName, to: currentFolder, in: subject, modelContext: modelContext) != nil {
             if self.isEditing { self.toggleEditMode() }
             loadFolderContent()
         }
@@ -454,8 +454,10 @@ class CardDetailViewModel: ObservableObject {
     // MARK: - Multi-Select / Editing Methods
     
     func toggleEditMode() {
-        withAnimation(.easeInOut) { isEditing.toggle() }
-        if !isEditing { selectedFileMetadata.removeAll() }
+        isEditing.toggle()
+        if !isEditing {
+            selectedFileMetadata.removeAll()
+        }
     }
 
     func deleteSelectedFiles() {
@@ -466,7 +468,7 @@ class CardDetailViewModel: ObservableObject {
         
         DispatchQueue.main.async {
             self.selectedFileMetadata.removeAll()
-            withAnimation { self.isEditing = false }
+            self.isEditing = false
             self.loadFolderContent()
         }
     }
@@ -479,4 +481,3 @@ class CardDetailViewModel: ObservableObject {
         }
     }
 }
-

@@ -39,7 +39,7 @@ class FileMetadata {
     // Get the full file URL
     func getFileURL() -> URL? {
         guard let subject = self.subject else { return nil }
-        let subjectFolder = FileHelper.subjectFolder(for: subject)
+        let subjectFolder = FileDataService.subjectFolder(for: subject)
         return subjectFolder.appendingPathComponent(relativePath)
     }
 }

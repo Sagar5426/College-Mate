@@ -3,10 +3,10 @@ import AVFoundation
 
 /// A robust manager to handle playing custom sound files reliably.
 // We make it an NSObject to conform to AVAudioPlayerDelegate.
-class SoundManager: NSObject, AVAudioPlayerDelegate {
+class SoundService: NSObject, AVAudioPlayerDelegate {
     
     /// A shared singleton instance for easy access.
-    static let shared = SoundManager()
+    static let shared = SoundService()
     
     /// The audio player instance. It's retained here until playback finishes.
     private var audioPlayer: AVAudioPlayer?

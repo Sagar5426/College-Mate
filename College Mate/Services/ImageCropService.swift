@@ -2,7 +2,7 @@ import SwiftUI
 import Mantis
 
 /// A view that wraps the Mantis image cropping library.
-struct ImageCropperView: UIViewControllerRepresentable {
+struct ImageCropService: UIViewControllerRepresentable {
     
     /// The image that needs to be cropped.
     let image: UIImage
@@ -37,9 +37,9 @@ struct ImageCropperView: UIViewControllerRepresentable {
     
     /// The Coordinator acts as a bridge between the UIKit-based CropViewController and our SwiftUI view.
     class Coordinator: NSObject, CropViewControllerDelegate {
-        var parent: ImageCropperView
+        var parent: ImageCropService
         
-        init(_ parent: ImageCropperView) {
+        init(_ parent: ImageCropService) {
             self.parent = parent
         }
         

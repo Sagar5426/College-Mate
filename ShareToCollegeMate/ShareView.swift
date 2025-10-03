@@ -103,11 +103,11 @@ struct ShareView: View {
                 if let item = try await attachment.loadItem(forTypeIdentifier: UTType.fileURL.identifier) as? URL {
                     let data = try Data(contentsOf: item)
                     let fileName = item.lastPathComponent
-                    _ = FileHelper.saveFile(data: data, fileName: fileName, to: selectedFolder, in: subject, modelContext: context)
+                    _ = FileDataService.saveFile(data: data, fileName: fileName, to: selectedFolder, in: subject, modelContext: context)
                 } else if let item = try await attachment.loadItem(forTypeIdentifier: UTType.image.identifier) as? UIImage,
                           let data = item.jpegData(compressionQuality: 0.8) {
                     let fileName = "Image \(Date().formatted()).jpg"
-                    _ = FileHelper.saveFile(data: data, fileName: fileName, to: selectedFolder, in: subject, modelContext: context)
+                    _ = FileDataService.saveFile(data: data, fileName: fileName, to: selectedFolder, in: subject, modelContext: context)
                 } else {
                     throw NSError(domain: "ShareError", code: 1, userInfo: [NSLocalizedDescriptionKey: "Unsupported file type"])
                 }

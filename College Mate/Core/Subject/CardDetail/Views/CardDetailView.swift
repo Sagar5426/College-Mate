@@ -42,12 +42,22 @@ struct CardDetailView: View {
         .navigationTitle(viewModel.subject.name)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                if viewModel.isEditing {
+            if viewModel.isEditing {
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    Button(action: { viewModel.shareSelectedFiles() }) {
+                        Image(systemName: "square.and.arrow.up")
+                            .frame(width: 24, height: 24)
+                    }
+                    .disabled(viewModel.selectedFileMetadata.isEmpty)
+                    .opacity(viewModel.selectedFileMetadata.isEmpty ? 0 : 1)
+                    .accessibilityHidden(viewModel.selectedFileMetadata.isEmpty)
+                    
                     Button("Cancel") {
                         viewModel.toggleEditMode()
                     }
-                } else {
+                }
+            } else {
+                ToolbarItem(placement: .topBarTrailing) {
                     HStack {
                         Button {
                             withAnimation(.easeOut(duration: 0.2)) {
@@ -142,7 +152,7 @@ struct CardDetailView: View {
         }
         .fullScreenCover(isPresented: $viewModel.isShowingCropper) {
             if let imageToCrop = viewModel.imageToCrop {
-                ImageCropperView(image: imageToCrop, onCrop: viewModel.handleCroppedImage, isPresented: $viewModel.isShowingCropper)
+                ImageCropService(image: imageToCrop, onCrop: viewModel.handleCroppedImage, isPresented: $viewModel.isShowingCropper)
             }
         }
         .fullScreenCover(isPresented: $viewModel.isShowingEditView) {
@@ -590,21 +600,6 @@ struct CardDetailView: View {
     
     private var editingBottomBar: some View {
         VStack(spacing: 12) {
-            // Share Button (Top row, full width)
-            Button {
-                viewModel.shareSelectedFiles()
-            } label: {
-                Label("Share", systemImage: "square.and.arrow.up")
-                    .fontWeight(.semibold)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(viewModel.selectedFileMetadata.isEmpty ? Color.gray : Color.blue)
-                    .foregroundColor(.white)
-                    .clipShape(Capsule())
-            }
-            .disabled(viewModel.selectedFileMetadata.isEmpty)
-
-            // Move and Delete Buttons (Bottom row)
             HStack(spacing: 16) {
                 // Move Button
                 Button {
@@ -656,7 +651,7 @@ struct CardDetailView: View {
     }
     
     private func playDeleteSound() {
-        SoundManager.shared.playDeleteSound()
+        SoundService.shared.playDeleteSound()
     }
 
     private func playTapSoundAndVibrate() {
