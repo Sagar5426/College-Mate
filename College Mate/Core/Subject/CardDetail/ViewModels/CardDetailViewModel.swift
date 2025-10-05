@@ -31,6 +31,7 @@ class CardDetailViewModel: ObservableObject {
     @Published var searchText: String = ""
     @Published var isSearching: Bool = false
     @Published var searchResults: [FileMetadata] = []
+    @Published var searchFolderResults: [Folder] = []
     
     // --- Folder Management State ---
     @Published var isShowingCreateFolderAlert = false
@@ -107,8 +108,9 @@ class CardDetailViewModel: ObservableObject {
     }
     
     func filterFileMetadata() {
-        let filesToFilter = isSearching ? searchResults : currentFiles
-        let foldersToFilter = isSearching ? [] : (currentFolder?.subfolders ?? subject.rootFolders)
+        let showSearchAtRoot = isSearching && currentFolder == nil
+        let filesToFilter = showSearchAtRoot ? searchResults : currentFiles
+        let foldersToFilter: [Folder] = showSearchAtRoot ? searchFolderResults : (currentFolder?.subfolders ?? subject.rootFolders)
 
         switch selectedFilter {
         case .all:
@@ -116,33 +118,64 @@ class CardDetailViewModel: ObservableObject {
             subfolders = foldersToFilter.sorted { $0.name < $1.name }
         case .images:
             filteredFileMetadata = filesToFilter.filter { $0.fileType == .image }
-            subfolders = foldersToFilter.filter { folder in
-                !folder.files.filter { $0.fileType == .image }.isEmpty
-            }.sorted { $0.name < $1.name }
+            if showSearchAtRoot {
+                subfolders = []
+            } else {
+                subfolders = foldersToFilter.filter { folder in
+                    !folder.files.filter { $0.fileType == .image }.isEmpty
+                }.sorted { $0.name < $1.name }
+            }
         case .pdfs:
             filteredFileMetadata = filesToFilter.filter { $0.fileType == .pdf }
-            subfolders = foldersToFilter.filter { folder in
-                !folder.files.filter { $0.fileType == .pdf }.isEmpty
-            }.sorted { $0.name < $1.name }
+            if showSearchAtRoot {
+                subfolders = []
+            } else {
+                subfolders = foldersToFilter.filter { folder in
+                    !folder.files.filter { $0.fileType == .pdf }.isEmpty
+                }.sorted { $0.name < $1.name }
+            }
         case .docs:
             filteredFileMetadata = filesToFilter.filter { $0.fileType == .docx }
-            subfolders = foldersToFilter.filter { folder in
-                !folder.files.filter { $0.fileType == .docx }.isEmpty
-            }.sorted { $0.name < $1.name }
+            if showSearchAtRoot {
+                subfolders = []
+            } else {
+                subfolders = foldersToFilter.filter { folder in
+                    !folder.files.filter { $0.fileType == .docx }.isEmpty
+                }.sorted { $0.name < $1.name }
+            }
         case .favorites:
-            // Get all individually favorited files within the subject
-            let favoriteFiles = subject.fileMetadata.filter { $0.isFavorite }
-            // Get all files from favorited folders within the subject
-            let filesInFavoriteFolders = subject.rootFolders.filter { $0.isFavorite }.flatMap { $0.files }
-            // Combine and remove duplicates
-            let allFavorites = Set(favoriteFiles).union(Set(filesInFavoriteFolders))
-            filteredFileMetadata = Array(allFavorites).sorted { $0.createdDate > $1.createdDate }
-            
-            // Show folders that are favorited OR contain a favorited file
-            subfolders = subject.rootFolders.filter { folder in
-                folder.isFavorite || !folder.files.filter { $0.isFavorite }.isEmpty
-            }.sorted { $0.name < $1.name }
+            // If we're at the root (no currentFolder) and not searching, show:
+            // - Only individually favorited files (from anywhere)
+            // - Only folders that are themselves favorited (from anywhere)
+            if currentFolder == nil && !isSearching {
+                filteredFileMetadata = subject.fileMetadata
+                    .filter { $0.isFavorite }
+                    .sorted { $0.createdDate > $1.createdDate }
+
+                let allFolders = allFoldersRecursively(from: subject.rootFolders)
+                subfolders = allFolders
+                    .filter { $0.isFavorite }
+                    .sorted { $0.name < $1.name }
+            } else {
+                // If we navigated into a folder while Favorites is selected (or we're searching),
+                // show the actual contents of the current folder so users can browse normally.
+                // This matches Files app behavior when opening a favorited folder.
+                filteredFileMetadata = currentFiles
+                subfolders = (currentFolder?.subfolders ?? []).sorted { $0.name < $1.name }
+            }
         }
+    }
+    
+    // Recursively collect all folders starting from a list of folders
+    private func allFoldersRecursively(from folders: [Folder]) -> [Folder] {
+        var result: [Folder] = []
+        for folder in folders {
+            result.append(folder)
+            if !folder.subfolders.isEmpty {
+                result.append(contentsOf: allFoldersRecursively(from: folder.subfolders))
+            }
+        }
+        return result
     }
     
     // MARK: - Navigation Methods
@@ -245,6 +278,7 @@ class CardDetailViewModel: ObservableObject {
     func performSearch() {
         guard !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             searchResults.removeAll()
+            searchFolderResults.removeAll()
             isSearching = false
             filterFileMetadata()
             return
@@ -255,18 +289,22 @@ class CardDetailViewModel: ObservableObject {
         
         // Always search all files within the current subject.
         let filesToSearch = self.subject.fileMetadata
-
         let results = filesToSearch.filter { $0.fileName.lowercased().contains(query) }
-        
         searchResults = results.sorted { $0.createdDate > $1.createdDate }
+
+        // Search all folders (including nested) by name
+        let allFolders = allFoldersRecursively(from: subject.rootFolders)
+        searchFolderResults = allFolders.filter { $0.name.lowercased().contains(query) }
+        
         filterFileMetadata()
     }
     
     func clearSearch() {
         searchText = ""
         searchResults.removeAll()
+        searchFolderResults.removeAll()
         isSearching = false
-        // When clearing search, we need to restore the view to its non-searching state
+        // When clearing search, restore the view to its non-searching state
         loadFolderContent()
     }
     
@@ -481,3 +519,4 @@ class CardDetailViewModel: ObservableObject {
         }
     }
 }
+

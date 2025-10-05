@@ -349,18 +349,16 @@ struct CardDetailView: View {
     private var enhancedGrid: some View {
         ScrollView {
             LazyVGrid(columns: gridColumns, spacing: gridSpacing) {
-                if !viewModel.isSearching {
-                    ForEach(viewModel.subfolders, id: \.id) { folder in
-                        folderView(for: folder)
-                            .onTapGesture {
-                                if viewModel.isEditing {
-                                    // Folder selection in edit mode is not supported
-                                } else {
-                                    playNavigationHaptic()
-                                    viewModel.navigateToFolder(folder)
-                                }
+                ForEach(viewModel.subfolders, id: \.id) { folder in
+                    folderView(for: folder)
+                        .onTapGesture {
+                            if viewModel.isEditing {
+                                // Folder selection in edit mode is not supported
+                            } else {
+                                playNavigationHaptic()
+                                viewModel.navigateToFolder(folder)
                             }
-                    }
+                        }
                 }
                 
                 ForEach(viewModel.filteredFileMetadata, id: \.id) { fileMetadata in
@@ -382,9 +380,7 @@ struct CardDetailView: View {
                     .fill(Color.blue.opacity(0.1))
                     .frame(width: tileSize, height: tileSize * 0.75)
                 
-                Image(systemName: "folder.fill")
-                    .font(.largeTitle)
-                    .foregroundColor(.blue)
+                FilesFolderIcon(size: tileSize)
                 
                 if folder.isFavorite {
                     Image(systemName: "heart.fill")
@@ -755,6 +751,52 @@ struct DocxThumbnailView: View {
         }
     }
 }
+
+// MARK: - Files-style Folder Icon
+struct FilesFolderIcon: View {
+    var size: CGFloat
+
+    var body: some View {
+        // Size the icon slightly smaller than the tile
+        let iconSize = size * 0.62
+        ZStack {
+            // Base filled folder with a blue gradient, similar to Files app
+            Image(systemName: "folder.fill")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: iconSize, height: iconSize)
+                .symbolRenderingMode(.monochrome)
+                .foregroundStyle(
+                    LinearGradient(
+                        colors: [
+                            Color(red: 0.74, green: 0.86, blue: 1.0), // light blue top
+                            Color(red: 0.20, green: 0.56, blue: 1.0)  // deeper blue bottom
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .shadow(color: Color.blue.opacity(0.25), radius: 6, x: 0, y: 3)
+
+            // Subtle top highlight to give a modern glossy feel
+            Image(systemName: "folder.fill")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: iconSize, height: iconSize)
+                .foregroundStyle(
+                    LinearGradient(
+                        colors: [Color.white.opacity(0.45), Color.white.opacity(0.15), Color.clear],
+                        startPoint: .top,
+                        endPoint: .center
+                    )
+                )
+                .blendMode(.plusLighter)
+                .opacity(0.8)
+        }
+        .accessibilityHidden(true)
+    }
+}
+
 
 // MARK: - SelectionOverlay
 struct SelectionOverlay: ViewModifier {
