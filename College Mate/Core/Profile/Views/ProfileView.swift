@@ -11,6 +11,8 @@ struct ProfileView: View {
     // State to control the PhotosPicker is now here, in the parent view.
     @State private var isShowingPhotoPicker = false
     @State private var selectedPhoto: PhotosPickerItem?
+    @State private var isShowingCropper = false
+    @State private var imageToCrop: UIImage? = nil
     
     var body: some View {
         NavigationStack {
@@ -40,32 +42,7 @@ struct ProfileView: View {
                     EditProfileView(viewModel: viewModel, isShowingPhotoPicker: $isShowingPhotoPicker)
                 }
                 .sheet(isPresented: $viewModel.isShowingDatePicker) {
-                    VStack {
-                        DatePicker(
-                            "Select a Date",
-                            selection: $viewModel.selectedDate,
-                            in: ...Date(), // Users can't select a future date
-                            displayedComponents: .date
-                        )
-                        .datePickerStyle(GraphicalDatePickerStyle())
-                        .padding() // Added padding around the date picker
-                        
-                        Button(action: {
-                            viewModel.isShowingDatePicker = false
-                            viewModel.filterAttendanceLogs()
-                        }) {
-                            Text("Done")
-                                .fontWeight(.semibold)
-                                .frame(maxWidth: .infinity)
-                        }
-                        .padding()
-                        .background(Color.blue)
-                        .foregroundColor(.white)
-                        .cornerRadius(10)
-                        .padding(.horizontal) // Padding for the button
-                    }
-                    .padding(.vertical) // Overall vertical padding for the sheet content
-                    .presentationDetents([.medium])
+                    ProfileDatePickerSheet(viewModel: viewModel)
                 }
                 .onAppear {
                     viewModel.subjects = subjects
@@ -91,9 +68,23 @@ struct ProfileView: View {
         // When a photo is selected, this modifier handles the data loading.
         .onChange(of: selectedPhoto) {
             Task {
-                if let data = try? await selectedPhoto?.loadTransferable(type: Data.self) {
-                    viewModel.profileImageData = data
+                if let data = try? await selectedPhoto?.loadTransferable(type: Data.self),
+                   let uiImage = UIImage(data: data) {
+                    imageToCrop = uiImage
+                    isShowingCropper = true
                 }
+            }
+        }
+        .fullScreenCover(isPresented: $isShowingCropper) {
+            if let imageToCrop {
+                ProfileImageCropperFullScreen(image: imageToCrop, viewModel: viewModel, isPresented: $isShowingCropper)
+            }
+        }
+        .onChange(of: isShowingCropper) {
+            // Cleanup state when cropper is dismissed to avoid stale state and re-presentation issues
+            if !isShowingCropper {
+                imageToCrop = nil
+                selectedPhoto = nil
             }
         }
     }
@@ -261,8 +252,11 @@ struct EditProfileView: View {
                 
                 // --- Profile Image Section ---
                 Button(action: {
-                    isShowingPhotoPicker = true
+                    // Dismiss the edit sheet first, then present the photo picker slightly later
                     dismiss()
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                        isShowingPhotoPicker = true
+                    }
                 }) {
                     ZStack(alignment: .bottomTrailing) {
                         if let imageData = viewModel.profileImageData, let uiImage = UIImage(data: imageData) {
@@ -316,6 +310,60 @@ struct EditProfileView: View {
                 ToolbarItem(placement: .confirmationAction) { Button("Save") { dismiss() }.bold() }
             }
         }
+    }
+}
+
+// MARK: - Date Picker Sheet (extracted)
+private struct ProfileDatePickerSheet: View {
+    @ObservedObject var viewModel: ProfileViewModel
+
+    var body: some View {
+        VStack {
+            DatePicker(
+                "Select a Date",
+                selection: $viewModel.selectedDate,
+                in: ...Date(), // Users can't select a future date
+                displayedComponents: .date
+            )
+            .datePickerStyle(GraphicalDatePickerStyle())
+            .padding() // Added padding around the date picker
+            
+            Button(action: {
+                viewModel.isShowingDatePicker = false
+                viewModel.filterAttendanceLogs()
+            }) {
+                Text("Done")
+                    .fontWeight(.semibold)
+                    .frame(maxWidth: .infinity)
+            }
+            .padding()
+            .background(Color.blue)
+            .foregroundColor(.white)
+            .cornerRadius(10)
+            .padding(.horizontal) // Padding for the button
+        }
+        .padding(.vertical) // Overall vertical padding for the sheet content
+        .presentationDetents([.medium])
+    }
+}
+
+// MARK: - Image Cropper Full Screen (extracted)
+private struct ProfileImageCropperFullScreen: View {
+    let image: UIImage
+    @ObservedObject var viewModel: ProfileViewModel
+    @Binding var isPresented: Bool
+
+    var body: some View {
+        ImageCropService(
+            image: image,
+            onCrop: { cropped in
+                if let data = cropped.jpegData(compressionQuality: 0.9) {
+                    viewModel.profileImageData = data
+                }
+            },
+            isPresented: $isPresented
+        )
+        .ignoresSafeArea()
     }
 }
 
