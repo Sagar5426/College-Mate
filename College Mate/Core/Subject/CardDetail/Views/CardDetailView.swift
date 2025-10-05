@@ -14,6 +14,18 @@ struct CardDetailView: View {
     @StateObject private var viewModel: CardDetailViewModel
     @FocusState private var isSearchFocused: Bool
     
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    private var isPad: Bool { UIDevice.current.userInterfaceIdiom == .pad }
+    private var tileSize: CGFloat { isPad ? 120 : 80 }
+    private var gridSpacing: CGFloat { isPad ? 16 : 12 }
+    private var gridColumns: [GridItem] {
+        if isPad {
+            return [GridItem(.adaptive(minimum: tileSize), spacing: gridSpacing)]
+        } else {
+            return Array(repeating: GridItem(.flexible(), spacing: gridSpacing), count: 3)
+        }
+    }
+    
     init(subject: Subject, modelContext: ModelContext) {
         _viewModel = StateObject(wrappedValue: CardDetailViewModel(subject: subject, modelContext: modelContext))
     }
@@ -212,7 +224,7 @@ struct CardDetailView: View {
     
     private var filterView: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 12) {
+            HStack(spacing: gridSpacing) {
                 ForEach(NoteFilter.allCases, id: \.self) { filter in
                     Button(action: {
                         playTapSoundAndVibrate()
@@ -336,7 +348,7 @@ struct CardDetailView: View {
     
     private var enhancedGrid: some View {
         ScrollView {
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3)) {
+            LazyVGrid(columns: gridColumns, spacing: gridSpacing) {
                 if !viewModel.isSearching {
                     ForEach(viewModel.subfolders, id: \.id) { folder in
                         folderView(for: folder)
@@ -368,7 +380,7 @@ struct CardDetailView: View {
             ZStack {
                 RoundedRectangle(cornerRadius: 12)
                     .fill(Color.blue.opacity(0.1))
-                    .frame(width: 80, height: 60)
+                    .frame(width: tileSize, height: tileSize * 0.75)
                 
                 Image(systemName: "folder.fill")
                     .font(.largeTitle)
@@ -390,7 +402,7 @@ struct CardDetailView: View {
                 .font(.caption)
                 .multilineTextAlignment(.center)
                 .lineLimit(2)
-                .frame(maxWidth: 100)
+                .frame(maxWidth: tileSize + 20)
             
             Text("\(folder.files.count) files")
                 .font(.caption2)
@@ -415,13 +427,13 @@ struct CardDetailView: View {
                         Image(uiImage: image)
                             .resizable()
                             .scaledToFill()
-                            .frame(width: 80, height: 80)
+                            .frame(width: tileSize, height: tileSize)
                             .clipShape(RoundedRectangle(cornerRadius: 8))
                     } else {
                         Image(systemName: "photo.fill")
                             .font(.largeTitle)
                             .foregroundColor(.green)
-                            .frame(width: 80, height: 80)
+                            .frame(width: tileSize, height: tileSize)
                             .background(Color.green.opacity(0.1))
                             .clipShape(RoundedRectangle(cornerRadius: 8))
                     }
@@ -431,26 +443,26 @@ struct CardDetailView: View {
                         Image(uiImage: pdfThumbnail)
                             .resizable()
                             .scaledToFit()
-                            .frame(width: 80, height: 80)
+                            .frame(width: tileSize, height: tileSize)
                             .clipShape(RoundedRectangle(cornerRadius: 8))
                             .shadow(radius: 2)
                     } else {
                         Image(systemName: "doc.richtext.fill")
                             .font(.largeTitle)
                             .foregroundColor(.red)
-                            .frame(width: 80, height: 80)
+                            .frame(width: tileSize, height: tileSize)
                             .background(Color.red.opacity(0.1))
                             .clipShape(RoundedRectangle(cornerRadius: 8))
                     }
                     
                 case .docx:
                     if let fileURL = fileMetadata.getFileURL() {
-                        DocxThumbnailView(fileURL: fileURL, viewModel: viewModel)
+                        DocxThumbnailView(fileURL: fileURL, viewModel: viewModel, size: tileSize)
                     } else {
                          Image(systemName: "doc.text.fill")
                             .font(.largeTitle)
                             .foregroundColor(.blue)
-                            .frame(width: 80, height: 80)
+                            .frame(width: tileSize, height: tileSize)
                             .background(Color.blue.opacity(0.1))
                             .clipShape(RoundedRectangle(cornerRadius: 8))
                     }
@@ -459,7 +471,7 @@ struct CardDetailView: View {
                     Image(systemName: "doc.fill")
                         .font(.largeTitle)
                         .foregroundColor(.gray)
-                        .frame(width: 80, height: 80)
+                        .frame(width: tileSize, height: tileSize)
                         .background(Color.gray.opacity(0.1))
                         .clipShape(RoundedRectangle(cornerRadius: 8))
                 }
@@ -476,13 +488,13 @@ struct CardDetailView: View {
                         .padding(4)
                 }
             }
-            .frame(width: 80, height: 80)
+            .frame(width: tileSize, height: tileSize)
             
             Text(fileMetadata.fileName)
                 .font(.caption)
                 .multilineTextAlignment(.center)
                 .lineLimit(2)
-                .frame(maxWidth: 100)
+                .frame(maxWidth: tileSize + 20)
         }
         .contextMenu {
             if !viewModel.isEditing {
@@ -714,6 +726,7 @@ struct PreviewWithShareView: View {
 struct DocxThumbnailView: View {
     let fileURL: URL
     @ObservedObject var viewModel: CardDetailViewModel
+    let size: CGFloat
     
     @State private var thumbnail: UIImage? = nil
     
@@ -723,14 +736,14 @@ struct DocxThumbnailView: View {
                 Image(uiImage: thumbnail)
                     .resizable()
                     .scaledToFit()
-                    .frame(width: 80, height: 80)
+                    .frame(width: size, height: size)
                     .clipShape(RoundedRectangle(cornerRadius: 8))
                     .shadow(radius: 2)
             } else {
                 Image(systemName: "doc.text.fill")
                     .font(.largeTitle)
                     .foregroundColor(.blue)
-                    .frame(width: 80, height: 80)
+                    .frame(width: size, height: size)
                     .background(Color.blue.opacity(0.1))
                     .clipShape(RoundedRectangle(cornerRadius: 8))
             }

@@ -12,12 +12,24 @@ struct ImageCropService: UIViewControllerRepresentable {
     
     /// A binding to control the presentation of this view.
     @Binding var isPresented: Bool
+
+    /// Optional crop configuration overrides
+    let cropShapeType: Mantis.CropShapeType? = nil
+    let presetFixedRatioType: Mantis.PresetFixedRatioType? = nil
     
     /// Creates the Mantis CropViewController.
     func makeUIViewController(context: Context) -> UIViewController {
         // Create a new configuration for the cropper.
         var config = Mantis.Config()
         config.cropToolbarConfig.toolbarButtonOptions = [.clockwiseRotate, .reset, .ratio]
+        
+        // Apply optional overrides for profile or other specific flows
+        if let presetFixedRatioType = presetFixedRatioType {
+            config.presetFixedRatioType = presetFixedRatioType
+        }
+        if let cropShapeType = cropShapeType {
+            config.cropShapeType = cropShapeType
+        }
         
         // Create the CropViewController with the image and configuration.
         let cropViewController = Mantis.cropViewController(image: image, config: config)

@@ -5,20 +5,23 @@
 
 import SwiftUI
 import SwiftData
+import UIKit
 
 // MARK: Main View
 struct SubjectCardView: View {
     @Bindable var subject: Subject
     
+    private var isPad: Bool { UIDevice.current.userInterfaceIdiom == .pad }
+    
     var body: some View {
         VStack(spacing: 7) {
             // Subject Card
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: isPad ? 20 : 16) {
                 HStack {
                     VStack(alignment: .leading, spacing: 20) {
                         Text(subject.name)
                             // If the name is longer than 12 characters, use a smaller font.
-                            .font(subject.name.count > 12 ? .headline : .title2)
+                            .font(isPad ? (subject.name.count > 12 ? .title2 : .title) : (subject.name.count > 12 ? .headline : .title2))
                             .fontWeight(.bold)
                             .foregroundColor(.white)
                             .lineLimit(2) // Allow wrapping to a second line if needed
@@ -44,10 +47,11 @@ struct SubjectCardView: View {
                         attendedClasses: subject.attendance.attendedClasses,
                         minimumRequiredPercentage: subject.attendance.minimumPercentageRequirement
                     )
-                    .frame(width: 120, height: 120)
+                    .frame(width: isPad ? 160 : 120, height: isPad ? 160 : 120)
                 }
             }
-            .padding()
+            .frame(minHeight: isPad ? 220 : nil)
+            .padding(isPad ? 24 : 16)
             .background(Color.gray.opacity(0.2))
             .cornerRadius(16)
             .shadow(radius: 4)
