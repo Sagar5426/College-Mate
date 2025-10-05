@@ -26,28 +26,15 @@ struct SubjectCardView: View {
                             .foregroundColor(.white)
                             .lineLimit(2) // Allow wrapping to a second line if needed
 
-                        VStack(alignment: .leading, spacing: 4) {
-                            AttendanceStatView(label: "Attended", value: subject.attendance.attendedClasses)
-                            AttendanceStatView(label: "Missed", value: subject.attendance.totalClasses - subject.attendance.attendedClasses)
-                            AttendanceStatView(label: "Total", value: subject.attendance.totalClasses)
-                        }
+                        AttendanceStatsView(attendance: subject.attendance)
 
-                        AttendanceInfoView(
-                            totalClasses: subject.attendance.totalClasses,
-                            attendedClasses: subject.attendance.attendedClasses,
-                            minimumRequiredPercentage: subject.attendance.minimumPercentageRequirement
-                        )
+                        AttendanceInfoView(attendance: subject.attendance)
                     }
 
                     Spacer()
 
-                    CircularProgressView(
-                        percentage: subject.attendance.percentage,
-                        totalClasses: subject.attendance.totalClasses,
-                        attendedClasses: subject.attendance.attendedClasses,
-                        minimumRequiredPercentage: subject.attendance.minimumPercentageRequirement
-                    )
-                    .frame(width: isPad ? 160 : 120, height: isPad ? 160 : 120)
+                    CircularProgressView(attendance: subject.attendance)
+                        .frame(width: isPad ? 160 : 120, height: isPad ? 160 : 120)
                 }
             }
             .frame(minHeight: isPad ? 220 : nil)
@@ -72,28 +59,36 @@ struct SubjectCardView: View {
     }
 
     private func incrementAttended() {
-        subject.attendance.attendedClasses += 1
-        subject.attendance.totalClasses += 1
+        withAnimation(.easeInOut) {
+            subject.attendance.attendedClasses += 1
+            subject.attendance.totalClasses += 1
+        }
         addLog("+ Attended")
     }
 
     private func decrementAttended() {
         if subject.attendance.attendedClasses > 0 {
-            subject.attendance.attendedClasses -= 1
-            subject.attendance.totalClasses -= 1
+            withAnimation(.easeInOut) {
+                subject.attendance.attendedClasses -= 1
+                subject.attendance.totalClasses -= 1
+            }
             addLog("− Attended")
         }
     }
 
     private func incrementMissed() {
-        subject.attendance.totalClasses += 1
+        withAnimation(.easeInOut) {
+            subject.attendance.totalClasses += 1
+        }
         addLog("+ Missed")
     }
 
     private func decrementMissed() {
         let missed = subject.attendance.totalClasses - subject.attendance.attendedClasses
         if missed > 0 {
-            subject.attendance.totalClasses -= 1
+            withAnimation(.easeInOut) {
+                subject.attendance.totalClasses -= 1
+            }
             addLog("− Missed")
         }
     }
@@ -177,116 +172,133 @@ struct AttendanceControl: View {
     }
 }
 
+struct AttendanceStatsView: View {
+    @Bindable var attendance: Attendance
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            AttendanceStatView(label: "Attended", value: attendance.attendedClasses)
+            AttendanceStatView(label: "Missed", value: attendance.totalClasses - attendance.attendedClasses)
+            AttendanceStatView(label: "Total", value: attendance.totalClasses)
+        }
+    }
+}
+
 extension SubjectCardView {
     struct CircularProgressView: View {
-            var percentage: Double
-            var totalClasses: Int
-            var attendedClasses: Int
-            var minimumRequiredPercentage: Double
-            
-            // Calculate skippable classes dynamically
-            private var skippableClasses: Int {
-                let requiredClasses = Int(ceil((minimumRequiredPercentage / 100) * Double(totalClasses)))
-                return max(0, attendedClasses - requiredClasses)
-            }
-            
-            // Determine the gradient color based on percentage and skippable classes
-            private var gradientColors: [Color] {
-                if  percentage >= minimumRequiredPercentage {
-                    return [Color.green.opacity(0.6), Color.green]
-                } else if percentage <= 0.5 * minimumRequiredPercentage {
-                    return [Color.red.opacity(0.6), Color.red]
-                } else {
-                    return [Color.yellow.opacity(0.6), Color.yellow]
-                }
-            }
-            
-            var body: some View {
-                ZStack {
-                    // Background circle
-                    Circle()
-                        .stroke(lineWidth: 13)
-                        .opacity(0.3)
-                        .foregroundColor(.gray)
-                    
-                    // Progress circle with gradient
-                    Circle()
-                        .trim(from: 0.0, to: CGFloat(min(percentage / 100, 1.0)))
-                        .stroke(
-                            LinearGradient(
-                                gradient: Gradient(colors: gradientColors),
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
-                            style: StrokeStyle(lineWidth: 14, lineCap: .round)
-                        )
-                        .rotationEffect(Angle(degrees: 270.0))
-                        .shadow(color: gradientColors.last!.opacity(0.6), radius: 10, x: 0, y: 0)
-                        .animation(.easeInOut, value: percentage)
-                    
-                    // Percentage text
-                    Text(String(format: "%.0f%%", min(percentage, 100.0)))
-                        .font(.title2)
-                        .bold()
-                        .foregroundColor(.white)
-                }
+        @Bindable var attendance: Attendance
+        
+        // Derived values
+        private var percentage: Double { attendance.percentage }
+        private var totalClasses: Int { attendance.totalClasses }
+        private var attendedClasses: Int { attendance.attendedClasses }
+        private var minimumRequiredPercentage: Double { attendance.minimumPercentageRequirement }
+        
+        // Calculate skippable classes dynamically
+        private var skippableClasses: Int {
+            let requiredClasses = Int(ceil((minimumRequiredPercentage / 100) * Double(totalClasses)))
+            return max(0, attendedClasses - requiredClasses)
+        }
+        
+        // Determine the gradient color based on percentage and skippable classes
+        private var gradientColors: [Color] {
+            if percentage >= minimumRequiredPercentage {
+                return [Color.green.opacity(0.6), Color.green]
+            } else if percentage <= 0.5 * minimumRequiredPercentage {
+                return [Color.red.opacity(0.6), Color.red]
+            } else {
+                return [Color.yellow.opacity(0.6), Color.yellow]
             }
         }
+        
+        var body: some View {
+            ZStack {
+                // Background circle
+                Circle()
+                    .stroke(lineWidth: 13)
+                    .opacity(0.3)
+                    .foregroundColor(.gray)
+                
+                // Progress circle with gradient
+                Circle()
+                    .trim(from: 0.0, to: CGFloat(min(percentage / 100, 1.0)))
+                    .stroke(
+                        LinearGradient(
+                            gradient: Gradient(colors: gradientColors),
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        style: StrokeStyle(lineWidth: 14, lineCap: .round)
+                    )
+                    .rotationEffect(Angle(degrees: 270.0))
+                    .shadow(color: gradientColors.last!.opacity(0.6), radius: 10, x: 0, y: 0)
+                    .animation(.easeInOut, value: percentage)
+                
+                // Percentage text
+                Text(String(format: "%.0f%%", min(percentage, 100.0)))
+                    .font(.title2)
+                    .bold()
+                    .foregroundColor(.white)
+            }
+        }
+    }
     
     
     struct AttendanceInfoView: View {
-           let totalClasses: Int
-           let attendedClasses: Int
-           let minimumRequiredPercentage: Double
-           
-           var body: some View {
-               VStack(alignment: .leading, spacing: 3) {
-                   // Calculate future classes needed to meet the requirement
-                   let futureClassesToAttend: Int = {
-                       var futureClasses = 0
-                       var tempTotal = totalClasses
-                       var tempAttended = attendedClasses
-                       // Avoid division by zero
-                       if tempTotal <= 0 {
-                           return 0
-                       }
-                       
-                       while (Double(tempAttended) / Double(tempTotal)) * 100 < minimumRequiredPercentage {
-                           futureClasses += 1
-                           tempTotal += 1
-                           tempAttended += 1
-                       }
-                       return futureClasses
-                   }()
-                   
-                   // Calculate the required number of classes to meet the minimum attendance percentage
-                   let requiredClasses = Int(ceil((Double(minimumRequiredPercentage) / 100) * Double(totalClasses)))
-                   let skippableClasses = max(0, attendedClasses - requiredClasses)
-                   
-                   // Display appropriate messages
-                   if futureClassesToAttend > 0 {
-                       Text("Need to attend \(futureClassesToAttend) \(futureClassesToAttend == 1 ? "class" : "classes").")
-                           .font(.footnote)
-                           .foregroundColor(.yellow)
-                           .lineLimit(2)
-                   } else if skippableClasses > 0 {
-                       Text("Can skip \(skippableClasses) \(skippableClasses == 1 ? "class" : "classes").")
-                           .font(.footnote)
-                           .foregroundColor(.green)
-                           .lineLimit(2)
-                   } else {
-                       Text("Cannot skip classes.")
-                           .font(.footnote)
-                           .foregroundColor(.blue)
-                           .lineLimit(2)
-                   }
-                   
-                   Text("Requirement: \(Int(round(minimumRequiredPercentage)))%")
-                       .font(.caption)
-                       .foregroundStyle(.gray)
-               }
-           }
-       }
+        @Bindable var attendance: Attendance
+        
+        var body: some View {
+            VStack(alignment: .leading, spacing: 3) {
+                let totalClasses = attendance.totalClasses
+                let attendedClasses = attendance.attendedClasses
+                let minimumRequiredPercentage = attendance.minimumPercentageRequirement
+                
+                // Calculate future classes needed to meet the requirement
+                let futureClassesToAttend: Int = {
+                    var futureClasses = 0
+                    var tempTotal = totalClasses
+                    var tempAttended = attendedClasses
+                    // Avoid division by zero
+                    if tempTotal <= 0 {
+                        return 0
+                    }
+                    
+                    while (Double(tempAttended) / Double(tempTotal)) * 100 < minimumRequiredPercentage {
+                        futureClasses += 1
+                        tempTotal += 1
+                        tempAttended += 1
+                    }
+                    return futureClasses
+                }()
+                
+                // Calculate the required number of classes to meet the minimum attendance percentage
+                let requiredClasses = Int(ceil((Double(minimumRequiredPercentage) / 100) * Double(totalClasses)))
+                let skippableClasses = max(0, attendedClasses - requiredClasses)
+                
+                // Display appropriate messages
+                if futureClassesToAttend > 0 {
+                    Text("Need to attend \(futureClassesToAttend) \(futureClassesToAttend == 1 ? "class" : "classes").")
+                        .font(.footnote)
+                        .foregroundColor(.yellow)
+                        .lineLimit(2)
+                } else if skippableClasses > 0 {
+                    Text("Can skip \(skippableClasses) \(skippableClasses == 1 ? "class" : "classes").")
+                        .font(.footnote)
+                        .foregroundColor(.green)
+                        .lineLimit(2)
+                } else {
+                    Text("Cannot skip classes.")
+                        .font(.footnote)
+                        .foregroundColor(.blue)
+                        .lineLimit(2)
+                }
+                
+                Text("Requirement: \(Int(round(minimumRequiredPercentage)))%")
+                    .font(.caption)
+                    .foregroundStyle(.gray)
+            }
+        }
+    }
     
     
 }
