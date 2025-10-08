@@ -59,36 +59,35 @@ struct SubjectCardView: View {
     }
 
     private func incrementAttended() {
-        withAnimation(.easeInOut) {
             subject.attendance.attendedClasses += 1
             subject.attendance.totalClasses += 1
-        }
+        
         addLog("+ Attended")
     }
 
     private func decrementAttended() {
         if subject.attendance.attendedClasses > 0 {
-            withAnimation(.easeInOut) {
+
                 subject.attendance.attendedClasses -= 1
                 subject.attendance.totalClasses -= 1
-            }
+            
             addLog("− Attended")
         }
     }
 
     private func incrementMissed() {
-        withAnimation(.easeInOut) {
+        
             subject.attendance.totalClasses += 1
-        }
+        
         addLog("+ Missed")
     }
 
     private func decrementMissed() {
         let missed = subject.attendance.totalClasses - subject.attendance.attendedClasses
         if missed > 0 {
-            withAnimation(.easeInOut) {
+            
                 subject.attendance.totalClasses -= 1
-            }
+            
             addLog("− Missed")
         }
     }

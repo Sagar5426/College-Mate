@@ -14,6 +14,10 @@ struct CardDetailView: View {
     @StateObject private var viewModel: CardDetailViewModel
     @FocusState private var isSearchFocused: Bool
     
+    @State private var isShowingRenameFolderAlert: Bool = false
+    @State private var folderBeingRenamed: Folder? = nil
+    @State private var newFolderNameForRename: String = ""
+    
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     private var isPad: Bool { UIDevice.current.userInterfaceIdiom == .pad }
     private var tileSize: CGFloat { isPad ? 120 : 80 }
@@ -40,7 +44,7 @@ struct CardDetailView: View {
             Divider()
             contentView
         }
-        .background(LinearGradient(colors: [.gray.opacity(0.1), .black.opacity(0.1), .gray.opacity(0.07)], startPoint: .top, endPoint: .bottom))
+        .background(Color(.systemGroupedBackground))
         .alert("Rename File", isPresented: .constant(viewModel.renamingFileMetadata != nil)) {
             renameAlertContent
         }
@@ -130,6 +134,25 @@ struct CardDetailView: View {
             }
         } message: {
             Text("Enter a name for the new folder")
+        }
+        .alert("Rename Folder", isPresented: $isShowingRenameFolderAlert) {
+            TextField("Folder Name", text: $newFolderNameForRename)
+            Button("Save") {
+                if let folder = folderBeingRenamed {
+                    folder.name = newFolderNameForRename.trimmingCharacters(in: .whitespacesAndNewlines)
+                    do {
+                        try modelContext.save()
+                    } catch {
+                        // Handle save error if needed
+                    }
+                }
+                folderBeingRenamed = nil
+                newFolderNameForRename = ""
+            }
+            Button("Cancel", role: .cancel) {
+                folderBeingRenamed = nil
+                newFolderNameForRename = ""
+            }
         }
         .alert("Rename File", isPresented: .constant(viewModel.renamingFileMetadata != nil)) {
             TextField("New Name", text: $viewModel.newFileName)
@@ -435,7 +458,7 @@ struct CardDetailView: View {
                     }
                     
                 case .pdf:
-                     if let fileURL = fileMetadata.getFileURL(), let pdfThumbnail = viewModel.generatePDFThumbnail(from: fileURL) {
+                    if let fileURL = fileMetadata.getFileURL(), let pdfThumbnail = viewModel.generatePDFThumbnail(from: fileURL) {
                         Image(uiImage: pdfThumbnail)
                             .resizable()
                             .scaledToFit()
@@ -455,7 +478,7 @@ struct CardDetailView: View {
                     if let fileURL = fileMetadata.getFileURL() {
                         DocxThumbnailView(fileURL: fileURL, viewModel: viewModel, size: tileSize)
                     } else {
-                         Image(systemName: "doc.text.fill")
+                        Image(systemName: "doc.text.fill")
                             .font(.largeTitle)
                             .foregroundColor(.blue)
                             .frame(width: tileSize, height: tileSize)
@@ -486,11 +509,13 @@ struct CardDetailView: View {
             }
             .frame(width: tileSize, height: tileSize)
             
-            Text(fileMetadata.fileName)
-                .font(.caption)
-                .multilineTextAlignment(.center)
-                .lineLimit(2)
-                .frame(maxWidth: tileSize + 20)
+            // Updated filename display with conditional hiding for placeholder image names
+            if !(fileMetadata.fileType == .image && isPlaceholderImageName(fileMetadata.fileName)) {
+                Text((fileMetadata.fileName as NSString).deletingPathExtension)
+                    .font(.caption)
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+            }
         }
         .contextMenu {
             if !viewModel.isEditing {
@@ -529,7 +554,9 @@ struct CardDetailView: View {
         }
 
         Button {
-            // Rename folder functionality
+            folderBeingRenamed = folder
+            newFolderNameForRename = folder.name
+            isShowingRenameFolderAlert = true
         } label: {
             Label("Rename", systemImage: "pencil")
         }
@@ -961,3 +988,31 @@ struct FolderPickerView: View {
     }
 }
 
+
+// MARK: - Helper function for placeholder image names
+
+private func isPlaceholderImageName(_ fileName: String) -> Bool {
+    let lower = fileName.lowercased()
+    // Strip extension
+    let base = (lower as NSString).deletingPathExtension
+
+    // 1) Explicit default name
+    if base == "default" { return true }
+
+    // 2) Auto-generated patterns we create in this app
+    //    e.g., image_<uuid>.jpg
+    if base.hasPrefix("image_") { return true }
+
+    // 3) Common camera patterns (imported from Photos or elsewhere)
+    //    e.g., img_1234, img_20231009, img-1234, img1234
+    if base.hasPrefix("img_") || base.hasPrefix("img-") || base.hasPrefix("img") { return true }
+
+    // 4) Very short or meaningless names like "y", "x", etc. (length <= 2)
+    if base.count <= 2 { return true }
+
+    // 5) Mostly numeric or UUID-like (heuristic)
+    let digits = base.filter { $0.isNumber }.count
+    if digits >= max(4, base.count - 2) { return true }
+
+    return false
+}
