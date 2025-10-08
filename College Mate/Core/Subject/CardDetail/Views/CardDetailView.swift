@@ -571,6 +571,18 @@ struct CardDetailView: View {
     @ViewBuilder
     private func fileMetadataContextMenu(for fileMetadata: FileMetadata) -> some View {
         Button {
+            if let url = fileMetadata.getFileURL() {
+                // Prepare single-file share using existing ShareSheetView
+                viewModel.urlsToShare = [url]
+                viewModel.isShowingMultiShareSheet = true
+            }
+        } label: {
+            Label("Share", systemImage: "square.and.arrow.up")
+        }
+        
+        Divider()
+        
+        Button {
             viewModel.toggleFavorite(for: fileMetadata)
         } label: {
             Label(fileMetadata.isFavorite ? "Remove from Favorites" : "Add to Favorites",

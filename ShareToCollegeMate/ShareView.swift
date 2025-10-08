@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
 import UniformTypeIdentifiers
+import UIKit
 
 struct ShareView: View {
     let attachment: NSItemProvider
@@ -18,15 +19,20 @@ struct ShareView: View {
         self.attachment = attachment
         self.onComplete = onComplete
         
-        // Initialize the SwiftData container within the App Group
+        // IMPORTANT: Replace with your actual App Group ID used by both the app and the extension.
+        // Ensure the same ID is enabled in Signing & Capabilities for both targets.
+        let appGroupID = "group.com.sagarjangra.College-Mate" // <-- UPDATE THIS IF NEEDED
+        
         do {
-            // IMPORTANT: Replace "group.com.sagarjangra.College-Mate" with your actual App Group ID
-            let storeURL = URL.storeURL(for: "group.com.sagarjangra.College-Mate", databaseName: "CollegeMate")
+            let storeURL = URL.storeURL(for: appGroupID, databaseName: "CollegeMate")
+            print("[ShareExt] Store URL:", storeURL.path)
             let config = ModelConfiguration(url: storeURL)
-            self.modelContainer = try ModelContainer(for: Subject.self, configurations: config)
+            // Include all your SwiftData models here (Subject, Folder, FileMetadata, etc.)
+            self.modelContainer = try ModelContainer(for: Subject.self, Folder.self, configurations: config)
         } catch {
-            errorMessage = "Could not load database."
-            print("Failed to create ModelContainer for extension: \(error)")
+            self.modelContainer = nil
+            self.errorMessage = "Could not load database. Please open the main app once and ensure App Group entitlements are set for the extension."
+            print("[ShareExt] Failed to create ModelContainer:", error)
         }
     }
     
@@ -36,10 +42,16 @@ struct ShareView: View {
                 Text(errorMessage)
                     .foregroundColor(.red)
                     .padding()
+                Button("Close") { onComplete() }
+                    .padding(.top, 8)
             } else {
                 NavigationView {
                     Form {
                         Section(header: Text("Select Destination")) {
+                            if subjects.isEmpty {
+                                Text("No subjects found. Open the main app to create a subject first.")
+                                    .foregroundColor(.secondary)
+                            }
                             Picker("Subject", selection: $selectedSubject) {
                                 Text("Select a Subject").tag(nil as Subject?)
                                 ForEach(subjects) { subject in
@@ -65,6 +77,10 @@ struct ShareView: View {
                         }
                         ToolbarItem(placement: .confirmationAction) {
                             Button("Save") {
+                                if modelContainer == nil {
+                                    errorMessage = "Database unavailable in extension. Check App Group setup."
+                                    return
+                                }
                                 saveFile()
                             }
                             .disabled(selectedSubject == nil || isSaving)
@@ -77,55 +93,151 @@ struct ShareView: View {
                 ProgressView("Saving...")
                     .padding()
             }
+            
+            if errorMessage == nil && subjects.isEmpty && modelContainer != nil {
+                Text("Loading subjects…")
+                    .foregroundColor(.secondary)
+                    .padding(.top, 4)
+            }
         }
-        .onAppear(perform: loadSubjects)
+        .onAppear {
+            if modelContainer == nil {
+                print("[ShareExt] ModelContainer is nil on appear.")
+            } else {
+                loadSubjects()
+            }
+        }
     }
     
     private func loadSubjects() {
-        guard let context = modelContainer?.mainContext else { return }
+        guard let context = modelContainer?.mainContext else {
+            print("[ShareExt] ModelContainer is nil in loadSubjects()")
+            errorMessage = "Could not access database in extension. Verify App Group entitlements."
+            return
+        }
         let descriptor = FetchDescriptor<Subject>(sortBy: [SortDescriptor(\.name)])
         do {
             subjects = try context.fetch(descriptor)
+            print("[ShareExt] Fetched \(subjects.count) subjects")
         } catch {
-            errorMessage = "Could not fetch subjects."
-            print("Failed to fetch subjects: \(error)")
+            errorMessage = "Could not fetch subjects. Open the app once to set up data."
+            print("[ShareExt] Failed to fetch subjects:", error)
         }
     }
     
     private func saveFile() {
-        guard let subject = selectedSubject, let context = modelContainer?.mainContext else { return }
+        print("[ShareExt] Save tapped")
+        guard let subject = selectedSubject,
+              let context = modelContainer?.mainContext else { return }
         
         isSaving = true
+        errorMessage = nil
         
         Task {
             do {
-                // Determine the type of the shared item
-                if let item = try await attachment.loadItem(forTypeIdentifier: UTType.fileURL.identifier) as? URL {
-                    let data = try Data(contentsOf: item)
-                    let fileName = item.lastPathComponent
-                    _ = FileDataService.saveFile(data: data, fileName: fileName, to: selectedFolder, in: subject, modelContext: context)
-                } else if let item = try await attachment.loadItem(forTypeIdentifier: UTType.image.identifier) as? UIImage,
-                          let data = item.jpegData(compressionQuality: 0.8) {
+                print("[ShareExt] Attempting to read from NSItemProvider")
+                // Try to load a file URL first (covers PDFs, DOCX, images provided as file URLs)
+                if let fileURL = try await loadFileURL(from: attachment) {
+                    let data = try Data(contentsOf: fileURL)
+                    let fileName = fileURL.lastPathComponent
+                    _ = FileDataService.saveFile(
+                        data: data,
+                        fileName: fileName,
+                        to: selectedFolder,
+                        in: subject,
+                        modelContext: context
+                    )
+                    print("[ShareExt] File data prepared, attempting to save context")
+                }
+                // Fallback: try loading as image data
+                else if let imageData = try await loadImageData(from: attachment) {
                     let fileName = "Image \(Date().formatted()).jpg"
-                    _ = FileDataService.saveFile(data: data, fileName: fileName, to: selectedFolder, in: subject, modelContext: context)
+                    _ = FileDataService.saveFile(
+                        data: imageData,
+                        fileName: fileName,
+                        to: selectedFolder,
+                        in: subject,
+                        modelContext: context
+                    )
+                    print("[ShareExt] File data prepared, attempting to save context")
                 } else {
-                    throw NSError(domain: "ShareError", code: 1, userInfo: [NSLocalizedDescriptionKey: "Unsupported file type"])
+                    throw NSError(
+                        domain: "ShareError",
+                        code: 1,
+                        userInfo: [NSLocalizedDescriptionKey: "Unsupported file type"]
+                    )
                 }
                 
                 try context.save()
                 
-                // Vibrate on success
+                // Success haptic
                 UINotificationFeedbackGenerator().notificationOccurred(.success)
                 
-                onComplete()
-                
+                await MainActor.run {
+                    onComplete()
+                }
             } catch {
+                print("[ShareExt] Save failed:", error)
                 await MainActor.run {
                     errorMessage = "Failed to save file: \(error.localizedDescription)"
                     isSaving = false
                 }
             }
         }
+    }
+    
+    // MARK: - Loaders for NSItemProvider
+    
+    private func loadFileURL(from provider: NSItemProvider) async throws -> URL? {
+        print("[ShareExt] loadFileURL called")
+        // Prefer fileURL if the source app provides it
+        if provider.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) {
+            let item = try await provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier)
+            if let url = item as? URL {
+                print("[ShareExt] Got direct fileURL")
+                return url
+            }
+        }
+        // Otherwise try specific types (pdf, docx, image) via file representation
+        if let url = try await loadFileRepresentation(from: provider, type: .pdf) {
+            print("[ShareExt] Got PDF representation")
+            return url
+        }
+        if let docx = UTType(filenameExtension: "docx"),
+           let url = try await loadFileRepresentation(from: provider, type: docx) {
+            print("[ShareExt] Got DOCX representation")
+            return url
+        }
+        if let url = try await loadFileRepresentation(from: provider, type: .image) {
+            print("[ShareExt] Got image file representation")
+            return url
+        }
+        return nil
+    }
+    
+    private func loadFileRepresentation(from provider: NSItemProvider, type: UTType) async throws -> URL? {
+        try await withCheckedThrowingContinuation { continuation in
+            provider.loadFileRepresentation(forTypeIdentifier: type.identifier) { url, error in
+                if let error = error {
+                    continuation.resume(throwing: error)
+                    return
+                }
+                continuation.resume(returning: url)
+            }
+        }
+    }
+    
+    private func loadImageData(from provider: NSItemProvider) async throws -> Data? {
+        print("[ShareExt] loadImageData called")
+        if provider.hasItemConformingToTypeIdentifier(UTType.image.identifier) {
+            let item = try await provider.loadItem(forTypeIdentifier: UTType.image.identifier)
+            if let image = item as? UIImage {
+                let data = image.jpegData(compressionQuality: 0.85)
+                print("[ShareExt] Converted UIImage to JPEG data")
+                return data
+            }
+        }
+        return nil
     }
 }
 
@@ -134,9 +246,11 @@ extension URL {
     /// Returns a URL for the given app group and database naming convention.
     static func storeURL(for appGroup: String, databaseName: String) -> URL {
         guard let fileContainer = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroup) else {
-            fatalError("Shared file container could not be created.")
+            print("[ShareExt] Missing App Group entitlement for: \(appGroup)")
+            // Return a non-shared fallback to avoid crashing, but the UI should surface an error.
+            return FileManager.default.temporaryDirectory.appendingPathComponent("\(databaseName).sqlite")
         }
+        print("[ShareExt] App Group container:", fileContainer.path)
         return fileContainer.appendingPathComponent("\(databaseName).sqlite")
     }
 }
-
