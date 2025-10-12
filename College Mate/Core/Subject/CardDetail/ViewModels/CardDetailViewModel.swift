@@ -10,6 +10,31 @@ class CardDetailViewModel: ObservableObject {
     
     // MARK: - Properties
     
+    // Centralized entry point to start renaming/captioning a file
+    private func beginRenaming(with metadata: FileMetadata) {
+        self.renamingFileMetadata = metadata
+        self.newFileName = self.suggestedEditableName(from: metadata.fileName)
+        self.isShowingRenameView = true
+    }
+    
+    // Returns an empty string for auto-generated image names like "image_<UUID>", otherwise returns the base name without extension.
+    private func suggestedEditableName(from fileName: String) -> String {
+        let base = (fileName as NSString).deletingPathExtension
+        let lower = base.lowercased()
+        // Accept both image_ and image- prefixes
+        if lower.hasPrefix("image_") || lower.hasPrefix("image-") {
+            let dropCount = lower.hasPrefix("image_") ? 6 : 6 // length of "image_" or "image-"
+            let uuidPart = String(lower.dropFirst(dropCount))
+            // Basic UUID format check: 8-4-4-4-12
+            let components = uuidPart.split(separator: "-")
+            let expected = [8, 4, 4, 4, 12]
+            if components.count == expected.count && zip(components, expected).allSatisfy({ $0.count == $1 }) {
+                return ""
+            }
+        }
+        return base
+    }
+    
     let subject: Subject
     private let modelContext: ModelContext
     
@@ -25,6 +50,8 @@ class CardDetailViewModel: ObservableObject {
     @Published var isShowingFileImporter = false
     @Published var isImportingFile = false
     @Published var isShowingPhotoPicker = false
+    // Dedicated flag for rename/caption UI
+    @Published var isShowingRenameView = false
     
     // --- Search State ---
     @Published var isSearchBarVisible = false
@@ -61,18 +88,21 @@ class CardDetailViewModel: ObservableObject {
         didSet {
             if let metadata = renamingFileMetadata {
                 if metadata.fileType == .image {
-                    // For images, start empty so user can add caption
-                    newFileName = ""
+                    newFileName = suggestedEditableName(from: metadata.fileName)
                 } else {
                     newFileName = (metadata.fileName as NSString).deletingPathExtension
                 }
+                isShowingRenameView = true
             }
         }
     }
     @Published var renamingFileURL: URL? = nil {
         didSet {
+            guard renamingFileMetadata == nil else { return }
             if let url = renamingFileURL {
-                newFileName = url.deletingPathExtension().lastPathComponent
+                let base = url.deletingPathExtension().lastPathComponent
+                newFileName = suggestedEditableName(from: base)
+                isShowingRenameView = true
             }
         }
     }
@@ -374,6 +404,7 @@ class CardDetailViewModel: ObservableObject {
         // Reset the renaming state
         renamingFileURL = nil
         renamingFileMetadata = nil
+        isShowingRenameView = false
     }
     
     // MARK: - File Import Handlers
@@ -415,7 +446,9 @@ class CardDetailViewModel: ObservableObject {
             for item in items {
                 if let data = try? await item.loadTransferable(type: Data.self) {
                     let fileName = "image_\(UUID().uuidString).jpg"
-                    _ = FileDataService.saveFile(data: data, fileName: fileName, to: self.currentFolder, in: self.subject, modelContext: self.modelContext)
+                    if let metadata = FileDataService.saveFile(data: data, fileName: fileName, to: self.currentFolder, in: self.subject, modelContext: self.modelContext) {
+                        self.beginRenaming(with: metadata)
+                    }
                 }
             }
         }
@@ -433,7 +466,8 @@ class CardDetailViewModel: ObservableObject {
         guard let image = image, let imageData = image.jpegData(compressionQuality: 0.8) else { return }
         let fileName = "image_\(UUID().uuidString).jpg"
         
-        if FileDataService.saveFile(data: imageData, fileName: fileName, to: currentFolder, in: subject, modelContext: modelContext) != nil {
+        if let metadata = FileDataService.saveFile(data: imageData, fileName: fileName, to: currentFolder, in: subject, modelContext: modelContext) {
+            self.beginRenaming(with: metadata)
             if self.isEditing { self.toggleEditMode() }
             loadFolderContent()
         }

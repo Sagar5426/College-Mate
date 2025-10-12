@@ -591,9 +591,6 @@ struct CardDetailView: View {
         }
         
         Button {
-            if fileMetadata.fileType == .image {
-                viewModel.newFileName = "" // start empty so user types caption
-            }
             viewModel.renamingFileMetadata = fileMetadata
         } label: {
             if fileMetadata.fileType == .image {
@@ -1047,27 +1044,23 @@ struct FolderPickerView: View {
 
 private func isPlaceholderImageName(_ fileName: String) -> Bool {
     let lower = fileName.lowercased()
-    // Strip extension
     let base = (lower as NSString).deletingPathExtension
 
     // 1) Explicit default name
     if base == "default" { return true }
 
-    // 2) Auto-generated patterns we create in this app
-    //    e.g., image_<uuid>.jpg
-    if base.hasPrefix("image_") { return true }
+    // 2) App-generated pattern: image_<uuid>-like (strict regex)
+    // Accepts common UUID-ish segments (8+ hex/dash characters)
+    if base.range(of: #"^image_[0-9a-f-]{8,}$"#, options: [.regularExpression]) != nil {
+        return true
+    }
 
-    // 3) Common camera patterns (imported from Photos or elsewhere)
-    //    e.g., img_1234, img_20231009, img-1234, img1234
-    if base.hasPrefix("img_") || base.hasPrefix("img-") || base.hasPrefix("img") { return true }
+    // 3) Classic camera names only when the whole string matches a known pattern
+    //    Examples: IMG_1234, IMG-20231009, img12345
+    if base.range(of: #"^(?i:img)[_-]?\d{3,}$"#, options: [.regularExpression]) != nil {
+        return true
+    }
 
-    // 4) Very short or meaningless names like "y", "x", etc. (length <= 2)
-    if base.count <= 2 { return true }
-
-    // 5) Mostly numeric or UUID-like (heuristic)
-    let digits = base.filter { $0.isNumber }.count
-    if digits >= max(4, base.count - 2) { return true }
-
+    // Do NOT block short, numeric, or other user-provided captions.
     return false
 }
-
