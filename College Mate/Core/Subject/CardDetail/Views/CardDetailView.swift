@@ -45,8 +45,18 @@ struct CardDetailView: View {
             contentView
         }
         .background(Color(.systemGroupedBackground))
-        .alert("Rename File", isPresented: .constant(viewModel.renamingFileMetadata != nil)) {
-            renameAlertContent
+        .alert(viewModel.renamingFileMetadata?.fileType == .image ? "Add Caption" : "Rename File", isPresented: .constant(viewModel.renamingFileMetadata != nil)) {
+            if viewModel.renamingFileMetadata?.fileType == .image {
+                TextField("e.g. Maths Formula", text: $viewModel.newFileName)
+            } else {
+                TextField("New Name", text: $viewModel.newFileName)
+            }
+            Button("Cancel", role: .cancel) {
+                viewModel.renamingFileMetadata = nil
+            }
+            Button("Save") {
+                viewModel.renameFile()
+            }
         }
         .overlay(alignment: .bottom) {
             if viewModel.isEditing {
@@ -152,15 +162,6 @@ struct CardDetailView: View {
             Button("Cancel", role: .cancel) {
                 folderBeingRenamed = nil
                 newFolderNameForRename = ""
-            }
-        }
-        .alert("Rename File", isPresented: .constant(viewModel.renamingFileMetadata != nil)) {
-            TextField("New Name", text: $viewModel.newFileName)
-            Button("Cancel", role: .cancel) {
-                viewModel.renamingFileMetadata = nil
-            }
-            Button("Save") {
-                viewModel.renameFile()
             }
         }
         .fileImporter(
@@ -392,7 +393,7 @@ struct CardDetailView: View {
             }
             .padding(.vertical)
             .padding(.horizontal)
-            Spacer(minLength: 100)
+            Spacer(minLength: 170)
         }
     }
     
@@ -509,8 +510,8 @@ struct CardDetailView: View {
             }
             .frame(width: tileSize, height: tileSize)
             
-            // Updated filename display with conditional hiding for placeholder image names
-            if !(fileMetadata.fileType == .image && isPlaceholderImageName(fileMetadata.fileName)) {
+            // Never show image names; show names only for non-image files
+            if fileMetadata.fileType != .image {
                 Text((fileMetadata.fileName as NSString).deletingPathExtension)
                     .font(.caption)
                     .foregroundStyle(.primary)
@@ -590,29 +591,22 @@ struct CardDetailView: View {
         }
         
         Button {
-            viewModel.showFolderPicker(for: fileMetadata)
-        } label: {
-            Label("Move to Folder", systemImage: "folder")
-        }
-        
-        Button {
+            if fileMetadata.fileType == .image {
+                viewModel.newFileName = "" // start empty so user types caption
+            }
             viewModel.renamingFileMetadata = fileMetadata
         } label: {
-            Label("Rename", systemImage: "pencil")
+            if fileMetadata.fileType == .image {
+                Label("Add Caption", systemImage: "pencil")
+            } else {
+                Label("Rename", systemImage: "pencil")
+            }
         }
         
         Button(role: .destructive) {
             viewModel.deleteFileMetadata(fileMetadata)
         } label: {
             Label("Delete", systemImage: "trash")
-        }
-    }
-    
-    private var renameAlertContent: some View {
-        Group {
-            TextField("New Name", text: $viewModel.newFileName)
-            Button("Cancel", role: .cancel) { viewModel.renamingFileMetadata = nil }
-            Button("Save") { viewModel.renameFile() }
         }
     }
     
@@ -1028,3 +1022,4 @@ private func isPlaceholderImageName(_ fileName: String) -> Bool {
 
     return false
 }
+

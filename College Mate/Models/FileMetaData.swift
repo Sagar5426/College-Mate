@@ -78,3 +78,4 @@ enum FileType: String, Codable, CaseIterable {
         }
     }
 }
+

@@ -60,7 +60,12 @@ class CardDetailViewModel: ObservableObject {
     @Published var renamingFileMetadata: FileMetadata? = nil {
         didSet {
             if let metadata = renamingFileMetadata {
-                newFileName = (metadata.fileName as NSString).deletingPathExtension
+                if metadata.fileType == .image {
+                    // For images, start empty so user can add caption
+                    newFileName = ""
+                } else {
+                    newFileName = (metadata.fileName as NSString).deletingPathExtension
+                }
             }
         }
     }
