@@ -28,7 +28,7 @@ struct AttendanceView: View {
                 .padding()
             }
             .id(viewID)
-            .background(LinearGradient(colors: [.gray.opacity(0.1), .black.opacity(0.1), .gray.opacity(0.07)], startPoint: .top, endPoint: .bottom))
+            .background(LinearGradient.appBackground.ignoresSafeArea())
             .blur(radius: viewModel.isShowingDatePicker ? 8 : 0)
             .disabled(viewModel.isShowingDatePicker)
             .fullScreenCover(isPresented: $viewModel.isShowingProfileView) {

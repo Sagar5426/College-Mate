@@ -44,10 +44,10 @@ struct CardDetailView: View {
             Divider()
             contentView
         }
-        .background(LinearGradient(colors: [.gray.opacity(0.1), .black.opacity(0.1), .gray.opacity(0.07)], startPoint: .top, endPoint: .bottom))
+        .background(LinearGradient.appBackground.ignoresSafeArea())
         .alert(viewModel.renamingFileMetadata?.fileType == .image ? "Add Caption" : "Rename File", isPresented: .constant(viewModel.renamingFileMetadata != nil)) {
             if viewModel.renamingFileMetadata?.fileType == .image {
-                TextField("e.g. Maths Formula", text: $viewModel.newFileName)
+                TextField("e.g. Important Formulas", text: $viewModel.newFileName)
             } else {
                 TextField("New Name", text: $viewModel.newFileName)
             }

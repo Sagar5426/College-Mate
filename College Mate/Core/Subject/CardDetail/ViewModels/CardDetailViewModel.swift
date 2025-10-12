@@ -447,7 +447,7 @@ class CardDetailViewModel: ObservableObject {
                 if let data = try? await item.loadTransferable(type: Data.self) {
                     let fileName = "image_\(UUID().uuidString).jpg"
                     if let metadata = FileDataService.saveFile(data: data, fileName: fileName, to: self.currentFolder, in: self.subject, modelContext: self.modelContext) {
-                        self.beginRenaming(with: metadata)
+//                        self.beginRenaming(with: metadata)
                     }
                 }
             }
@@ -467,7 +467,7 @@ class CardDetailViewModel: ObservableObject {
         let fileName = "image_\(UUID().uuidString).jpg"
         
         if let metadata = FileDataService.saveFile(data: imageData, fileName: fileName, to: currentFolder, in: subject, modelContext: modelContext) {
-            self.beginRenaming(with: metadata)
+//            self.beginRenaming(with: metadata)
             if self.isEditing { self.toggleEditMode() }
             loadFolderContent()
         }

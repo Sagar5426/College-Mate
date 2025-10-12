@@ -20,8 +20,7 @@ struct EditSubjectView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                LinearGradient(colors: [.gray.opacity(0.1), .black.opacity(0.1), .gray.opacity(0.07)], startPoint: .top, endPoint: .bottom)
-                    .ignoresSafeArea()
+                LinearGradient.appBackground.ignoresSafeArea()
                 Form {
                     Section(header: Text("Subject Details")) {
                         TextField("Subject Name (Max 20 Characters)", text: $subject.name)

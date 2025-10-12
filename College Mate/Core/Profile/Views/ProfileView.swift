@@ -18,7 +18,7 @@ struct ProfileView: View {
         NavigationStack {
             ZStack {
                 // Using a darker, more solid background for better contrast
-                Color(UIColor.systemGroupedBackground).ignoresSafeArea()
+                LinearGradient.appBackground.ignoresSafeArea()
 
                 VStack {
                     Form {

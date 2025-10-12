@@ -24,8 +24,7 @@ struct AddSubjectView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                LinearGradient(colors: [.gray.opacity(0.1), .black.opacity(0.1), .gray.opacity(0.07)], startPoint: .top, endPoint: .bottom)
-                    .ignoresSafeArea()
+                LinearGradient.appBackground.ignoresSafeArea()
                 Form {
                     SubjectDetailsSection(subjectName: $subjectName)
                     FirstSubjectDatePicker(startDateOfSubject: $startDateOfSubject)
