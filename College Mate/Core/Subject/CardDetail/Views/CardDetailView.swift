@@ -617,22 +617,70 @@ struct CardDetailView: View {
                     viewModel.isShowingCreateFolderAlert = true
                 }
             }
-            
             Button("Camera", systemImage: "camera.fill") { viewModel.isShowingCamera = true }
-            
             Button("Images from Photos", systemImage: "photo.on.rectangle.angled") {
                 viewModel.isShowingPhotoPicker = true
             }
-            
             Button("Document from Files", systemImage: "doc.fill") { viewModel.isShowingFileImporter = true }
         } label: {
             Image(systemName: "plus")
-                .font(.title.weight(.semibold))
-                .padding()
-                .background(Color.blue)
-                .foregroundColor(.white)
-                .clipShape(Circle())
-                .shadow(radius: 4, x: 0, y: 2)
+                .font(.system(size: 28, weight: .bold, design: .rounded))
+                .foregroundColor(.white.opacity(0.9))
+                .frame(width: 60, height: 60)
+                .background(
+                    ZStack {
+                        // Base frosted glass
+                        Circle().fill(.ultraThinMaterial)
+                        
+                        // Subtle tint to give the glass a hue
+                        Circle().fill(
+                            LinearGradient(
+                                colors: [Color.white.opacity(0.08), Color.blue.opacity(0.10)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        
+                        // Inner highlight (specular)
+                        Circle()
+                            .stroke(
+                                LinearGradient(
+                                    colors: [Color.white.opacity(0.55), Color.white.opacity(0.2), .clear],
+                                    startPoint: .top,
+                                    endPoint: .center
+                                ),
+                                lineWidth: 1.2
+                            )
+                            .blur(radius: 0.5)
+                            .blendMode(.plusLighter)
+                        
+                        // Inner shadow ring to add depth
+                        Circle()
+                            .stroke(Color.black.opacity(0.15), lineWidth: 1)
+                            .blur(radius: 1.2)
+                            .opacity(0.6)
+                    }
+                )
+                .overlay(
+                    // Glass rim
+                    Circle()
+                        .stroke(
+                            LinearGradient(
+                                colors: [Color.white.opacity(0.45), Color.white.opacity(0.1)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 1.6
+                        )
+                )
+                .shadow(color: .black.opacity(0.2), radius: 10, x: 0, y: 5)
+                .shadow(color: Color.blue.opacity(0.18), radius: 16, x: 0, y: 6)
+                .contentShape(Circle())
+                .padding(14)
+                .compositingGroup()
+                .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
+                .animation(.easeInOut(duration: 0.15), value: viewModel.isEditing)
+                .accessibilityLabel("Add")
         }
         .padding()
         .transition(.scale.combined(with: .opacity))
