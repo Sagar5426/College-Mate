@@ -363,7 +363,38 @@ struct CardDetailView: View {
                         .font(.headline)
                         .foregroundColor(.secondary)
                 } else {
-                    NoNotesView()
+                    switch viewModel.selectedFilter {
+                    case .all:
+                        NoNotesView(
+                            imageName: "doc.text.magnifyingglass",
+                            title: "No Files Added",
+                            message: "Click on the add button to start adding files."
+                        )
+                    case .images:
+                        NoNotesView(
+                            imageName: "photo.on.rectangle.angled",
+                            title: "No Images",
+                            message: "Click on the add button to start adding images from your photos or camera."
+                        )
+                    case .pdfs:
+                        NoNotesView(
+                            imageName: "doc.richtext",
+                            title: "No PDFs",
+                            message: "Click on the add button to import PDF documents."
+                        )
+                    case .docs:
+                        NoNotesView(
+                            imageName: "doc.text",
+                            title: "No Documents",
+                            message: "Click on the add button to import Word documents."
+                        )
+                    case .favorites:
+                        NoNotesView(
+                            imageName: "heart.slash",
+                            title: "No Favorites",
+                            message: "You haven't added any files or folders to your favorites yet."
+                        )
+                    }
                 }
                 Spacer()
             }
@@ -1064,3 +1095,4 @@ private func isPlaceholderImageName(_ fileName: String) -> Bool {
     // Do NOT block short, numeric, or other user-provided captions.
     return false
 }
+
