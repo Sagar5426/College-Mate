@@ -247,30 +247,30 @@ struct CardDetailView: View {
     }
     
     private var filterView: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
+        
+        VStack(alignment: .leading, spacing: gridSpacing) {
             HStack(spacing: gridSpacing) {
-                ForEach(NoteFilter.allCases, id: \.self) { filter in
-                    Button(action: {
-                        playTapSoundAndVibrate()
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            viewModel.selectedFilter = filter
+                Menu {
+                    Picker("Filter", selection: $viewModel.selectedFilter) {
+                        ForEach(NoteFilter.allCases, id: \.self) { filter in
+                            Text(filter.rawValue).tag(filter)
                         }
-                    }) {
-                        Text(filter.rawValue)
+                    }
+
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "line.3.horizontal.decrease")
+                        Text(viewModel.selectedFilter.rawValue)
                             .font(.subheadline)
-                            .fontWeight(.semibold)
-                            .padding(.vertical, 8)
-                            .padding(.horizontal, 16)
-                            .background(viewModel.selectedFilter == filter ? Color.blue : Color.gray.opacity(0.2))
-                            .foregroundColor(viewModel.selectedFilter == filter ? .white : .primary)
-                            .clipShape(Capsule())
+                            .foregroundStyle(.primary)
                     }
                 }
             }
-            .padding(.horizontal)
-            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding()
         }
     }
+
     
     private var breadcrumbView: some View {
         Group {
@@ -602,17 +602,6 @@ struct CardDetailView: View {
     
     @ViewBuilder
     private func fileMetadataContextMenu(for fileMetadata: FileMetadata) -> some View {
-        Button {
-            if let url = fileMetadata.getFileURL() {
-                // Prepare single-file share using existing ShareSheetView
-                viewModel.urlsToShare = [url]
-                viewModel.isShowingMultiShareSheet = true
-            }
-        } label: {
-            Label("Share", systemImage: "square.and.arrow.up")
-        }
-        
-        Divider()
         
         Button {
             viewModel.toggleFavorite(for: fileMetadata)
@@ -631,11 +620,6 @@ struct CardDetailView: View {
             }
         }
         
-        Button(role: .destructive) {
-            viewModel.deleteFileMetadata(fileMetadata)
-        } label: {
-            Label("Delete", systemImage: "trash")
-        }
     }
     
     private var addButton: some View {
@@ -1137,3 +1121,4 @@ private func isPlaceholderImageName(_ fileName: String) -> Bool {
         return AnyView(Text("Failed to create preview container."))
     }
 }
+
