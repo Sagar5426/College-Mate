@@ -8,6 +8,15 @@ import PhotosUI // Import for modern photo picker
 @MainActor
 class CardDetailViewModel: ObservableObject {
     
+    // MARK: - Enums
+    
+    enum SortType: String, CaseIterable, Identifiable {
+        case date = "Date Added"
+        case name = "Alphabetical"
+        
+        var id: String { self.rawValue }
+    }
+    
     // MARK: - Properties
     
     // Centralized entry point to start renaming/captioning a file
@@ -81,8 +90,11 @@ class CardDetailViewModel: ObservableObject {
     // --- Universal Preview State ---
     @Published var documentToPreview: PreviewableDocument? = nil
     
+    // --- Filtering and Sorting State ---
     @Published var selectedFilter: NoteFilter = .all
-    
+    @Published var sortType: SortType = .date
+    @Published var sortAscending: Bool = false // false for descending (newest), true for ascending (oldest)
+
     // --- Renaming State ---
     @Published var renamingFileMetadata: FileMetadata? = nil {
         didSet {
@@ -128,75 +140,90 @@ class CardDetailViewModel: ObservableObject {
         loadFolderContent()
     }
     
+    // MARK: - Sorting Methods
+    
+    func selectSortOption(_ newSortType: SortType) {
+        if self.sortType == newSortType {
+            // If the same sort type is tapped again, just reverse the order
+            self.sortAscending.toggle()
+        } else {
+            // If a new sort type is selected, switch to it and set a default order
+            self.sortType = newSortType
+            // Default to ascending for name (A-Z), descending for date (newest first)
+            self.sortAscending = (newSortType == .name)
+        }
+        
+        // Re-apply sorting
+        if isSearching {
+            performSearch()
+        } else {
+            loadFolderContent()
+        }
+    }
+    
     // MARK: - Folder-based Methods
     
     func loadFolderContent() {
+        let rawSubfolders: [Folder]
+        let rawFiles: [FileMetadata]
+
         if let currentFolder = currentFolder {
-            subfolders = currentFolder.subfolders.sorted { $0.name < $1.name }
-            currentFiles = currentFolder.files.sorted { $0.createdDate > $1.createdDate }
+            rawSubfolders = Array(currentFolder.subfolders)
+            rawFiles = Array(currentFolder.files)
         } else {
-            subfolders = subject.rootFolders.sorted { $0.name < $1.name }
-            // At root, show files that have no parent folder.
-            currentFiles = subject.fileMetadata.filter { $0.folder == nil }.sorted { $0.createdDate > $1.createdDate }
+            rawSubfolders = Array(subject.rootFolders)
+            rawFiles = subject.fileMetadata.filter { $0.folder == nil }
         }
+
+        switch sortType {
+        case .name:
+            subfolders = rawSubfolders.sorted {
+                $0.name.localizedCaseInsensitiveCompare($1.name) == (sortAscending ? .orderedAscending : .orderedDescending)
+            }
+            currentFiles = rawFiles.sorted {
+                $0.fileName.localizedCaseInsensitiveCompare($1.fileName) == (sortAscending ? .orderedAscending : .orderedDescending)
+            }
+        case .date:
+            subfolders = rawSubfolders.sorted {
+                sortAscending ? ($0.createdDate < $1.createdDate) : ($0.createdDate > $1.createdDate)
+            }
+            currentFiles = rawFiles.sorted {
+                sortAscending ? ($0.createdDate < $1.createdDate) : ($0.createdDate > $1.createdDate)
+            }
+        }
+
         filterFileMetadata()
     }
     
     func filterFileMetadata() {
         let showSearchAtRoot = isSearching && currentFolder == nil
         let filesToFilter = showSearchAtRoot ? searchResults : currentFiles
-        let foldersToFilter: [Folder] = showSearchAtRoot ? searchFolderResults : (currentFolder?.subfolders ?? subject.rootFolders)
+        
+        // Use the already sorted subfolders from loadFolderContent unless searching
+        let foldersToUse = isSearching ? searchFolderResults : subfolders
 
         switch selectedFilter {
         case .all:
             filteredFileMetadata = filesToFilter
-            subfolders = foldersToFilter.sorted { $0.name < $1.name }
+            self.subfolders = foldersToUse
         case .images:
             filteredFileMetadata = filesToFilter.filter { $0.fileType == .image }
-            if showSearchAtRoot {
-                subfolders = []
-            } else {
-                subfolders = foldersToFilter.filter { folder in
-                    !folder.files.filter { $0.fileType == .image }.isEmpty
-                }.sorted { $0.name < $1.name }
-            }
+            self.subfolders = foldersToUse.filter { folder in !folder.files.filter { $0.fileType == .image }.isEmpty }
         case .pdfs:
             filteredFileMetadata = filesToFilter.filter { $0.fileType == .pdf }
-            if showSearchAtRoot {
-                subfolders = []
-            } else {
-                subfolders = foldersToFilter.filter { folder in
-                    !folder.files.filter { $0.fileType == .pdf }.isEmpty
-                }.sorted { $0.name < $1.name }
-            }
+            self.subfolders = foldersToUse.filter { folder in !folder.files.filter { $0.fileType == .pdf }.isEmpty }
         case .docs:
             filteredFileMetadata = filesToFilter.filter { $0.fileType == .docx }
-            if showSearchAtRoot {
-                subfolders = []
-            } else {
-                subfolders = foldersToFilter.filter { folder in
-                    !folder.files.filter { $0.fileType == .docx }.isEmpty
-                }.sorted { $0.name < $1.name }
-            }
+            self.subfolders = foldersToUse.filter { folder in !folder.files.filter { $0.fileType == .docx }.isEmpty }
         case .favorites:
-            // If we're at the root (no currentFolder) and not searching, show:
-            // - Only individually favorited files (from anywhere)
-            // - Only folders that are themselves favorited (from anywhere)
             if currentFolder == nil && !isSearching {
-                filteredFileMetadata = subject.fileMetadata
-                    .filter { $0.isFavorite }
-                    .sorted { $0.createdDate > $1.createdDate }
-
+                filteredFileMetadata = subject.fileMetadata.filter { $0.isFavorite }
                 let allFolders = allFoldersRecursively(from: subject.rootFolders)
-                subfolders = allFolders
-                    .filter { $0.isFavorite }
-                    .sorted { $0.name < $1.name }
+                self.subfolders = allFolders.filter { $0.isFavorite }
             } else {
-                // If we navigated into a folder while Favorites is selected (or we're searching),
-                // show the actual contents of the current folder so users can browse normally.
-                // This matches Files app behavior when opening a favorited folder.
-                filteredFileMetadata = currentFiles
-                subfolders = (currentFolder?.subfolders ?? []).sorted { $0.name < $1.name }
+                // When in a folder or searching, show all content and let user see favorites via icon
+                filteredFileMetadata = filesToFilter
+                self.subfolders = foldersToUse
             }
         }
     }
@@ -322,14 +349,37 @@ class CardDetailViewModel: ObservableObject {
         isSearching = true
         let query = searchText.lowercased()
         
-        // Always search all files within the current subject.
+        // Search all files and sort them
         let filesToSearch = self.subject.fileMetadata
-        let results = filesToSearch.filter { $0.fileName.lowercased().contains(query) }
-        searchResults = results.sorted { $0.createdDate > $1.createdDate }
-
-        // Search all folders (including nested) by name
+        var results = filesToSearch.filter { $0.fileName.lowercased().contains(query) }
+        
+        switch sortType {
+        case .name:
+            results.sort {
+                $0.fileName.localizedCaseInsensitiveCompare($1.fileName) == (sortAscending ? .orderedAscending : .orderedDescending)
+            }
+        case .date:
+            results.sort {
+                sortAscending ? ($0.createdDate < $1.createdDate) : ($0.createdDate > $1.createdDate)
+            }
+        }
+        searchResults = results
+        
+        // Search all folders and sort them
         let allFolders = allFoldersRecursively(from: subject.rootFolders)
-        searchFolderResults = allFolders.filter { $0.name.lowercased().contains(query) }
+        var folderResults = allFolders.filter { $0.name.lowercased().contains(query) }
+        
+        switch sortType {
+        case .name:
+            folderResults.sort {
+                $0.name.localizedCaseInsensitiveCompare($1.name) == (sortAscending ? .orderedAscending : .orderedDescending)
+            }
+        case .date:
+            folderResults.sort {
+                sortAscending ? ($0.createdDate < $1.createdDate) : ($0.createdDate > $1.createdDate)
+            }
+        }
+        searchFolderResults = folderResults
         
         filterFileMetadata()
     }
