@@ -446,9 +446,13 @@ class CardDetailViewModel: ObservableObject {
             for item in items {
                 if let data = try? await item.loadTransferable(type: Data.self) {
                     let fileName = "image_\(UUID().uuidString).jpg"
-                    if let metadata = FileDataService.saveFile(data: data, fileName: fileName, to: self.currentFolder, in: self.subject, modelContext: self.modelContext) {
-//                        self.beginRenaming(with: metadata)
-                    }
+                    _ = FileDataService.saveFile(
+                        data: data,
+                        fileName: fileName,
+                        to: self.currentFolder,
+                        in: self.subject,
+                        modelContext: self.modelContext
+                    )
                 }
             }
         }
@@ -466,8 +470,7 @@ class CardDetailViewModel: ObservableObject {
         guard let image = image, let imageData = image.jpegData(compressionQuality: 0.8) else { return }
         let fileName = "image_\(UUID().uuidString).jpg"
         
-        if let metadata = FileDataService.saveFile(data: imageData, fileName: fileName, to: currentFolder, in: subject, modelContext: modelContext) {
-//            self.beginRenaming(with: metadata)
+        if let _ = FileDataService.saveFile(data: imageData, fileName: fileName, to: currentFolder, in: subject, modelContext: modelContext) {
             if self.isEditing { self.toggleEditMode() }
             loadFolderContent()
         }
