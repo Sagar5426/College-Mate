@@ -36,7 +36,7 @@ struct CardDetailView: View {
     
     var body: some View {
         viewBodyContent
-            .alert(viewModel.renamingFileMetadata?.fileType == .image ? "Add Caption" : "Rename File", isPresented: .constant(viewModel.renamingFileMetadata != nil)) {
+            .alert(viewModel.renamingFileMetadata?.fileType == .image ? "Add Caption" : "Rename File", isPresented: $viewModel.isShowingRenameView) {
                 if viewModel.renamingFileMetadata?.fileType == .image {
                     TextField("e.g. Important Formulas", text: $viewModel.newFileName)
                 } else {
@@ -273,35 +273,39 @@ struct CardDetailView: View {
                 Spacer()
                 
                 Menu {
+                    // Sorting Options
                     Button(action: { viewModel.selectSortOption(.date) }) {
-                        HStack {
-                            Text(CardDetailViewModel.SortType.date.rawValue)
-                            Spacer()
-                            if viewModel.sortType == .date {
-                                Image(systemName: viewModel.sortAscending ? "chevron.up" : "chevron.down")
-                                Image(systemName: "circle.fill")
-                            }
-                        }
+                          HStack {
+                              Text(CardDetailViewModel.SortType.date.rawValue)
+                              Spacer()
+                              if viewModel.sortType == .date {
+                                  Image(systemName: viewModel.sortAscending ? "chevron.up" : "chevron.down")
+                              }
+                          }
                     }
-                    
-                    
-                    
-                    Button(action: { viewModel.selectSortOption(.name) }) {
-                        HStack {
-                            Text(CardDetailViewModel.SortType.name.rawValue)
-                            Spacer()
-                            if viewModel.sortType == .name {
-                                Image(systemName: viewModel.sortAscending ? "chevron.up" : "chevron.down")
-                            }
-                        }
-                    }
+                   Button(action: { viewModel.selectSortOption(.name) }) {
+                       HStack {
+                           Text(CardDetailViewModel.SortType.name.rawValue)
+                           Spacer()
+                           if viewModel.sortType == .name {
+                               Image(systemName: viewModel.sortAscending ? "chevron.up" : "chevron.down")
+                           }
+                       }
+                   }
 
                     Divider()
 
-                    Text("Grid") // Placeholder for future layout options
+                    // Layout Picker
+                    Picker("Layout", selection: $viewModel.layoutStyle) {
+                        Label("Grid", systemImage: "square.grid.2x2")
+                            .tag(CardDetailViewModel.LayoutStyle.grid)
+                        Label("List", systemImage: "list.bullet")
+                            .tag(CardDetailViewModel.LayoutStyle.list)
+                    }
+                    .pickerStyle(.inline)
                     
                 } label: {
-                    Image(systemName: "square.grid.2x2")
+                    Image(systemName: viewModel.layoutStyle.rawValue == "Grid" ? "square.grid.2x2" : "list.bullet")
                 }
 
             }
@@ -376,7 +380,11 @@ struct CardDetailView: View {
             if viewModel.filteredFileMetadata.isEmpty && viewModel.subfolders.isEmpty {
                 noNotesView
             } else {
-                enhancedGrid
+                if viewModel.layoutStyle == .grid {
+                    enhancedGrid
+                } else {
+                    enhancedList
+                }
             }
             
             if viewModel.isImportingFile {
@@ -467,7 +475,126 @@ struct CardDetailView: View {
             Spacer(minLength: 170)
         }
     }
+
+    private var enhancedList: some View {
+        List {
+            ForEach(viewModel.subfolders, id: \.id) { folder in
+                folderRow(for: folder)
+            }
+            
+            ForEach(viewModel.filteredFileMetadata, id: \.id) { fileMetadata in
+                fileRow(for: fileMetadata)
+            }
+        }
+        .listStyle(.plain)
+    }
+
+    private func folderRow(for folder: Folder) -> some View {
+        HStack {
+            Image(systemName: "folder.fill")
+                .font(.title)
+                .foregroundColor(.blue)
+            
+            VStack(alignment: .leading) {
+                Text(folder.name)
+                    .font(.headline)
+                Text("\(folder.files.count) files")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+            }
+            
+            Spacer()
+            
+            if folder.isFavorite {
+                Image(systemName: "heart.fill")
+                    .foregroundColor(.red)
+            }
+        }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if !viewModel.isEditing {
+                playNavigationHaptic()
+                viewModel.navigateToFolder(folder)
+            }
+        }
+        .contextMenu {
+            if !viewModel.isEditing {
+                folderContextMenu(for: folder)
+            }
+        }
+    }
     
+    private func fileRow(for fileMetadata: FileMetadata) -> some View {
+        HStack {
+            listThumbnail(for: fileMetadata)
+                .frame(width: 44, height: 44)
+
+            VStack(alignment: .leading) {
+                if fileMetadata.fileType == .image && isPlaceholderImageName(fileMetadata.fileName) {
+                    Text("Image")
+                        .font(.headline)
+                        .lineLimit(1)
+                } else {
+                    Text((fileMetadata.fileName as NSString).deletingPathExtension)
+                        .font(.headline)
+                        .lineLimit(1)
+                }
+                Text(fileMetadata.createdDate, style: .date)
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+            }
+            
+            Spacer()
+            
+            if fileMetadata.isFavorite {
+                Image(systemName: "heart.fill")
+                    .foregroundColor(.red)
+            }
+        }
+        .padding(.vertical, 8)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            handleTapForMetadata(fileMetadata)
+        }
+        .contextMenu {
+            if !viewModel.isEditing {
+                fileMetadataContextMenu(for: fileMetadata)
+            }
+        }
+        .selectionOverlay(isSelected: viewModel.selectedFileMetadata.contains(fileMetadata), isEditing: viewModel.isEditing)
+    }
+
+    @ViewBuilder
+    private func listThumbnail(for fileMetadata: FileMetadata) -> some View {
+        ZStack {
+            switch fileMetadata.fileType {
+            case .image:
+                if let fileURL = fileMetadata.getFileURL(),
+                   let imageData = try? Data(contentsOf: fileURL),
+                   let image = UIImage(data: imageData) {
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFit()
+                        .clipShape(RoundedRectangle(cornerRadius: 4))
+                } else {
+                    Image(systemName: "photo.fill")
+                }
+            case .pdf:
+                Image(systemName: "doc.richtext.fill")
+                    .font(.title)
+                    .foregroundColor(.red)
+            case .docx:
+                Image(systemName: "doc.text.fill")
+                    .font(.title)
+                    .foregroundColor(.blue)
+            case .unknown:
+                Image(systemName: "doc.fill")
+                    .font(.title)
+                    .foregroundColor(.gray)
+            }
+        }
+    }
+
     private func folderView(for folder: Folder) -> some View {
         VStack {
             ZStack {
@@ -947,6 +1074,7 @@ struct SelectionOverlay: ViewModifier {
                 Rectangle()
                     .fill(Color.black.opacity(isSelected ? 0.2 : 0))
                     .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .allowsHitTesting(false)
                 
                 if isSelected {
                     Image(systemName: "checkmark.circle.fill")
@@ -955,6 +1083,7 @@ struct SelectionOverlay: ViewModifier {
                         .foregroundStyle(.white, .blue)
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
                         .padding(4)
+                        .allowsHitTesting(false)
                 }
             }
         }
