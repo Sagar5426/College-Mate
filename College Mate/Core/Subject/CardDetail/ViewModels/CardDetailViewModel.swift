@@ -205,29 +205,43 @@ class CardDetailViewModel: ObservableObject {
     func filterFileMetadata() {
         let showSearchAtRoot = isSearching && currentFolder == nil
         let filesToFilter = showSearchAtRoot ? searchResults : currentFiles
-        let foldersToFilter: [Folder] = showSearchAtRoot ? searchFolderResults : subfolders
+
+        // BUG FIX: Always start with the authoritative list of folders for the current context.
+        // This prevents filtering an already-filtered list.
+        let baseFoldersForCurrentContext: [Folder]
+        if showSearchAtRoot {
+            baseFoldersForCurrentContext = searchFolderResults
+        } else if let currentFolder = currentFolder {
+            baseFoldersForCurrentContext = currentFolder.subfolders
+        } else {
+            baseFoldersForCurrentContext = subject.rootFolders
+        }
+        let sortedBaseFolders = sortFolders(baseFoldersForCurrentContext)
 
         switch selectedFilter {
         case .all:
             filteredFileMetadata = filesToFilter
-            subfolders = foldersToFilter
+            subfolders = sortedBaseFolders // Always restore the full, sorted list of folders
         case .images:
             filteredFileMetadata = filesToFilter.filter { $0.fileType == .image }
-            subfolders = showSearchAtRoot ? [] : foldersToFilter.filter { !$0.files.filter { $0.fileType == .image }.isEmpty }
+            // Hide folders during a filtered search, otherwise show folders that contain matching files.
+            subfolders = showSearchAtRoot ? [] : sortedBaseFolders.filter { !$0.files.filter { $0.fileType == .image }.isEmpty }
         case .pdfs:
             filteredFileMetadata = filesToFilter.filter { $0.fileType == .pdf }
-            subfolders = showSearchAtRoot ? [] : foldersToFilter.filter { !$0.files.filter { $0.fileType == .pdf }.isEmpty }
+            subfolders = showSearchAtRoot ? [] : sortedBaseFolders.filter { !$0.files.filter { $0.fileType == .pdf }.isEmpty }
         case .docs:
             filteredFileMetadata = filesToFilter.filter { $0.fileType == .docx }
-            subfolders = showSearchAtRoot ? [] : foldersToFilter.filter { !$0.files.filter { $0.fileType == .docx }.isEmpty }
+            subfolders = showSearchAtRoot ? [] : sortedBaseFolders.filter { !$0.files.filter { $0.fileType == .docx }.isEmpty }
         case .favorites:
             if currentFolder == nil && !isSearching {
+                // In root view, show ALL favorite files and folders from the entire subject
                 filteredFileMetadata = sortFiles(subject.fileMetadata.filter { $0.isFavorite })
                 let allFolders = allFoldersRecursively(from: subject.rootFolders)
                 subfolders = sortFolders(allFolders.filter { $0.isFavorite })
             } else {
-                filteredFileMetadata = currentFiles
-                subfolders = self.subfolders
+                // When in a folder or searching, filter the current context for favorites
+                filteredFileMetadata = filesToFilter.filter { $0.isFavorite }
+                subfolders = sortedBaseFolders.filter { $0.isFavorite }
             }
         }
     }
@@ -592,4 +606,3 @@ class CardDetailViewModel: ObservableObject {
         }
     }
 }
-

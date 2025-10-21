@@ -79,14 +79,6 @@ struct CardDetailView: View {
                             }
                             
                             Menu {
-                                if !viewModel.filteredFileMetadata.isEmpty {
-                                    Button {
-                                        viewModel.toggleEditMode()
-                                    } label: {
-                                        Label("Select Files", systemImage: "checkmark.circle")
-                                    }
-                                }
-                                
                                 Button {
                                     viewModel.isShowingEditView.toggle()
                                 } label: {
@@ -293,6 +285,15 @@ struct CardDetailView: View {
                        }
                    }
 
+                    if !viewModel.filteredFileMetadata.isEmpty {
+                        Divider()
+                        Button {
+                            viewModel.toggleEditMode()
+                        } label: {
+                            Label("Select Files", systemImage: "checkmark.circle")
+                        }
+                    }
+
                     Divider()
 
                     // Layout Picker
@@ -485,6 +486,10 @@ struct CardDetailView: View {
             ForEach(viewModel.filteredFileMetadata, id: \.id) { fileMetadata in
                 fileRow(for: fileMetadata)
             }
+            // Custom spacer to prevent overlap with the bottom bar/button
+                        Color.clear
+                            .frame(height: 120)
+                            .listRowSeparator(.hidden)
         }
         .listStyle(.plain)
     }
@@ -1260,7 +1265,8 @@ private func isPlaceholderImageName(_ fileName: String) -> Bool {
         context.insert(notesFolder)
         context.insert(refsFolder)
 
-        FileDataService.createSubjectFolder(for: subject)
+        // Ensure the subject's root directory exists before saving files to it
+        _ = FileDataService.subjectFolder(for: subject)
 
         func writeMockFile(named fileName: String, data: Data, folder: Folder?) {
             _ = FileDataService.saveFile(
@@ -1290,4 +1296,3 @@ private func isPlaceholderImageName(_ fileName: String) -> Bool {
         return AnyView(Text("Failed to create preview container."))
     }
 }
-
