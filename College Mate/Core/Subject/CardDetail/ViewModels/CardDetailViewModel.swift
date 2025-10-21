@@ -21,7 +21,7 @@ class CardDetailViewModel: ObservableObject {
     
     // MARK: - Properties
     
-    private let layoutStyleKey = "CardDetailView_LayoutStyle"
+    private let layoutStyleKey: String
     
     // Centralized entry point to start renaming/captioning a file
     private func beginRenaming(with metadata: FileMetadata) {
@@ -64,6 +64,7 @@ class CardDetailViewModel: ObservableObject {
     @Published var currentFolder: Folder? = nil
     @Published var folderPath: [Folder] = [] // Breadcrumb navigation
     @Published var currentFiles: [FileMetadata] = []
+    @Published var originalSubfolders: [Folder] = [] // Store the unfiltered subfolders
     @Published var filteredFileMetadata: [FileMetadata] = []
     @Published var subfolders: [Folder] = []
     
@@ -136,18 +137,15 @@ class CardDetailViewModel: ObservableObject {
     @Published var selectedFolders: Set<Folder> = []
     @Published var isShowingMultiDeleteAlert = false
     
+    // Computed property to disable the move button
+    var isMoveButtonDisabled: Bool {
+        // Disable if any folder is selected OR if no files are selected.
+        return !selectedFolders.isEmpty || selectedFileMetadata.isEmpty
+    }
+    
     // --- Multi-Sharing State ---
     @Published var urlsToShare: [URL] = []
     @Published var isShowingMultiShareSheet = false
-    
-    // MARK: - Computed Properties for Selection
-    var isMoveActionDisabled: Bool {
-        !selectedFolders.isEmpty
-    }
-    
-    var totalSelectionCount: Int {
-        selectedFileMetadata.count + selectedFolders.count
-    }
     
     
     // MARK: - Initializer
@@ -155,13 +153,14 @@ class CardDetailViewModel: ObservableObject {
     init(subject: Subject, modelContext: ModelContext) {
         self.subject = subject
         self.modelContext = modelContext
+        self.layoutStyleKey = "CardDetailView_LayoutStyle_\(subject.id.uuidString)"
         
-        // Load saved layout style, defaulting to .grid if none is found.
+        // Load saved layout style
         if let savedLayoutRawValue = UserDefaults.standard.string(forKey: layoutStyleKey),
            let savedLayout = LayoutStyle(rawValue: savedLayoutRawValue) {
             self.layoutStyle = savedLayout
         } else {
-            self.layoutStyle = .grid
+            self.layoutStyle = .grid // Default
         }
         
         FileDataService.migrateExistingFiles(for: subject, modelContext: modelContext)
@@ -194,8 +193,9 @@ class CardDetailViewModel: ObservableObject {
             baseFiles = subject.fileMetadata.filter { $0.folder == nil }
         }
 
-        // Apply sorting
-        subfolders = sortFolders(baseSubfolders)
+        // Apply sorting and store original list of folders
+        self.originalSubfolders = sortFolders(baseSubfolders)
+        self.subfolders = self.originalSubfolders
         currentFiles = sortFiles(baseFiles)
         
         filterFileMetadata()
@@ -229,43 +229,38 @@ class CardDetailViewModel: ObservableObject {
     func filterFileMetadata() {
         let showSearchAtRoot = isSearching && currentFolder == nil
         let filesToFilter = showSearchAtRoot ? searchResults : currentFiles
-
-        // BUG FIX: Always start with the authoritative list of folders for the current context.
-        // This prevents filtering an already-filtered list.
-        let baseFoldersForCurrentContext: [Folder]
-        if showSearchAtRoot {
-            baseFoldersForCurrentContext = searchFolderResults
-        } else if let currentFolder = currentFolder {
-            baseFoldersForCurrentContext = currentFolder.subfolders
-        } else {
-            baseFoldersForCurrentContext = subject.rootFolders
-        }
-        let sortedBaseFolders = sortFolders(baseFoldersForCurrentContext)
+        
+        // Always start with the original, unfiltered list of folders
+        let foldersToFilter: [Folder] = showSearchAtRoot ? searchFolderResults : self.originalSubfolders
 
         switch selectedFilter {
         case .all:
             filteredFileMetadata = filesToFilter
-            subfolders = sortedBaseFolders // Always restore the full, sorted list of folders
+            subfolders = foldersToFilter
         case .images:
             filteredFileMetadata = filesToFilter.filter { $0.fileType == .image }
-            // Hide folders during a filtered search, otherwise show folders that contain matching files.
-            subfolders = showSearchAtRoot ? [] : sortedBaseFolders.filter { !$0.files.filter { $0.fileType == .image }.isEmpty }
+            subfolders = showSearchAtRoot ? [] : foldersToFilter.filter { folder in
+                !folder.files.filter { $0.fileType == .image }.isEmpty
+            }
         case .pdfs:
             filteredFileMetadata = filesToFilter.filter { $0.fileType == .pdf }
-            subfolders = showSearchAtRoot ? [] : sortedBaseFolders.filter { !$0.files.filter { $0.fileType == .pdf }.isEmpty }
+            subfolders = showSearchAtRoot ? [] : foldersToFilter.filter { folder in
+                !folder.files.filter { $0.fileType == .pdf }.isEmpty
+            }
         case .docs:
             filteredFileMetadata = filesToFilter.filter { $0.fileType == .docx }
-            subfolders = showSearchAtRoot ? [] : sortedBaseFolders.filter { !$0.files.filter { $0.fileType == .docx }.isEmpty }
+            subfolders = showSearchAtRoot ? [] : foldersToFilter.filter { folder in
+                !folder.files.filter { $0.fileType == .docx }.isEmpty
+            }
         case .favorites:
             if currentFolder == nil && !isSearching {
-                // In root view, show ALL favorite files and folders from the entire subject
                 filteredFileMetadata = sortFiles(subject.fileMetadata.filter { $0.isFavorite })
                 let allFolders = allFoldersRecursively(from: subject.rootFolders)
                 subfolders = sortFolders(allFolders.filter { $0.isFavorite })
             } else {
-                // When in a folder or searching, filter the current context for favorites
+                // When in a folder, just filter the current content
                 filteredFileMetadata = filesToFilter.filter { $0.isFavorite }
-                subfolders = sortedBaseFolders.filter { $0.isFavorite }
+                subfolders = foldersToFilter.filter { $0.isFavorite }
             }
         }
     }
@@ -571,7 +566,26 @@ class CardDetailViewModel: ObservableObject {
     
     // MARK: - Sharing Methods
     
-    // BUG FIX: Added this method back for the single-folder context menu
+    func shareSelectedFiles() {
+        var urlsToShare = selectedFileMetadata.compactMap { $0.getFileURL() }
+        
+        // Add files from selected folders
+        for folder in selectedFolders {
+            func recursivelyCollectFiles(from folder: Folder) {
+                urlsToShare.append(contentsOf: folder.files.compactMap { $0.getFileURL() })
+                for subfolder in folder.subfolders {
+                    recursivelyCollectFiles(from: subfolder)
+                }
+            }
+            recursivelyCollectFiles(from: folder)
+        }
+        
+        guard !urlsToShare.isEmpty else { return }
+        
+        self.urlsToShare = urlsToShare
+        self.isShowingMultiShareSheet = true
+    }
+    
     func shareFolder(_ folder: Folder) {
         var urls: [URL] = []
         
@@ -592,7 +606,7 @@ class CardDetailViewModel: ObservableObject {
         self.urlsToShare = urls
         self.isShowingMultiShareSheet = true
     }
-
+    
     // MARK: - Multi-Select / Editing Methods
     
     func toggleEditMode() {
@@ -602,28 +616,8 @@ class CardDetailViewModel: ObservableObject {
             selectedFolders.removeAll()
         }
     }
-    
-    func shareSelection() {
-        var urls = selectedFileMetadata.compactMap { $0.getFileURL() }
-        
-        func recursivelyCollectFiles(from folder: Folder) {
-            urls.append(contentsOf: folder.files.compactMap { $0.getFileURL() })
-            for subfolder in folder.subfolders {
-                recursivelyCollectFiles(from: subfolder)
-            }
-        }
 
-        for folder in selectedFolders {
-            recursivelyCollectFiles(from: folder)
-        }
-
-        guard !urls.isEmpty else { return }
-        
-        self.urlsToShare = urls
-        self.isShowingMultiShareSheet = true
-    }
-
-    func deleteSelection() {
+    func deleteSelectedItems() {
         let metadataToDelete = selectedFileMetadata
         for metadata in metadataToDelete {
             deleteFileMetadata(metadata)

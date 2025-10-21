@@ -34,7 +34,14 @@ struct CardDetailView: View {
         _viewModel = StateObject(wrappedValue: CardDetailViewModel(subject: subject, modelContext: modelContext))
     }
     
+    // The main body now calls the helper that applies all the modifiers.
     var body: some View {
+        viewWithAllModifiers
+    }
+    
+    // This helper view breaks up the complex expression for the compiler.
+    @ViewBuilder
+    private var viewWithAllModifiers: some View {
         viewBodyContent
             .alert(viewModel.renamingFileMetadata?.fileType == .image ? "Add Caption" : "Rename File", isPresented: $viewModel.isShowingRenameView) {
                 if viewModel.renamingFileMetadata?.fileType == .image {
@@ -51,60 +58,14 @@ struct CardDetailView: View {
             }
             .navigationTitle(viewModel.subject.name)
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                if viewModel.isEditing {
-                    ToolbarItemGroup(placement: .topBarTrailing) {
-                        Button(action: { viewModel.shareSelection() }) {
-                            Image(systemName: "square.and.arrow.up")
-                                .frame(width: 24, height: 24)
-                        }
-                        .disabled(viewModel.totalSelectionCount == 0)
-                        .opacity(viewModel.totalSelectionCount == 0 ? 0 : 1)
-                        .accessibilityHidden(viewModel.totalSelectionCount == 0)
-                        
-                        Button("Cancel") {
-                            viewModel.toggleEditMode()
-                        }
-                    }
-                } else {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        HStack {
-                            Button {
-                                withAnimation(.easeOut(duration: 0.2)) {
-                                    viewModel.toggleSearchBarVisibility()
-                                }
-                                isSearchFocused.toggle()
-                            } label: {
-                                Image(systemName: "magnifyingglass")
-                            }
-                            
-                            Menu {
-                                Button {
-                                    viewModel.isShowingEditView.toggle()
-                                } label: {
-                                    Label("Edit Subject", systemImage: "pencil")
-                                }
-                                
-                                Button(role: .destructive) {
-                                    triggerHapticFeedback()
-                                    viewModel.isShowingDeleteAlert = true
-                                } label: {
-                                    Label("Delete Subject", systemImage: "trash")
-                                }
-                            } label: {
-                                Image(systemName: "ellipsis.circle")
-                            }
-                        }
-                    }
-                }
-            }
+            .toolbar { mainToolbar }
             .alert("Delete this Subject", isPresented: $viewModel.isShowingDeleteAlert) {
                 deleteAlertContent
             } message: {
                 Text("Deleting this subject will remove all associated data. Are you sure?")
             }
-            .alert("Delete \(viewModel.totalSelectionCount) items?", isPresented: $viewModel.isShowingMultiDeleteAlert) {
-                Button("Delete", role: .destructive) { viewModel.deleteSelection() }
+            .alert("Delete \(viewModel.selectedFileMetadata.count + viewModel.selectedFolders.count) items?", isPresented: $viewModel.isShowingMultiDeleteAlert) {
+                Button("Delete", role: .destructive) { viewModel.deleteSelectedItems() }
                 Button("Cancel", role: .cancel) { }
             } message: {
                 Text("This action cannot be undone.")
@@ -150,7 +111,6 @@ struct CardDetailView: View {
                 onCompletion: viewModel.handleFileImport
             )
             .fullScreenCover(item: $viewModel.documentToPreview) { document in
-                // This is the new part for the Share Sheet
                 PreviewWithShareView(
                     document: document,
                     onDismiss: { viewModel.documentToPreview = nil }
@@ -194,6 +154,55 @@ struct CardDetailView: View {
     }
     
     // MARK: - Subviews
+    
+    @ToolbarContentBuilder
+    private var mainToolbar: some ToolbarContent {
+        if viewModel.isEditing {
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                Button(action: { viewModel.shareSelectedFiles() }) {
+                    Image(systemName: "square.and.arrow.up")
+                        .frame(width: 24, height: 24)
+                }
+                .disabled(viewModel.selectedFileMetadata.isEmpty && viewModel.selectedFolders.isEmpty)
+                .opacity(viewModel.selectedFileMetadata.isEmpty && viewModel.selectedFolders.isEmpty ? 0 : 1)
+                .accessibilityHidden(viewModel.selectedFileMetadata.isEmpty && viewModel.selectedFolders.isEmpty)
+                
+                Button("Cancel") {
+                    viewModel.toggleEditMode()
+                }
+            }
+        } else {
+            ToolbarItem(placement: .topBarTrailing) {
+                HStack {
+                    Button {
+                        withAnimation(.easeOut(duration: 0.2)) {
+                            viewModel.toggleSearchBarVisibility()
+                        }
+                        isSearchFocused.toggle()
+                    } label: {
+                        Image(systemName: "magnifyingglass")
+                    }
+                    
+                    Menu {
+                        Button {
+                            viewModel.isShowingEditView.toggle()
+                        } label: {
+                            Label("Edit Subject", systemImage: "pencil")
+                        }
+                        
+                        Button(role: .destructive) {
+                            triggerHapticFeedback()
+                            viewModel.isShowingDeleteAlert = true
+                        } label: {
+                            Label("Delete Subject", systemImage: "trash")
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
+                    }
+                }
+            }
+        }
+    }
     
     private var viewBodyContent: some View {
         VStack(spacing: 0) {
@@ -265,18 +274,15 @@ struct CardDetailView: View {
                 Spacer()
                 
                 Menu {
-                    
-                    // Multi Select Option Toggle
+                    // --- UPDATED ORDER ---
                     if !viewModel.filteredFileMetadata.isEmpty || !viewModel.subfolders.isEmpty {
-                        Divider()
                         Button {
                             viewModel.toggleEditMode()
                         } label: {
-                            Label("Select Files", systemImage: "checkmark.circle")
+                            Label("Select Items", systemImage: "checkmark.circle")
                         }
+                        Divider()
                     }
-
-                    Divider()
                     
                     // Sorting Options
                     Button(action: { viewModel.selectSortOption(.date) }) {
@@ -297,8 +303,8 @@ struct CardDetailView: View {
                            }
                        }
                    }
-
-                    
+                   
+                    Divider()
 
                     // Layout Picker
                     Picker("Layout", selection: $viewModel.layoutStyle) {
@@ -467,7 +473,6 @@ struct CardDetailView: View {
                                 viewModel.navigateToFolder(folder)
                             }
                         }
-                        .selectionOverlay(isSelected: viewModel.selectedFolders.contains(folder), isEditing: viewModel.isEditing)
                 }
                 
                 ForEach(viewModel.filteredFileMetadata, id: \.id) { fileMetadata in
@@ -486,7 +491,6 @@ struct CardDetailView: View {
         List {
             ForEach(viewModel.subfolders, id: \.id) { folder in
                 folderRow(for: folder)
-                    .selectionOverlay(isSelected: viewModel.selectedFolders.contains(folder), isEditing: viewModel.isEditing)
             }
             
             ForEach(viewModel.filteredFileMetadata, id: \.id) { fileMetadata in
@@ -535,6 +539,7 @@ struct CardDetailView: View {
                 folderContextMenu(for: folder)
             }
         }
+        .selectionOverlay(isSelected: viewModel.selectedFolders.contains(folder), isEditing: viewModel.isEditing)
     }
     
     private func fileRow(for fileMetadata: FileMetadata) -> some View {
@@ -644,10 +649,11 @@ struct CardDetailView: View {
                 folderContextMenu(for: folder)
             }
         }
+        .selectionOverlay(isSelected: viewModel.selectedFolders.contains(folder), isEditing: viewModel.isEditing)
     }
     
     private func fileMetadataView(for fileMetadata: FileMetadata) -> some View {
-        VStack {
+        VStack(spacing: 4) {
             ZStack(alignment: .bottom) {
                 // File icon/thumbnail based on type
                 switch fileMetadata.fileType {
@@ -721,13 +727,19 @@ struct CardDetailView: View {
             }
             .frame(width: tileSize, height: tileSize)
             
-            // Never show image names; show names only for non-image files
-            if fileMetadata.fileType != .image {
-                Text((fileMetadata.fileName as NSString).deletingPathExtension)
+            // Show file name ONLY if it's not an image with a placeholder name.
+            // This collapses the view and removes the gap when there's no caption.
+            if fileMetadata.fileType != .image || !isPlaceholderImageName(fileMetadata.fileName) {
+                 Text((fileMetadata.fileName as NSString).deletingPathExtension)
                     .font(.caption)
                     .foregroundStyle(.primary)
                     .lineLimit(1)
             }
+            
+            // Show formatted date for all files
+            Text(fileMetadata.createdDate.formattedAsString(format: "dd/MM/yy"))
+                .font(.caption2)
+                .foregroundColor(.secondary)
         }
         .contextMenu {
             if !viewModel.isEditing {
@@ -890,25 +902,25 @@ struct CardDetailView: View {
                         .fontWeight(.semibold)
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(viewModel.isMoveActionDisabled || viewModel.totalSelectionCount == 0 ? Color.gray : Color.orange)
+                        .background(viewModel.isMoveButtonDisabled ? Color.gray : Color.orange)
                         .foregroundColor(.white)
                         .clipShape(Capsule())
                 }
-                .disabled(viewModel.isMoveActionDisabled || viewModel.totalSelectionCount == 0)
+                .disabled(viewModel.isMoveButtonDisabled)
                 
                 // Delete Button
                 Button(role: .destructive) {
                     viewModel.isShowingMultiDeleteAlert = true
                 } label: {
-                    Label("Delete (\(viewModel.totalSelectionCount))", systemImage: "trash")
+                    Label("Delete (\(viewModel.selectedFileMetadata.count + viewModel.selectedFolders.count))", systemImage: "trash")
                         .fontWeight(.semibold)
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(viewModel.totalSelectionCount == 0 ? Color.gray : Color.red)
+                        .background(viewModel.selectedFileMetadata.isEmpty && viewModel.selectedFolders.isEmpty ? Color.gray : Color.red)
                         .foregroundColor(.white)
                         .clipShape(Capsule())
                 }
-                .disabled(viewModel.totalSelectionCount == 0)
+                .disabled(viewModel.selectedFileMetadata.isEmpty && viewModel.selectedFolders.isEmpty)
             }
         }
         .padding()
@@ -1273,8 +1285,7 @@ private func isPlaceholderImageName(_ fileName: String) -> Bool {
         context.insert(notesFolder)
         context.insert(refsFolder)
 
-        // Ensure the subject's root directory exists before saving files to it
-        _ = FileDataService.subjectFolder(for: subject)
+        FileDataService.createSubjectFolder(for: subject)
 
         func writeMockFile(named fileName: String, data: Data, folder: Folder?) {
             _ = FileDataService.saveFile(

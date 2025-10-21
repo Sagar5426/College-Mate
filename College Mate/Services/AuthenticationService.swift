@@ -1,30 +1,31 @@
-import SwiftUI
+import Foundation
+import Combine
 
-/// An observable class to manage the global authentication state of the user.
-///
-/// Use this as an @StateObject at the root of your app and pass it down
-/// as an @EnvironmentObject to any views that need to know if the user is logged in.
-@MainActor
 class AuthenticationService: ObservableObject {
     
-    /// Published property that indicates if the user is currently authenticated.
-    /// When this changes, the UI will update accordingly.
-    @Published var isAuthenticated: Bool = false
+    // A key to safely store and retrieve the login state from UserDefaults.
+    private static let isLoggedInKey = "isLoggedIn"
     
-    // In a real app, you would load the user's session from the Keychain here.
-    // For now, we'll start with them logged out.
+    // This property will now read its initial value from device storage.
+    @Published var isLoggedIn: Bool {
+        didSet {
+            // Whenever the value changes, save it to UserDefaults.
+            UserDefaults.standard.set(isLoggedIn, forKey: Self.isLoggedInKey)
+        }
+    }
+    
     init() {
-        // TODO: Check Keychain for an existing Apple User ID to auto-login.
+        // When the service is created, load the saved login state.
+        // If no value is found, it defaults to `false`.
+        self.isLoggedIn = UserDefaults.standard.bool(forKey: Self.isLoggedInKey)
     }
     
     func login() {
-        // This function will be called upon successful sign-in
-        self.isAuthenticated = true
+        isLoggedIn = true
     }
     
     func logout() {
-        // This function can be called from a settings/profile page
-        self.isAuthenticated = false
-        // TODO: Clear user identifier from Keychain.
+        isLoggedIn = false
     }
 }
+
