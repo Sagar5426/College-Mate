@@ -54,13 +54,13 @@ struct CardDetailView: View {
             .toolbar {
                 if viewModel.isEditing {
                     ToolbarItemGroup(placement: .topBarTrailing) {
-                        Button(action: { viewModel.shareSelectedFiles() }) {
+                        Button(action: { viewModel.shareSelection() }) {
                             Image(systemName: "square.and.arrow.up")
                                 .frame(width: 24, height: 24)
                         }
-                        .disabled(viewModel.selectedFileMetadata.isEmpty)
-                        .opacity(viewModel.selectedFileMetadata.isEmpty ? 0 : 1)
-                        .accessibilityHidden(viewModel.selectedFileMetadata.isEmpty)
+                        .disabled(viewModel.totalSelectionCount == 0)
+                        .opacity(viewModel.totalSelectionCount == 0 ? 0 : 1)
+                        .accessibilityHidden(viewModel.totalSelectionCount == 0)
                         
                         Button("Cancel") {
                             viewModel.toggleEditMode()
@@ -103,8 +103,8 @@ struct CardDetailView: View {
             } message: {
                 Text("Deleting this subject will remove all associated data. Are you sure?")
             }
-            .alert("Delete \(viewModel.selectedFileMetadata.count) files?", isPresented: $viewModel.isShowingMultiDeleteAlert) {
-                Button("Delete", role: .destructive) { viewModel.deleteSelectedFiles() }
+            .alert("Delete \(viewModel.totalSelectionCount) items?", isPresented: $viewModel.isShowingMultiDeleteAlert) {
+                Button("Delete", role: .destructive) { viewModel.deleteSelection() }
                 Button("Cancel", role: .cancel) { }
             } message: {
                 Text("This action cannot be undone.")
@@ -265,6 +265,19 @@ struct CardDetailView: View {
                 Spacer()
                 
                 Menu {
+                    
+                    // Multi Select Option Toggle
+                    if !viewModel.filteredFileMetadata.isEmpty || !viewModel.subfolders.isEmpty {
+                        Divider()
+                        Button {
+                            viewModel.toggleEditMode()
+                        } label: {
+                            Label("Select Files", systemImage: "checkmark.circle")
+                        }
+                    }
+
+                    Divider()
+                    
                     // Sorting Options
                     Button(action: { viewModel.selectSortOption(.date) }) {
                           HStack {
@@ -285,16 +298,7 @@ struct CardDetailView: View {
                        }
                    }
 
-                    if !viewModel.filteredFileMetadata.isEmpty {
-                        Divider()
-                        Button {
-                            viewModel.toggleEditMode()
-                        } label: {
-                            Label("Select Files", systemImage: "checkmark.circle")
-                        }
-                    }
-
-                    Divider()
+                    
 
                     // Layout Picker
                     Picker("Layout", selection: $viewModel.layoutStyle) {
@@ -457,12 +461,13 @@ struct CardDetailView: View {
                     folderView(for: folder)
                         .onTapGesture {
                             if viewModel.isEditing {
-                                // Folder selection in edit mode is not supported
+                                viewModel.toggleSelectionForFolder(folder)
                             } else {
                                 playNavigationHaptic()
                                 viewModel.navigateToFolder(folder)
                             }
                         }
+                        .selectionOverlay(isSelected: viewModel.selectedFolders.contains(folder), isEditing: viewModel.isEditing)
                 }
                 
                 ForEach(viewModel.filteredFileMetadata, id: \.id) { fileMetadata in
@@ -481,6 +486,7 @@ struct CardDetailView: View {
         List {
             ForEach(viewModel.subfolders, id: \.id) { folder in
                 folderRow(for: folder)
+                    .selectionOverlay(isSelected: viewModel.selectedFolders.contains(folder), isEditing: viewModel.isEditing)
             }
             
             ForEach(viewModel.filteredFileMetadata, id: \.id) { fileMetadata in
@@ -517,7 +523,9 @@ struct CardDetailView: View {
         }
         .contentShape(Rectangle())
         .onTapGesture {
-            if !viewModel.isEditing {
+            if viewModel.isEditing {
+                viewModel.toggleSelectionForFolder(folder)
+            } else {
                 playNavigationHaptic()
                 viewModel.navigateToFolder(folder)
             }
@@ -882,25 +890,25 @@ struct CardDetailView: View {
                         .fontWeight(.semibold)
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(viewModel.selectedFileMetadata.isEmpty ? Color.gray : Color.orange)
+                        .background(viewModel.isMoveActionDisabled || viewModel.totalSelectionCount == 0 ? Color.gray : Color.orange)
                         .foregroundColor(.white)
                         .clipShape(Capsule())
                 }
-                .disabled(viewModel.selectedFileMetadata.isEmpty)
+                .disabled(viewModel.isMoveActionDisabled || viewModel.totalSelectionCount == 0)
                 
                 // Delete Button
                 Button(role: .destructive) {
                     viewModel.isShowingMultiDeleteAlert = true
                 } label: {
-                    Label("Delete (\(viewModel.selectedFileMetadata.count))", systemImage: "trash")
+                    Label("Delete (\(viewModel.totalSelectionCount))", systemImage: "trash")
                         .fontWeight(.semibold)
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(viewModel.selectedFileMetadata.isEmpty ? Color.gray : Color.red)
+                        .background(viewModel.totalSelectionCount == 0 ? Color.gray : Color.red)
                         .foregroundColor(.white)
                         .clipShape(Capsule())
                 }
-                .disabled(viewModel.selectedFileMetadata.isEmpty)
+                .disabled(viewModel.totalSelectionCount == 0)
             }
         }
         .padding()
@@ -1296,3 +1304,4 @@ private func isPlaceholderImageName(_ fileName: String) -> Bool {
         return AnyView(Text("Failed to create preview container."))
     }
 }
+

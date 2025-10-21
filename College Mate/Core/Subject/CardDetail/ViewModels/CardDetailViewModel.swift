@@ -21,6 +21,8 @@ class CardDetailViewModel: ObservableObject {
     
     // MARK: - Properties
     
+    private let layoutStyleKey = "CardDetailView_LayoutStyle"
+    
     // Centralized entry point to start renaming/captioning a file
     private func beginRenaming(with metadata: FileMetadata) {
         self.renamingFileMetadata = metadata
@@ -50,7 +52,11 @@ class CardDetailViewModel: ObservableObject {
     private let modelContext: ModelContext
     
     // --- View State ---
-    @Published var layoutStyle: LayoutStyle = .grid
+    @Published var layoutStyle: LayoutStyle = .grid {
+        didSet {
+            UserDefaults.standard.set(layoutStyle.rawValue, forKey: layoutStyleKey)
+        }
+    }
     @Published var sortType: SortType = .date
     @Published var sortAscending: Bool = false // false for newest first/A-Z
     
@@ -127,11 +133,21 @@ class CardDetailViewModel: ObservableObject {
     // --- Selection State for Multi-Select ---
     @Published var isEditing = false
     @Published var selectedFileMetadata: Set<FileMetadata> = []
+    @Published var selectedFolders: Set<Folder> = []
     @Published var isShowingMultiDeleteAlert = false
     
     // --- Multi-Sharing State ---
     @Published var urlsToShare: [URL] = []
     @Published var isShowingMultiShareSheet = false
+    
+    // MARK: - Computed Properties for Selection
+    var isMoveActionDisabled: Bool {
+        !selectedFolders.isEmpty
+    }
+    
+    var totalSelectionCount: Int {
+        selectedFileMetadata.count + selectedFolders.count
+    }
     
     
     // MARK: - Initializer
@@ -139,6 +155,14 @@ class CardDetailViewModel: ObservableObject {
     init(subject: Subject, modelContext: ModelContext) {
         self.subject = subject
         self.modelContext = modelContext
+        
+        // Load saved layout style, defaulting to .grid if none is found.
+        if let savedLayoutRawValue = UserDefaults.standard.string(forKey: layoutStyleKey),
+           let savedLayout = LayoutStyle(rawValue: savedLayoutRawValue) {
+            self.layoutStyle = savedLayout
+        } else {
+            self.layoutStyle = .grid
+        }
         
         FileDataService.migrateExistingFiles(for: subject, modelContext: modelContext)
         loadFolderContent()
@@ -547,14 +571,7 @@ class CardDetailViewModel: ObservableObject {
     
     // MARK: - Sharing Methods
     
-    func shareSelectedFiles() {
-        let urls = selectedFileMetadata.compactMap { $0.getFileURL() }
-        guard !urls.isEmpty else { return }
-        
-        self.urlsToShare = urls
-        self.isShowingMultiShareSheet = true
-    }
-    
+    // BUG FIX: Added this method back for the single-folder context menu
     func shareFolder(_ folder: Folder) {
         var urls: [URL] = []
         
@@ -575,24 +592,51 @@ class CardDetailViewModel: ObservableObject {
         self.urlsToShare = urls
         self.isShowingMultiShareSheet = true
     }
-    
+
     // MARK: - Multi-Select / Editing Methods
     
     func toggleEditMode() {
         isEditing.toggle()
         if !isEditing {
             selectedFileMetadata.removeAll()
+            selectedFolders.removeAll()
         }
     }
+    
+    func shareSelection() {
+        var urls = selectedFileMetadata.compactMap { $0.getFileURL() }
+        
+        func recursivelyCollectFiles(from folder: Folder) {
+            urls.append(contentsOf: folder.files.compactMap { $0.getFileURL() })
+            for subfolder in folder.subfolders {
+                recursivelyCollectFiles(from: subfolder)
+            }
+        }
 
-    func deleteSelectedFiles() {
+        for folder in selectedFolders {
+            recursivelyCollectFiles(from: folder)
+        }
+
+        guard !urls.isEmpty else { return }
+        
+        self.urlsToShare = urls
+        self.isShowingMultiShareSheet = true
+    }
+
+    func deleteSelection() {
         let metadataToDelete = selectedFileMetadata
         for metadata in metadataToDelete {
             deleteFileMetadata(metadata)
         }
         
+        let foldersToDelete = selectedFolders
+        for folder in foldersToDelete {
+            deleteFolder(folder)
+        }
+        
         DispatchQueue.main.async {
             self.selectedFileMetadata.removeAll()
+            self.selectedFolders.removeAll()
             self.isEditing = false
             self.loadFolderContent()
         }
@@ -605,4 +649,13 @@ class CardDetailViewModel: ObservableObject {
             selectedFileMetadata.insert(metadata)
         }
     }
+    
+    func toggleSelectionForFolder(_ folder: Folder) {
+        if selectedFolders.contains(folder) {
+            selectedFolders.remove(folder)
+        } else {
+            selectedFolders.insert(folder)
+        }
+    }
 }
+
