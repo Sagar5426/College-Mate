@@ -10,6 +10,7 @@ struct CardDetailView: View {
     
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.scenePhase) private var scenePhase
     
     @StateObject private var viewModel: CardDetailViewModel
     @FocusState private var isSearchFocused: Bool
@@ -56,7 +57,12 @@ struct CardDetailView: View {
                     viewModel.renameFile()
                 }
             }
-            .onAppear { viewModel.loadFolderContent() }
+            .onChange(of: scenePhase) { oldPhase, newPhase in
+                if newPhase == .active {
+                    print("App became active, reloading folder content.")
+                    viewModel.loadFolderContent() // Reload when app becomes active
+                }
+            }
             .navigationTitle(viewModel.subject.name)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { mainToolbar }
