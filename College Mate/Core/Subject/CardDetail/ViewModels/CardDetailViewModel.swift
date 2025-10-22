@@ -60,6 +60,10 @@ class CardDetailViewModel: ObservableObject {
     @Published var sortType: SortType = .date
     @Published var sortAscending: Bool = false // false for newest first/A-Z
     
+    // ADDED: State for the note sheet
+    @Published var isShowingNoteSheet = false
+    @Published var subjectNote: String = ""
+    
     // --- Folder-based State ---
     @Published var currentFolder: Folder? = nil
     @Published var folderPath: [Folder] = [] // Breadcrumb navigation
@@ -165,6 +169,9 @@ class CardDetailViewModel: ObservableObject {
         
         FileDataService.migrateExistingFiles(for: subject, modelContext: modelContext)
         loadFolderContent()
+        
+        // ADDED: Load the saved note
+        self.subjectNote = subject.ImportantTopicsNote
     }
     
     // MARK: - Sorting Method
@@ -177,6 +184,18 @@ class CardDetailViewModel: ObservableObject {
         }
         loadFolderContent()
         performSearch() // Re-apply search with new sort
+    }
+
+    // ADDED: Function to save the note
+    // MARK: - Subject Note
+    
+    func saveSubjectNote() {
+        subject.ImportantTopicsNote = subjectNote
+        do {
+            try modelContext.save()
+        } catch {
+            print("Failed to save subject note: \(error)")
+        }
     }
 
     // MARK: - Folder-based Methods
@@ -652,4 +671,3 @@ class CardDetailViewModel: ObservableObject {
         }
     }
 }
-

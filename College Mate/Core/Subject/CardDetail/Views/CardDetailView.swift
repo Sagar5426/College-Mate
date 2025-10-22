@@ -158,6 +158,12 @@ struct CardDetailView: View {
                     }
                 )
             }
+            // ADDED: Sheet modifier for the new note view
+            .sheet(isPresented: $viewModel.isShowingNoteSheet, onDismiss: {
+                viewModel.saveSubjectNote() // Save when sheet is dismissed
+            }) {
+                SubjectNoteSheetView(noteText: $viewModel.subjectNote)
+            }
     }
     
     // MARK: - Subviews
@@ -272,6 +278,7 @@ struct CardDetailView: View {
                 } label: {
                     HStack(spacing: 6) {
                         Image(systemName: "line.3.horizontal.decrease")
+                            .font(.body)
                         Text(viewModel.selectedFilter.rawValue)
                             .font(.subheadline)
                             .foregroundStyle(.primary)
@@ -280,8 +287,16 @@ struct CardDetailView: View {
                 
                 Spacer()
                 
+                // ADDED: Button to open the note sheet
+                Button {
+                    viewModel.isShowingNoteSheet = true
+                } label: {
+                    Image(systemName: "list.clipboard")
+                        .font(.body)
+                        .foregroundStyle(.primary)
+                }
+                
                 Menu {
-                    // --- UPDATED ORDER ---
                     if !viewModel.filteredFileMetadata.isEmpty || !viewModel.subfolders.isEmpty {
                         Button {
                             viewModel.toggleEditMode()
@@ -316,8 +331,10 @@ struct CardDetailView: View {
                     // Layout Picker
                     Picker("Layout", selection: $viewModel.layoutStyle) {
                         Label("Grid", systemImage: "square.grid.2x2")
+                            .font(.body)
                             .tag(CardDetailViewModel.LayoutStyle.grid)
                         Label("List", systemImage: "list.bullet")
+                            .font(.body)
                             .tag(CardDetailViewModel.LayoutStyle.list)
                     }
                     .pickerStyle(.inline)
@@ -969,6 +986,45 @@ struct CardDetailView: View {
     }
 }
 
+// ADDED: New view for the note sheet
+// MARK: - Subject Note Sheet
+struct SubjectNoteSheetView: View {
+    @Binding var noteText: String
+    @Environment(\.dismiss) private var dismiss
+    
+    private let placeholder = "Write important topics for exam"
+    
+    var body: some View {
+        NavigationView {
+            ZStack(alignment: .topLeading) {
+                // TextEditor
+                TextEditor(text: $noteText)
+                    .padding(4) // Small padding so text doesn't touch edge
+                    .frame(minHeight: 200, maxHeight: .infinity)
+                
+                // Placeholder
+                if noteText.isEmpty {
+                    Text(placeholder)
+                        .foregroundColor(Color(UIColor.placeholderText))
+                        .padding(.horizontal, 8) // Match TextEditor's internal padding
+                        .padding(.vertical, 12) // Match TextEditor's internal padding
+                        .allowsHitTesting(false)
+                }
+            }
+            .padding() // Overall padding for the ZStack
+            .navigationTitle("Important Topics")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") {
+                        dismiss()
+                    }
+                }
+            }
+        }
+    }
+}
+
 // MARK: - PreviewWithShareView
 struct PreviewWithShareView: View {
     let document: PreviewableDocument
@@ -1322,4 +1378,3 @@ private func isPlaceholderImageName(_ fileName: String) -> Bool {
         return AnyView(Text("Failed to create preview container."))
     }
 }
-
