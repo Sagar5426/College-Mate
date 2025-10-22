@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import Foundation
 import UniformTypeIdentifiers
 import UIKit
 
@@ -19,16 +20,11 @@ struct ShareView: View {
         self.attachment = attachment
         self.onComplete = onComplete
         
-        // IMPORTANT: Replace with your actual App Group ID used by both the app and the extension.
-        // Ensure the same ID is enabled in Signing & Capabilities for both targets.
-        let appGroupID = "group.com.sagarjangra.College-Mate" // <-- UPDATE THIS IF NEEDED
-        
         do {
-            let storeURL = URL.storeURL(for: appGroupID, databaseName: "CollegeMate")
-            print("[ShareExt] Store URL:", storeURL.path)
-            let config = ModelConfiguration(url: storeURL)
-            // Include all your SwiftData models here (Subject, Folder, FileMetadata, etc.)
-            self.modelContainer = try ModelContainer(for: Subject.self, Folder.self, configurations: config)
+            self.modelContainer = try SharedModelContainer.make()
+            if let url = (self.modelContainer?.configurations.first?.url) {
+                print("[ShareExt] Store URL:", url.path)
+            }
         } catch {
             self.modelContainer = nil
             self.errorMessage = "Could not load database. Please open the main app once and ensure App Group entitlements are set for the extension."
@@ -238,19 +234,5 @@ struct ShareView: View {
             }
         }
         return nil
-    }
-}
-
-// MARK: - Helper Extension
-extension URL {
-    /// Returns a URL for the given app group and database naming convention.
-    static func storeURL(for appGroup: String, databaseName: String) -> URL {
-        guard let fileContainer = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroup) else {
-            print("[ShareExt] Missing App Group entitlement for: \(appGroup)")
-            // Return a non-shared fallback to avoid crashing, but the UI should surface an error.
-            return FileManager.default.temporaryDirectory.appendingPathComponent("\(databaseName).sqlite")
-        }
-        print("[ShareExt] App Group container:", fileContainer.path)
-        return fileContainer.appendingPathComponent("\(databaseName).sqlite")
     }
 }
