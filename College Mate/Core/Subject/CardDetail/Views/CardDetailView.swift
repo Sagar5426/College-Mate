@@ -40,6 +40,17 @@ struct CardDetailView: View {
         viewWithAllModifiers
     }
     
+    // Helper computed var for the single delete alert title
+    private var singleDeleteAlertTitle: String {
+        if let folder = viewModel.itemToDelete as? Folder {
+            return "Delete \"\(folder.name)\"?"
+        } else if let fileMetadata = viewModel.itemToDelete as? FileMetadata {
+            let name = (fileMetadata.fileName as NSString).deletingPathExtension
+            return "Delete \"\(name)\"?"
+        }
+        return "Delete Item?"
+    }
+    
     // This helper view breaks up the complex expression for the compiler.
     @ViewBuilder
     private var viewWithAllModifiers: some View {
@@ -70,6 +81,15 @@ struct CardDetailView: View {
                 deleteAlertContent
             } message: {
                 Text("Deleting this subject will remove all associated data. Are you sure?")
+            }
+            // ADDED: Alert for deleting a single item
+            .alert(singleDeleteAlertTitle, isPresented: $viewModel.isShowingSingleDeleteAlert) {
+                Button("Delete", role: .destructive) {
+                    viewModel.confirmDeleteItem()
+                }
+                Button("Cancel", role: .cancel) { }
+            } message: {
+                Text("This action cannot be undone.")
             }
             .alert("Delete \(viewModel.selectedFileMetadata.count + viewModel.selectedFolders.count) items?", isPresented: $viewModel.isShowingMultiDeleteAlert) {
                 Button("Delete", role: .destructive) { viewModel.deleteSelectedItems() }
@@ -294,6 +314,7 @@ struct CardDetailView: View {
                     Image(systemName: "list.clipboard")
                         .font(.body)
                         .foregroundStyle(.primary)
+                        .frame(minWidth: 22, alignment: .center) // Standardized frame
                 }
                 
                 Menu {
@@ -341,6 +362,8 @@ struct CardDetailView: View {
                     
                 } label: {
                     Image(systemName: viewModel.layoutStyle.rawValue == "Grid" ? "square.grid.2x2" : "list.bullet")
+                        .font(.body) // Standardized font
+                        .frame(minWidth: 22, alignment: .center) // Standardized frame
                 }
 
             }
@@ -809,8 +832,9 @@ struct CardDetailView: View {
             Label("Rename", systemImage: "pencil")
         }
         
+        // MODIFIED: Changed to prompt for delete
         Button(role: .destructive) {
-            viewModel.deleteFolder(folder)
+            viewModel.promptForDelete(item: folder)
         } label: {
             Label("Delete", systemImage: "trash")
         }
@@ -836,6 +860,12 @@ struct CardDetailView: View {
             }
         }
         
+        // ADDED: Delete button for files
+        Button(role: .destructive) {
+            viewModel.promptForDelete(item: fileMetadata)
+        } label: {
+            Label("Delete", systemImage: "trash")
+        }
     }
     
     private var addButton: some View {
@@ -1378,3 +1408,4 @@ private func isPlaceholderImageName(_ fileName: String) -> Bool {
         return AnyView(Text("Failed to create preview container."))
     }
 }
+

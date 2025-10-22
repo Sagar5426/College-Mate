@@ -80,6 +80,18 @@ class CardDetailViewModel: ObservableObject {
     // Dedicated flag for rename/caption UI
     @Published var isShowingRenameView = false
     
+    // --- Single Item Delete State ---
+    @Published var itemToDelete: AnyHashable? = nil
+    @Published var isShowingSingleDeleteAlert = false {
+        didSet {
+            // When the alert is dismissed (either by confirm or cancel),
+            // reset the itemToDelete.
+            if !isShowingSingleDeleteAlert {
+                itemToDelete = nil
+            }
+        }
+    }
+    
     // --- Search State ---
     @Published var isSearchBarVisible = false
     @Published var searchText: String = ""
@@ -384,6 +396,22 @@ class CardDetailViewModel: ObservableObject {
         }
     }
     
+    // MARK: - Single Item Delete Methods
+    
+    func promptForDelete(item: AnyHashable) {
+        itemToDelete = item
+        isShowingSingleDeleteAlert = true
+    }
+
+    func confirmDeleteItem() {
+        if let folder = itemToDelete as? Folder {
+            deleteFolder(folder)
+        } else if let fileMetadata = itemToDelete as? FileMetadata {
+            deleteFileMetadata(fileMetadata)
+        }
+        // itemToDelete is reset by the isShowingSingleDeleteAlert.didSet
+    }
+    
     // MARK: - Search Methods
     
     func toggleSearchBarVisibility() {
@@ -671,3 +699,4 @@ class CardDetailViewModel: ObservableObject {
         }
     }
 }
+
