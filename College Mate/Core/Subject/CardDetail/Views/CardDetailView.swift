@@ -56,6 +56,7 @@ struct CardDetailView: View {
                     viewModel.renameFile()
                 }
             }
+            .onAppear { viewModel.loadFolderContent() }
             .navigationTitle(viewModel.subject.name)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { mainToolbar }
