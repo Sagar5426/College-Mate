@@ -192,7 +192,8 @@ struct ScheduleCard: View {
             
             ZStack {
                 Circle()
-                    .stroke(subject.attendance.percentage >= 75 ? .green : .red, lineWidth: 2.5)
+                    // --- MODIFICATION: Use the new computed property for the color ---
+                    .stroke(attendanceRingColor, lineWidth: 2.5)
                 
                 VStack {
                     Text("\(Int(subject.attendance.percentage))%")
@@ -209,6 +210,22 @@ struct ScheduleCard: View {
         .background(Color.black.opacity(0.2))
         .cornerRadius(10)
         .padding(.leading, 10)
+    }
+
+    // --- ADDED: Computed property for the 3-state ring color ---
+    private var attendanceRingColor: Color {
+        let percentage = subject.attendance.percentage
+        let minRequirement = subject.attendance.minimumPercentageRequirement
+        
+        if percentage >= minRequirement {
+            return .green
+        } else if percentage <= (0.5 * minRequirement) {
+            // If attendance is 50% or less of the requirement (e.g., < 37.5% if req is 75%)
+            return .red
+        } else {
+            // In between 50% and 100% of the requirement
+            return .yellow
+        }
     }
 
     private func formattedTime(_ date: Date) -> String {
@@ -241,9 +258,21 @@ extension Subject {
             ClassTime(startTime: Date().addingTimeInterval(-3600*4), endTime: Date().addingTimeInterval(-3600*3)),
             ClassTime(startTime: Date().addingTimeInterval(-3600*2), endTime: Date().addingTimeInterval(-3600*1))
         ])
-        let math = Subject(name: "Mathematics", schedules: [mathSchedule], attendance: Attendance(totalClasses: 10, attendedClasses: 8))
+        // --- Preview Data for 3-color logic ---
+        // 1. Green: 80% (>= 75% req)
+        let math = Subject(name: "Mathematics", schedules: [mathSchedule], attendance: Attendance(totalClasses: 10, attendedClasses: 8, minimumPercentageRequirement: 75.0))
         
+        // 2. Yellow: 60% (between 37.5% and 75%)
+        let physicsSchedule = Schedule(day: "Tuesday", classTimes: [ClassTime(startTime: Date().addingTimeInterval(-3600*2), endTime: Date().addingTimeInterval(-3600*1))])
+        let physics = Subject(name: "Physics", schedules: [physicsSchedule], attendance: Attendance(totalClasses: 10, attendedClasses: 6, minimumPercentageRequirement: 75.0))
+        
+        // 3. Red: 30% (<= 37.5%)
+        let chemSchedule = Schedule(day: "Monday", classTimes: [ClassTime(startTime: Date().addingTimeInterval(-3600*1), endTime: Date().addingTimeInterval(0))])
+        let chemistry = Subject(name: "Chemistry", schedules: [chemSchedule], attendance: Attendance(totalClasses: 10, attendedClasses: 3, minimumPercentageRequirement: 75.0))
+
         container.mainContext.insert(math)
+        container.mainContext.insert(physics)
+        container.mainContext.insert(chemistry)
         
         return TimeTableView()
             .modelContainer(container)
