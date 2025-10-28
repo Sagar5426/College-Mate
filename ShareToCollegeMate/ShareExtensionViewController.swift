@@ -6,21 +6,19 @@ final class ShareExtensionViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        let provider: NSItemProvider? = {
-            guard let inputItems = extensionContext?.inputItems as? [NSExtensionItem] else { return nil }
-            for item in inputItems {
-                if let attachments = item.attachments {
-                    for attachment in attachments {
-                        return attachment
-                    }
-                }
-            }
-            return nil
+        // --- MODIFICATION 1: Get ALL attachments ---
+        // We now loop through all input items and all attachments
+        // and collect them into an array.
+        let attachments: [NSItemProvider] = {
+            guard let inputItems = extensionContext?.inputItems as? [NSExtensionItem] else { return [] }
+            // Use flatMap to collect all attachments from all items
+            return inputItems.flatMap { $0.attachments ?? [] }
         }()
         
-        guard let itemProvider = provider else {
+        // --- MODIFICATION 2: Check if the array is empty ---
+        guard !attachments.isEmpty else {
             let errorLabel = UILabel()
-            errorLabel.text = "No valid attachment found."
+            errorLabel.text = "No valid attachments found."
             errorLabel.textAlignment = .center
             errorLabel.translatesAutoresizingMaskIntoConstraints = false
             
@@ -43,7 +41,8 @@ final class ShareExtensionViewController: UIViewController {
             return
         }
         
-        let shareView = ShareView(attachment: itemProvider, onComplete: { [weak self] in
+        // --- MODIFICATION 3: Pass the whole array to ShareView ---
+        let shareView = ShareView(attachments: attachments, onComplete: { [weak self] in
             self?.completeExtension()
         })
         

@@ -5,7 +5,8 @@ import UniformTypeIdentifiers
 import UIKit
 
 struct ShareView: View {
-    let attachment: NSItemProvider
+    // --- MODIFICATION 1: Accept an array of attachments ---
+    let attachments: [NSItemProvider]
     let onComplete: () -> Void
 
     @State private var subjects: [Subject] = []
@@ -13,11 +14,15 @@ struct ShareView: View {
     @State private var selectedFolder: Folder?
     @State private var isSaving = false
     @State private var errorMessage: String?
+    
+    // --- ADDED: State for multi-file progress ---
+    @State private var saveProgress: String = ""
 
     private var modelContainer: ModelContainer?
 
-    init(attachment: NSItemProvider, onComplete: @escaping () -> Void) {
-        self.attachment = attachment
+    // --- MODIFICATION 2: Update init to accept the array ---
+    init(attachments: [NSItemProvider], onComplete: @escaping () -> Void) {
+        self.attachments = attachments
         self.onComplete = onComplete
 
         do {
@@ -58,8 +63,6 @@ struct ShareView: View {
                             if let subject = selectedSubject {
                                 Picker("Folder (Optional)", selection: $selectedFolder) {
                                     Text("Root of \(subject.name)").tag(nil as Folder?)
-                                    // Make sure folders are loaded correctly if needed
-                                    // You might need to fetch folders based on selectedSubject if they aren't loaded automatically
                                     ForEach(subject.rootFolders.sorted(by: { $0.name < $1.name })) { folder in
                                         Text(folder.name).tag(folder as Folder?)
                                     }
@@ -79,7 +82,8 @@ struct ShareView: View {
                                     errorMessage = "Database unavailable in extension. Check App Group setup."
                                     return
                                 }
-                                saveFile()
+                                // --- MODIFICATION 3: Call the new multi-save function ---
+                                startSavingFiles()
                             }
                             .disabled(selectedSubject == nil || isSaving)
                         }
@@ -88,8 +92,15 @@ struct ShareView: View {
             }
 
             if isSaving {
-                ProgressView("Saving...")
-                    .padding()
+                // --- ADDED: Show progress for multi-file save ---
+                VStack {
+                    ProgressView()
+                    Text(saveProgress)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .padding(.top, 8)
+                }
+                .padding()
             }
 
             if errorMessage == nil && subjects.isEmpty && modelContainer != nil {
@@ -123,9 +134,9 @@ struct ShareView: View {
         }
     }
 
-    // --- FINAL ROBUST SAVE LOGIC ---
-    private func saveFile() {
-        print("[ShareExt] Save tapped")
+    // --- MODIFICATION 4: New function to manage multiple saves ---
+    private func startSavingFiles() {
+        print("[ShareExt] Save tapped for \(attachments.count) items")
         guard let subject = selectedSubject,
               let context = modelContainer?.mainContext else {
             print("[ShareExt] Save aborted: Subject or context is nil.")
@@ -135,7 +146,49 @@ struct ShareView: View {
 
         isSaving = true
         errorMessage = nil
+        
+        let totalFiles = attachments.count
+        let filesSaved = 0
+        
+        DispatchQueue.main.async {
+            self.saveProgress = "Saving \(filesSaved) / \(totalFiles)..."
+        }
 
+        // We use a DispatchGroup to wait for all async save operations to finish
+        let saveGroup = DispatchGroup()
+        
+        for (index, attachment) in attachments.enumerated() {
+            saveGroup.enter() // Enter the group for each attachment
+            
+            DispatchQueue.main.async {
+                self.saveProgress = "Saving \(index + 1) / \(totalFiles)..."
+            }
+            
+            // Pass the group down the chain
+            process(
+                attachment: attachment,
+                subject: subject,
+                folder: selectedFolder,
+                context: context,
+                group: saveGroup
+            )
+        }
+        
+        // This block will run only after ALL `saveGroup.leave()` calls are done
+        saveGroup.notify(queue: .main) {
+            print("[ShareExt] All save operations finished.")
+            self.isSaving = false
+            if self.errorMessage == nil {
+                // Only close if no *critical* error occurred
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+                self.onComplete()
+            }
+        }
+    }
+
+    // --- MODIFICATION 5: Renamed `saveFile` to `process` and added `group` ---
+    private func process(attachment: NSItemProvider, subject: Subject, folder: Folder?, context: ModelContext, group: DispatchGroup) {
+        
         // --- Path A: Prioritize known NON-IMAGE file types first ---
         let fileTypeToLoad: UTType?
         
@@ -151,65 +204,62 @@ struct ShareView: View {
             print("[ShareExt] Path A: Detected file type: \(fileType.identifier). Loading as file...")
             attachment.loadFileRepresentation(forTypeIdentifier: fileType.identifier) { [self] (url, error) in
                 if let url = url {
-                    handleFileURL(url, subject: subject, folder: selectedFolder, context: context)
+                    handleFileURL(url, subject: subject, folder: folder, context: context, group: group)
                 } else {
-                    handleSaveError(error ?? NSError(domain: "ShareError", code: 1, userInfo: [NSLocalizedDescriptionKey: "Failed to load file for type \(fileType.identifier)."]))
+                    let fileError = error ?? NSError(domain: "ShareError", code: 1, userInfo: [NSLocalizedDescriptionKey: "Failed to load file for type \(fileType.identifier)."])
+                    handleSaveError(fileError, group: group)
                 }
             }
-            return // We are done.
+            return // We are done for this attachment.
         }
 
         // --- Path B: It's not a known file. Check if it's an image. ---
-        // This is the correct path for all images, from Photos or Files.
         if attachment.hasItemConformingToTypeIdentifier(UTType.image.identifier) {
             print("[ShareExt] Path B: Detected image. Starting multi-step image load...")
-            loadImageData(subject: subject, folder: selectedFolder, context: context)
+            loadImageData(attachment: attachment, subject: subject, folder: folder, context: context, group: group)
             return
         }
         
         // --- Path C: It's not a known file or an image. ---
-        // This is the final fallback. Try to get the best data representation.
         print("[ShareExt] Path C: Not a file or image. Using best data representation fallback...")
         self.loadBestDataRepresentation(
+             attachment: attachment,
              preferring: [UTType.data], // Prefer any data
              subject: subject,
-             folder: selectedFolder,
-             context: context
+             folder: folder,
+             context: context,
+             group: group
          )
     }
     
-    // --- FINAL MULTI-STEP IMAGE LOADER ---
-    private func loadImageData(subject: Subject, folder: Folder?, context: ModelContext) {
+    // --- MODIFICATION 6: Pass `group` all the way down the chain ---
+    
+    private func loadImageData(attachment: NSItemProvider, subject: Subject, folder: Folder?, context: ModelContext, group: DispatchGroup) {
         
         // Step 1: Try to load as a UIImage object. (Best for Photos app)
         if attachment.canLoadObject(ofClass: UIImage.self) {
             attachment.loadObject(ofClass: UIImage.self) { [self] (item, error) in
                 if let image = item as? UIImage {
-                    // Success! We got a UIImage.
                     print("[ShareExt] ImageLoad Step 1: Success. Loaded UIImage object.")
                     guard let dataToSave = image.jpegData(compressionQuality: 0.85) else {
-                        handleSaveError(NSError(domain: "ShareError", code: 2, userInfo: [NSLocalizedDescriptionKey: "Failed to convert UIImage to JPEG data."]))
+                        let convertError = NSError(domain: "ShareError", code: 2, userInfo: [NSLocalizedDescriptionKey: "Failed to convert UIImage to JPEG data."])
+                        handleSaveError(convertError, group: group)
                         return
                     }
                     let fileNameToSave = "image_\(UUID().uuidString).jpg"
-                    performSave(data: dataToSave, fileName: fileNameToSave, subject: subject, folder: folder, context: context)
+                    performSave(data: dataToSave, fileName: fileNameToSave, subject: subject, folder: folder, context: context, group: group)
                 } else {
-                    // It said it could load a UIImage, but failed.
-                    // This happens when sharing a file (like a JPEG) that *could* be a UIImage.
-                    // We must not stop. We proceed to Step 2.
                     print("[ShareExt] ImageLoad Step 1: Failed to load UIImage object (Error: \(error?.localizedDescription ?? "Unknown")). Proceeding to Step 2...")
-                    self.loadImageAsFile(subject: subject, folder: folder, context: context)
+                    self.loadImageAsFile(attachment: attachment, subject: subject, folder: folder, context: context, group: group)
                 }
             }
         } else {
-            // It's an image, but not a UIImage object.
-            // This is typical for files. Proceed to Step 2.
             print("[ShareExt] ImageLoad Step 1: Cannot load as UIImage object. Proceeding to Step 2...")
-            self.loadImageAsFile(subject: subject, folder: folder, context: context)
+            self.loadImageAsFile(attachment: attachment, subject: subject, folder: folder, context: context, group: group)
         }
     }
     
-    private func loadImageAsFile(subject: Subject, folder: Folder?, context: ModelContext) {
+    private func loadImageAsFile(attachment: NSItemProvider, subject: Subject, folder: Folder?, context: ModelContext, group: DispatchGroup) {
         
         // Step 2: Try to load as a JPEG file. (Best for JPEG files)
         if attachment.hasItemConformingToTypeIdentifier(UTType.jpeg.identifier) {
@@ -217,21 +267,19 @@ struct ShareView: View {
             attachment.loadFileRepresentation(forTypeIdentifier: UTType.jpeg.identifier) { [self] (url, error) in
                 if let url = url {
                     print("[ShareExt] ImageLoad Step 2: Success. Loaded JPEG file URL.")
-                    handleFileURL(url, subject: subject, folder: folder, context: context)
+                    handleFileURL(url, subject: subject, folder: folder, context: context, group: group)
                 } else {
-                    // Failed to load as JPEG. Proceed to Step 3.
                     print("[ShareExt] ImageLoad Step 2: Failed to load JPEG file (Error: \(error?.localizedDescription ?? "Unknown")). Proceeding to Step 3...")
-                    self.loadImageAsPngFile(subject: subject, folder: folder, context: context)
+                    self.loadImageAsPngFile(attachment: attachment, subject: subject, folder: folder, context: context, group: group)
                 }
             }
         } else {
-            // Not a JPEG. Proceed to Step 3.
             print("[ShareExt] ImageLoad Step 2: Not a JPEG. Proceeding to Step 3...")
-            self.loadImageAsPngFile(subject: subject, folder: folder, context: context)
+            self.loadImageAsPngFile(attachment: attachment, subject: subject, folder: folder, context: context, group: group)
         }
     }
     
-    private func loadImageAsPngFile(subject: Subject, folder: Folder?, context: ModelContext) {
+    private func loadImageAsPngFile(attachment: NSItemProvider, subject: Subject, folder: Folder?, context: ModelContext, group: DispatchGroup) {
         
         // Step 3: Try to load as a PNG file. (Best for PNG files)
         if attachment.hasItemConformingToTypeIdentifier(UTType.png.identifier) {
@@ -239,22 +287,19 @@ struct ShareView: View {
             attachment.loadFileRepresentation(forTypeIdentifier: UTType.png.identifier) { [self] (url, error) in
                 if let url = url {
                     print("[ShareExt] ImageLoad Step 3: Success. Loaded PNG file URL.")
-                    handleFileURL(url, subject: subject, folder: folder, context: context)
+                    handleFileURL(url, subject: subject, folder: folder, context: context, group: group)
                 } else {
-                    // Failed to load as PNG. Proceed to Step 4 (Fallback).
                     print("[ShareExt] ImageLoad Step 3: Failed to load PNG file (Error: \(error?.localizedDescription ?? "Unknown")). Proceeding to Step 4...")
-                    self.loadBestDataRepresentation(preferring: [UTType.image], subject: subject, folder: folder, context: context)
+                    self.loadBestDataRepresentation(attachment: attachment, preferring: [UTType.image], subject: subject, folder: folder, context: context, group: group)
                 }
             }
         } else {
-            // Not a PNG. Proceed to Step 4 (Fallback).
             print("[ShareExt] ImageLoad Step 3: Not a PNG. Proceeding to Step 4...")
-            self.loadBestDataRepresentation(preferring: [UTType.image], subject: subject, folder: folder, context: context)
+            self.loadBestDataRepresentation(attachment: attachment, preferring: [UTType.image], subject: subject, folder: folder, context: context, group: group)
         }
     }
 
-    // Helper to process a file URL
-    private func handleFileURL(_ url: URL, subject: Subject, folder: Folder?, context: ModelContext) {
+    private func handleFileURL(_ url: URL, subject: Subject, folder: Folder?, context: ModelContext, group: DispatchGroup) {
         let accessing = url.startAccessingSecurityScopedResource()
         defer {
             if accessing {
@@ -266,32 +311,35 @@ struct ShareView: View {
             let dataToSave = try Data(contentsOf: url)
             let fileNameToSave = url.lastPathComponent
             print("[ShareExt] handleFileURL: Successfully read \(dataToSave.count) bytes from \(fileNameToSave).")
-            performSave(data: dataToSave, fileName: fileNameToSave, subject: subject, folder: folder, context: context)
+            performSave(data: dataToSave, fileName: fileNameToSave, subject: subject, folder: folder, context: context, group: group)
         } catch {
             print("[ShareExt] handleFileURL: Error reading data from URL: \(error)")
-            handleSaveError(error)
+            handleSaveError(error, group: group)
         }
     }
     
-    // Helper to perform the actual save
-    private func performSave(data: Data, fileName: String, subject: Subject, folder: Folder?, context: ModelContext) {
+    private func performSave(data: Data, fileName: String, subject: Subject, folder: Folder?, context: ModelContext, group: DispatchGroup) {
+        
+        // Defer leaving the group until this function finishes
+        defer {
+            print("[ShareExt] Leaving group for file \(fileName).")
+            group.leave()
+        }
         
         // --- MOST ROBUST CRITICAL CHECK ---
-        // A real image file (JPG, PNG) is binary and will NOT decode as a UTF-8 string.
-        // A proxy file (like "data") WILL decode.
-        // We check if it's small AND decodes successfully.
         if data.count < 100, let dataString = String(data: data, encoding: .utf8) {
-            // It's small AND it's a valid string. This is a proxy.
             let trimmedString = dataString.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-            print("[ShareExt] ERROR: Detected proxy data. Decoded as string: '\(trimmedString)'. Aborting save.")
-            handleSaveError(NSError(domain: "ShareError", code: 99, userInfo: [NSLocalizedDescriptionKey: "Failed to load full image. Received proxy data."]))
-            return
+            print("[ShareExt] ERROR: Detected proxy data. Decoded as string: '\(trimmedString)'. Aborting save for this file.")
+            // Don't set the global error message, just log it.
+            // We still want other files to try and save.
+            return // Leave the group
         }
         // --- END CHECK ---
         
         print("[ShareExt] Data ready (\(data.count) bytes, name: \(fileName)). Calling FileDataService.saveFile...")
 
         do {
+            // We must fetch models *inside* this thread-safe block
             let subjectID = subject.persistentModelID
             guard let subjectInContext = context.model(for: subjectID) as? Subject else {
                 throw NSError(domain: "ShareError", code: 9, userInfo: [NSLocalizedDescriptionKey: "Could not find selected subject in context."])
@@ -317,72 +365,69 @@ struct ShareView: View {
 
             if context.hasChanges {
                 try context.save()
-                print("[ShareExt] Context saved successfully.")
+                print("[ShareExt] Context saved successfully for \(fileName).")
             } else {
-                print("[ShareExt] No changes detected in context, skipping save.")
-            }
-            
-            UINotificationFeedbackGenerator().notificationOccurred(.success)
-            DispatchQueue.main.async {
-                print("[ShareExt] Save successful, calling onComplete.")
-                onComplete()
+                print("[ShareExt] No changes detected in context for \(fileName), skipping save.")
             }
             
         } catch {
-            print("[ShareExt] performSave: Error during FileDataService.saveFile or context.save: \(error)")
-            handleSaveError(error)
+            print("[ShareExt] performSave: Error during FileDataService.saveFile or context.save for \(fileName): \(error)")
+            // Set the global error message so the sheet doesn't close.
+            DispatchQueue.main.async {
+                self.errorMessage = error.localizedDescription
+            }
         }
     }
     
-    // Step 4: HELPER FUNCTION to load the best available data representation (FALLBACK)
-    private func loadBestDataRepresentation(preferring preferredTypes: [UTType], subject: Subject, folder: Folder?, context: ModelContext) {
+    private func loadBestDataRepresentation(attachment: NSItemProvider, preferring preferredTypes: [UTType], subject: Subject, folder: Folder?, context: ModelContext, group: DispatchGroup) {
         
-        // Get all types the provider says it has
         let availableTypes = attachment.registeredTypeIdentifiers.compactMap { UTType($0) }
         print("[ShareExt] loadBestData: Available types: \(availableTypes.map { $0.identifier })")
         
-        // Find the best type to load based on our preferred order
         var typeToLoad: UTType? = nil
         for type in preferredTypes {
-            // Check if any available type *conforms* to our preferred type
             if let specificType = availableTypes.first(where: { $0.conforms(to: type) }) {
-                typeToLoad = specificType // We found our best match
+                typeToLoad = specificType
                 print("[ShareExt] loadBestData: Found match for \(type.identifier), will load \(specificType.identifier)")
                 break
             }
         }
         
-        // If we didn't find any match, fail
         guard let finalType = typeToLoad else {
-            print("[ShareExt] loadBestData: No suitable data representation found in preferred list: \(preferredTypes.map { $0.identifier })")
-            handleSaveError(NSError(domain: "ShareError", code: 10, userInfo: [NSLocalizedDescriptionKey: "No compatible data representation found."]))
+            let noTypeError = NSError(domain: "ShareError", code: 10, userInfo: [NSLocalizedDescriptionKey: "No compatible data representation found."])
+            print("[ShareExt] loadBestData: \(noTypeError.localizedDescription)")
+            handleSaveError(noTypeError, group: group)
             return
         }
 
         print("[ShareExt] loadBestData: Trying loadDataRepresentation(forTypeIdentifier: \(finalType.identifier))...")
         attachment.loadDataRepresentation(forTypeIdentifier: finalType.identifier) { [self] (data, error) in
             if let dataToSave = data {
-                // Use the file extension from the *actual* type we loaded
-                let fileExtension = finalType.preferredFilenameExtension ?? "data" // Use "data" as a generic extension
+                let fileExtension = finalType.preferredFilenameExtension ?? "data"
                 let fileNameToSave = "image_\(UUID().uuidString).\(fileExtension)"
                 
-                // Now call the save operation
-                self.performSave(data: dataToSave, fileName: fileNameToSave, subject: subject, folder: folder, context: context)
+                self.performSave(data: dataToSave, fileName: fileNameToSave, subject: subject, folder: folder, context: context, group: group)
             } else {
                 let dataError = error ?? NSError(domain: "ShareError", code: 11, userInfo: [NSLocalizedDescriptionKey: "Failed to load data for type \(finalType.identifier)."])
-                self.handleSaveError(dataError)
+                self.handleSaveError(dataError, group: group)
             }
         }
     }
 
-
-    // Helper to show errors on the main thread
-    private func handleSaveError(_ error: Error) {
+    private func handleSaveError(_ error: Error, group: DispatchGroup) {
+        // Defer leaving the group
+        defer {
+            print("[ShareExt] Leaving group due to error.")
+            group.leave()
+        }
+        
         print("[ShareExt] Save failed:", error.localizedDescription)
         DispatchQueue.main.async {
-            errorMessage = "Failed to save file: \(error.localizedDescription)"
-            isSaving = false
-            UINotificationFeedbackGenerator().notificationOccurred(.error)
+            // Set the *first* error that occurs
+            if self.errorMessage == nil {
+                self.errorMessage = "Failed to save file: \(error.localizedDescription)"
+            }
+            // We don't trigger haptics here, we'll do one big success/fail at the end
         }
     }
 }
