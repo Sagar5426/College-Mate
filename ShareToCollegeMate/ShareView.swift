@@ -123,9 +123,10 @@ struct ShareView: View {
         }
     }
 
+    // --- FINAL ROBUST SAVE LOGIC ---
     private func saveFile() {
         print("[ShareExt] Save tapped")
-        guard let subject = selectedSubject, // subject is non-optional here
+        guard let subject = selectedSubject,
               let context = modelContainer?.mainContext else {
             print("[ShareExt] Save aborted: Subject or context is nil.")
             errorMessage = "Cannot save: Subject or database context missing."
@@ -135,215 +136,254 @@ struct ShareView: View {
         isSaving = true
         errorMessage = nil
 
-        Task {
-            do {
-                print("[ShareExt] Checking attachment type...")
-                var dataToSave: Data?
-                var fileNameToSave: String?
+        // --- Path A: Prioritize known NON-IMAGE file types first ---
+        let fileTypeToLoad: UTType?
+        
+        if attachment.hasItemConformingToTypeIdentifier(UTType.pdf.identifier) {
+            fileTypeToLoad = UTType.pdf
+        } else if let docxType = UTType(filenameExtension: "docx"), attachment.hasItemConformingToTypeIdentifier(docxType.identifier) {
+            fileTypeToLoad = docxType
+        } else {
+            fileTypeToLoad = nil
+        }
 
-                // 1. PRIORITIZE loading as IMAGE DATA if the type conforms to image
-                if attachment.hasItemConformingToTypeIdentifier(UTType.image.identifier) {
-                    print("[ShareExt] Attachment conforms to image type. Trying loadImageData...")
-                    if let imageData = try await loadImageData(from: attachment) {
-                        dataToSave = imageData
-                        // Generate a unique name for images from Photos
-                        fileNameToSave = "image_\(UUID().uuidString).jpg"
-                        print("[ShareExt] Successfully loaded image data.")
-                    } else {
-                        print("[ShareExt] loadImageData returned nil despite type conformance.")
-                    }
-                }
-
-                // 2. If NOT loaded as image data, try loading as a FILE URL (PDF, DOCX, or Image File)
-                if dataToSave == nil {
-                    print("[ShareExt] Not loaded as image data or type mismatch. Trying loadFileURL...")
-                    if let fileURL = try await loadFileURL(from: attachment) {
-                        // Securely access the file URL
-                        let accessing = fileURL.startAccessingSecurityScopedResource()
-                        defer {
-                            if accessing {
-                                fileURL.stopAccessingSecurityScopedResource()
-                            }
-                        }
-
-                        dataToSave = try Data(contentsOf: fileURL)
-                        fileNameToSave = fileURL.lastPathComponent
-                        print("[ShareExt] Successfully loaded file URL data: \(fileNameToSave ?? "Unknown")")
-                    } else {
-                        print("[ShareExt] loadFileURL returned nil.")
-                    }
-                }
-
-                // 3. Ensure we have data and a filename
-                guard let data = dataToSave, let fileName = fileNameToSave else {
-                    throw NSError(
-                        domain: "ShareError",
-                        code: 1,
-                        userInfo: [NSLocalizedDescriptionKey: "Unsupported item type or failed to load data."]
-                    )
-                }
-
-                // 4. Save using FileDataService
-                print("[ShareExt] Data ready (\(data.count) bytes, name: \(fileName)). Calling FileDataService.saveFile...")
-
-                // --- CORRECTED ACCESS ---
-                // Access persistentModelID directly, no need for guard let
-                let subjectID = subject.persistentModelID
-                // --- END CORRECTION ---
-
-                // Fetch the subject *within the current context* to ensure it's managed
-                 guard let subjectInContext = context.model(for: subjectID) as? Subject else {
-                      throw NSError(domain: "ShareError", code: 3, userInfo: [NSLocalizedDescriptionKey: "Could not find selected subject in context."])
-                 }
-
-                 var folderInContext: Folder? = nil
-                 // Only unwrap the optional selectedFolder
-                 if let currentSelectedFolder = selectedFolder {
-                     // Access persistentModelID directly since currentSelectedFolder is non-optional here
-                     let folderID = currentSelectedFolder.persistentModelID
-                     folderInContext = context.model(for: folderID) as? Folder
-                     if folderInContext == nil {
-                          print("[ShareExt] Warning: Could not find selected folder '\(currentSelectedFolder.name)' in context, saving to root.")
-                     }
-                 }
-
-                 _ = FileDataService.saveFile(
-                     data: data,
-                     fileName: fileName,
-                     to: folderInContext, // Use the folder fetched in this context
-                     in: subjectInContext, // Use the subject fetched in this context
-                     modelContext: context
-                 )
-                print("[ShareExt] File data prepared, attempting to save context...")
-
-                // 5. Save the SwiftData context
-                if context.hasChanges {
-                    try context.save()
-                    print("[ShareExt] Context saved successfully.")
+        if let fileType = fileTypeToLoad {
+            print("[ShareExt] Path A: Detected file type: \(fileType.identifier). Loading as file...")
+            attachment.loadFileRepresentation(forTypeIdentifier: fileType.identifier) { [self] (url, error) in
+                if let url = url {
+                    handleFileURL(url, subject: subject, folder: selectedFolder, context: context)
                 } else {
-                    print("[ShareExt] No changes detected in context, skipping save.")
-                }
-
-                // 6. Success feedback and completion
-                UINotificationFeedbackGenerator().notificationOccurred(.success)
-
-                await MainActor.run {
-                    print("[ShareExt] Save successful, calling onComplete.")
-                    onComplete()
-                }
-
-            } catch {
-                print("[ShareExt] Save failed:", error)
-                await MainActor.run {
-                    errorMessage = "Failed to save file: \(error.localizedDescription)"
-                    isSaving = false
-                    // Optional: Add error haptic
-                    UINotificationFeedbackGenerator().notificationOccurred(.error)
+                    handleSaveError(error ?? NSError(domain: "ShareError", code: 1, userInfo: [NSLocalizedDescriptionKey: "Failed to load file for type \(fileType.identifier)."]))
                 }
             }
+            return // We are done.
         }
+
+        // --- Path B: It's not a known file. Check if it's an image. ---
+        // This is the correct path for all images, from Photos or Files.
+        if attachment.hasItemConformingToTypeIdentifier(UTType.image.identifier) {
+            print("[ShareExt] Path B: Detected image. Starting multi-step image load...")
+            loadImageData(subject: subject, folder: selectedFolder, context: context)
+            return
+        }
+        
+        // --- Path C: It's not a known file or an image. ---
+        // This is the final fallback. Try to get the best data representation.
+        print("[ShareExt] Path C: Not a file or image. Using best data representation fallback...")
+        self.loadBestDataRepresentation(
+             preferring: [UTType.data], // Prefer any data
+             subject: subject,
+             folder: selectedFolder,
+             context: context
+         )
     }
-
-    // MARK: - Loaders for NSItemProvider
-
-    private func loadFileURL(from provider: NSItemProvider) async throws -> URL? {
-        print("[ShareExt] loadFileURL called")
-
-        // Helper to load file representation and handle security scope
-        func loadSecureRepresentation(type: UTType) async -> URL? {
-            await withCheckedContinuation { continuation in
-                provider.loadFileRepresentation(forTypeIdentifier: type.identifier) { url, error in
-                    if let url = url {
-                        continuation.resume(returning: url)
-                    } else {
-                         print("[ShareExt] Error loading \(type.identifier): \(error?.localizedDescription ?? "Unknown error")")
-                        continuation.resume(returning: nil)
+    
+    // --- FINAL MULTI-STEP IMAGE LOADER ---
+    private func loadImageData(subject: Subject, folder: Folder?, context: ModelContext) {
+        
+        // Step 1: Try to load as a UIImage object. (Best for Photos app)
+        if attachment.canLoadObject(ofClass: UIImage.self) {
+            attachment.loadObject(ofClass: UIImage.self) { [self] (item, error) in
+                if let image = item as? UIImage {
+                    // Success! We got a UIImage.
+                    print("[ShareExt] ImageLoad Step 1: Success. Loaded UIImage object.")
+                    guard let dataToSave = image.jpegData(compressionQuality: 0.85) else {
+                        handleSaveError(NSError(domain: "ShareError", code: 2, userInfo: [NSLocalizedDescriptionKey: "Failed to convert UIImage to JPEG data."]))
+                        return
                     }
+                    let fileNameToSave = "image_\(UUID().uuidString).jpg"
+                    performSave(data: dataToSave, fileName: fileNameToSave, subject: subject, folder: folder, context: context)
+                } else {
+                    // It said it could load a UIImage, but failed.
+                    // This happens when sharing a file (like a JPEG) that *could* be a UIImage.
+                    // We must not stop. We proceed to Step 2.
+                    print("[ShareExt] ImageLoad Step 1: Failed to load UIImage object (Error: \(error?.localizedDescription ?? "Unknown")). Proceeding to Step 2...")
+                    self.loadImageAsFile(subject: subject, folder: folder, context: context)
                 }
             }
+        } else {
+            // It's an image, but not a UIImage object.
+            // This is typical for files. Proceed to Step 2.
+            print("[ShareExt] ImageLoad Step 1: Cannot load as UIImage object. Proceeding to Step 2...")
+            self.loadImageAsFile(subject: subject, folder: folder, context: context)
         }
-
-        // Try specific types first
-        if provider.hasItemConformingToTypeIdentifier(UTType.pdf.identifier) {
-             print("[ShareExt] Trying PDF representation")
-             if let url = await loadSecureRepresentation(type: .pdf) {
-                 print("[ShareExt] Got PDF URL")
-                 return url
-             }
-         }
-
-        if let docxType = UTType(filenameExtension: "docx"), provider.hasItemConformingToTypeIdentifier(docxType.identifier) {
-             print("[ShareExt] Trying DOCX representation")
-             if let url = await loadSecureRepresentation(type: docxType) {
-                 print("[ShareExt] Got DOCX URL")
-                 return url
-             }
-         }
-
-        // Check for generic fileURL last (might work for images shared as files)
-        if provider.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) {
-            print("[ShareExt] Trying generic fileURL")
-            let item = try? await provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier)
-            if let url = item as? URL {
-                print("[ShareExt] Got generic fileURL")
-                return url
-            } else if let urlData = item as? Data, let urlString = String(data: urlData, encoding: .utf8), let url = URL(string: urlString) {
-                 print("[ShareExt] Got generic fileURL from data")
-                 return url
-             }
+    }
+    
+    private func loadImageAsFile(subject: Subject, folder: Folder?, context: ModelContext) {
+        
+        // Step 2: Try to load as a JPEG file. (Best for JPEG files)
+        if attachment.hasItemConformingToTypeIdentifier(UTType.jpeg.identifier) {
+            print("[ShareExt] ImageLoad Step 2: Trying to load as JPEG file...")
+            attachment.loadFileRepresentation(forTypeIdentifier: UTType.jpeg.identifier) { [self] (url, error) in
+                if let url = url {
+                    print("[ShareExt] ImageLoad Step 2: Success. Loaded JPEG file URL.")
+                    handleFileURL(url, subject: subject, folder: folder, context: context)
+                } else {
+                    // Failed to load as JPEG. Proceed to Step 3.
+                    print("[ShareExt] ImageLoad Step 2: Failed to load JPEG file (Error: \(error?.localizedDescription ?? "Unknown")). Proceeding to Step 3...")
+                    self.loadImageAsPngFile(subject: subject, folder: folder, context: context)
+                }
+            }
+        } else {
+            // Not a JPEG. Proceed to Step 3.
+            print("[ShareExt] ImageLoad Step 2: Not a JPEG. Proceeding to Step 3...")
+            self.loadImageAsPngFile(subject: subject, folder: folder, context: context)
         }
-
-        print("[ShareExt] loadFileURL returning nil")
-        return nil
+    }
+    
+    private func loadImageAsPngFile(subject: Subject, folder: Folder?, context: ModelContext) {
+        
+        // Step 3: Try to load as a PNG file. (Best for PNG files)
+        if attachment.hasItemConformingToTypeIdentifier(UTType.png.identifier) {
+            print("[ShareExt] ImageLoad Step 3: Trying to load as PNG file...")
+            attachment.loadFileRepresentation(forTypeIdentifier: UTType.png.identifier) { [self] (url, error) in
+                if let url = url {
+                    print("[ShareExt] ImageLoad Step 3: Success. Loaded PNG file URL.")
+                    handleFileURL(url, subject: subject, folder: folder, context: context)
+                } else {
+                    // Failed to load as PNG. Proceed to Step 4 (Fallback).
+                    print("[ShareExt] ImageLoad Step 3: Failed to load PNG file (Error: \(error?.localizedDescription ?? "Unknown")). Proceeding to Step 4...")
+                    self.loadBestDataRepresentation(preferring: [UTType.image], subject: subject, folder: folder, context: context)
+                }
+            }
+        } else {
+            // Not a PNG. Proceed to Step 4 (Fallback).
+            print("[ShareExt] ImageLoad Step 3: Not a PNG. Proceeding to Step 4...")
+            self.loadBestDataRepresentation(preferring: [UTType.image], subject: subject, folder: folder, context: context)
+        }
     }
 
+    // Helper to process a file URL
+    private func handleFileURL(_ url: URL, subject: Subject, folder: Folder?, context: ModelContext) {
+        let accessing = url.startAccessingSecurityScopedResource()
+        defer {
+            if accessing {
+                url.stopAccessingSecurityScopedResource()
+            }
+        }
+        
+        do {
+            let dataToSave = try Data(contentsOf: url)
+            let fileNameToSave = url.lastPathComponent
+            print("[ShareExt] handleFileURL: Successfully read \(dataToSave.count) bytes from \(fileNameToSave).")
+            performSave(data: dataToSave, fileName: fileNameToSave, subject: subject, folder: folder, context: context)
+        } catch {
+            print("[ShareExt] handleFileURL: Error reading data from URL: \(error)")
+            handleSaveError(error)
+        }
+    }
+    
+    // Helper to perform the actual save
+    private func performSave(data: Data, fileName: String, subject: Subject, folder: Folder?, context: ModelContext) {
+        
+        // --- MOST ROBUST CRITICAL CHECK ---
+        // A real image file (JPG, PNG) is binary and will NOT decode as a UTF-8 string.
+        // A proxy file (like "data") WILL decode.
+        // We check if it's small AND decodes successfully.
+        if data.count < 100, let dataString = String(data: data, encoding: .utf8) {
+            // It's small AND it's a valid string. This is a proxy.
+            let trimmedString = dataString.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            print("[ShareExt] ERROR: Detected proxy data. Decoded as string: '\(trimmedString)'. Aborting save.")
+            handleSaveError(NSError(domain: "ShareError", code: 99, userInfo: [NSLocalizedDescriptionKey: "Failed to load full image. Received proxy data."]))
+            return
+        }
+        // --- END CHECK ---
+        
+        print("[ShareExt] Data ready (\(data.count) bytes, name: \(fileName)). Calling FileDataService.saveFile...")
 
-    private func loadImageData(from provider: NSItemProvider) async throws -> Data? {
-        print("[ShareExt] loadImageData called")
-        // Check exact types first for clarity
-        let supportedImageTypes = [UTType.jpeg, UTType.png, UTType.heic] // Add others if needed
+        do {
+            let subjectID = subject.persistentModelID
+            guard let subjectInContext = context.model(for: subjectID) as? Subject else {
+                throw NSError(domain: "ShareError", code: 9, userInfo: [NSLocalizedDescriptionKey: "Could not find selected subject in context."])
+            }
+
+            var folderInContext: Folder? = nil
+            if let selectedFolder = folder {
+                let folderID = selectedFolder.persistentModelID
+                folderInContext = context.model(for: folderID) as? Folder
+                if folderInContext == nil {
+                    print("[ShareExt] Warning: Could not find selected folder '\(selectedFolder.name)' in context, saving to root.")
+                }
+            }
+
+            _ = FileDataService.saveFile(
+                data: data,
+                fileName: fileName,
+                to: folderInContext,
+                in: subjectInContext,
+                modelContext: context
+            )
+            print("[ShareExt] File data prepared, attempting to save context...")
+
+            if context.hasChanges {
+                try context.save()
+                print("[ShareExt] Context saved successfully.")
+            } else {
+                print("[ShareExt] No changes detected in context, skipping save.")
+            }
+            
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            DispatchQueue.main.async {
+                print("[ShareExt] Save successful, calling onComplete.")
+                onComplete()
+            }
+            
+        } catch {
+            print("[ShareExt] performSave: Error during FileDataService.saveFile or context.save: \(error)")
+            handleSaveError(error)
+        }
+    }
+    
+    // Step 4: HELPER FUNCTION to load the best available data representation (FALLBACK)
+    private func loadBestDataRepresentation(preferring preferredTypes: [UTType], subject: Subject, folder: Folder?, context: ModelContext) {
+        
+        // Get all types the provider says it has
+        let availableTypes = attachment.registeredTypeIdentifiers.compactMap { UTType($0) }
+        print("[ShareExt] loadBestData: Available types: \(availableTypes.map { $0.identifier })")
+        
+        // Find the best type to load based on our preferred order
         var typeToLoad: UTType? = nil
-
-        for type in supportedImageTypes {
-            if provider.hasItemConformingToTypeIdentifier(type.identifier) {
-                typeToLoad = type
+        for type in preferredTypes {
+            // Check if any available type *conforms* to our preferred type
+            if let specificType = availableTypes.first(where: { $0.conforms(to: type) }) {
+                typeToLoad = specificType // We found our best match
+                print("[ShareExt] loadBestData: Found match for \(type.identifier), will load \(specificType.identifier)")
                 break
             }
         }
-        // Fallback to generic image if specific type not found
-        if typeToLoad == nil && provider.hasItemConformingToTypeIdentifier(UTType.image.identifier) {
-             typeToLoad = UTType.image
-         }
-
+        
+        // If we didn't find any match, fail
         guard let finalType = typeToLoad else {
-             print("[ShareExt] Provider does not conform to supported image types.")
-             return nil
-         }
+            print("[ShareExt] loadBestData: No suitable data representation found in preferred list: \(preferredTypes.map { $0.identifier })")
+            handleSaveError(NSError(domain: "ShareError", code: 10, userInfo: [NSLocalizedDescriptionKey: "No compatible data representation found."]))
+            return
+        }
 
-        print("[ShareExt] Attempting to load item for type: \(finalType.identifier)")
-        let item = try await provider.loadItem(forTypeIdentifier: finalType.identifier)
+        print("[ShareExt] loadBestData: Trying loadDataRepresentation(forTypeIdentifier: \(finalType.identifier))...")
+        attachment.loadDataRepresentation(forTypeIdentifier: finalType.identifier) { [self] (data, error) in
+            if let dataToSave = data {
+                // Use the file extension from the *actual* type we loaded
+                let fileExtension = finalType.preferredFilenameExtension ?? "data" // Use "data" as a generic extension
+                let fileNameToSave = "image_\(UUID().uuidString).\(fileExtension)"
+                
+                // Now call the save operation
+                self.performSave(data: dataToSave, fileName: fileNameToSave, subject: subject, folder: folder, context: context)
+            } else {
+                let dataError = error ?? NSError(domain: "ShareError", code: 11, userInfo: [NSLocalizedDescriptionKey: "Failed to load data for type \(finalType.identifier)."])
+                self.handleSaveError(dataError)
+            }
+        }
+    }
 
-        // Handle different possible item types
-        if let image = item as? UIImage {
-            let data = image.jpegData(compressionQuality: 0.85) // Convert to JPEG
-            print("[ShareExt] Converted UIImage to JPEG data (\(data?.count ?? 0) bytes)")
-            return data
-        } else if let data = item as? Data {
-             print("[ShareExt] Loaded image directly as Data (\(data.count) bytes)")
-            // You might want to check the data header to confirm it's an image
-            return data
-        } else if let url = item as? URL {
-             print("[ShareExt] Loaded image as URL: \(url.path)")
-             // If image comes as URL, read data from it
-              let accessing = url.startAccessingSecurityScopedResource()
-              defer { if accessing { url.stopAccessingSecurityScopedResource() } }
-              let data = try? Data(contentsOf: url)
-              print("[ShareExt] Read image data from URL (\(data?.count ?? 0) bytes)")
-              return data
-          }
 
-        print("[ShareExt] loadImageData failed to get data from item.")
-        return nil
+    // Helper to show errors on the main thread
+    private func handleSaveError(_ error: Error) {
+        print("[ShareExt] Save failed:", error.localizedDescription)
+        DispatchQueue.main.async {
+            errorMessage = "Failed to save file: \(error.localizedDescription)"
+            isSaving = false
+            UINotificationFeedbackGenerator().notificationOccurred(.error)
+        }
     }
 }
 

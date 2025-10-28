@@ -7,6 +7,7 @@ struct FileDataService {
     /// 1. SharedAppGroup.id if the type exists at runtime
     /// 2. Info.plist key `AppGroupIdentifier`
     /// 3. nil (caller should fallback to Documents)
+    /// NOTE: This function is no longer used by `baseFolder` but is left for reference.
     private static func resolvedAppGroupID() -> String? {
         // Try to access SharedAppGroup.id via reflection to avoid compile-time dependency
         if let sharedAppGroupType: AnyObject.Type = NSClassFromString("SharedAppGroup") {
@@ -28,22 +29,29 @@ struct FileDataService {
         return nil
     }
 
+    // --- THIS IS THE CRITICAL FIX ---
+    // We hardcode the App Group ID string. Your entitlements file makes this safe.
+    // The old `resolvedAppGroupID()` function was the bug.
+    private static let appGroupID = "group.com.sagarjangra.College-Mate"
+
     static let baseFolder: URL = {
-        // Attempt to resolve App Group ID without a hard dependency
-        if let appGroupID = resolvedAppGroupID(),
-           let groupURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupID) {
+        // Use the hardcoded App Group ID
+        if let groupURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupID) {
             let base = groupURL.appendingPathComponent("Subjects", isDirectory: true)
             if !FileManager.default.fileExists(atPath: base.path) {
                 try? FileManager.default.createDirectory(at: base, withIntermediateDirectories: true)
             }
+            print("[FileDataService] Using App Group URL: \(base.path)")
             return base
         } else {
             // Fallback to documents if App Group unavailable/misconfigured
+            // This should NOT happen if your entitlements are correct.
             let paths = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
             let base = paths[0].appendingPathComponent("Subjects", isDirectory: true)
             if !FileManager.default.fileExists(atPath: base.path) {
                 try? FileManager.default.createDirectory(at: base, withIntermediateDirectories: true)
             }
+            print("[FileDataService] WARNING: App Group not found. Falling back to Documents directory: \(base.path)")
             return base
         }
     }()

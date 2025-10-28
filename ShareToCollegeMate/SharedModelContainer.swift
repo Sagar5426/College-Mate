@@ -15,24 +15,23 @@ struct SharedModelContainer {
             FileMetadata.self
         ])
 
-        // Try to read an App Group identifier from Info.plist under key `AppGroupIdentifier`.
-        let appGroupID: String? = {
-            if let value = Bundle.main.infoDictionary?["AppGroupIdentifier"] as? String,
-               !value.isEmpty {
-                return value
-            }
-            return nil
-        }()
+        // --- THIS IS THE SECOND CRITICAL FIX ---
+        // We use the hardcoded App Group ID string, just like in FileDataService.
+        // The old logic of reading from Info.plist was the bug.
+        let appGroupID: String? = "group.com.sagarjangra.College-Mate"
 
         if let appGroupID,
            let groupURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupID) {
             // Place the SwiftData store in the App Group container
             let storeURL = groupURL.appendingPathComponent("Database.store", isDirectory: false)
             let configuration = ModelConfiguration(url: storeURL)
+            print("[SharedModelContainer] Using App Group database at: \(storeURL.path)")
             return try ModelContainer(for: schema, configurations: [configuration])
         } else {
             // Default, non–App Group store (useful for development or when entitlements are missing).
+            print("[SharedModelContainer] WARNING: App Group not found. Using default non-shared database.")
             return try ModelContainer(for: schema)
         }
     }
 }
+
