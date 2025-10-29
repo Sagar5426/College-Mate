@@ -52,7 +52,8 @@ struct AttendanceView: View {
                 }
             }
         }
-        .animation(.snappy, value: viewModel.isShowingDatePicker)
+        // MODIFICATION: Replaced .snappy with a smoother .spring animation
+        .animation(.spring(duration: 0.4), value: viewModel.isShowingDatePicker)
         .onAppear {
             viewModel.setup(subjects: subjects, modelContext: modelContext)
         }
@@ -216,3 +217,4 @@ struct ClassAttendanceRow: View {
         return Text("Failed to create preview: \(error.localizedDescription)")
     }
 }
+
