@@ -34,9 +34,10 @@ College Mate solves this by:
 
 ### 🏠 Home Screen
 
-<img width="220" alt="Home 1" src="https://github.com/user-attachments/assets/1f3ed9b1-95dc-40fe-8b08-4d543391c423" />
-<img width="220" alt="Home 2" src="https://github.com/user-attachments/assets/0905c3de-16d6-4518-a2dd-b3a07dfa2a09" />
-<img width="220" alt="Home 3" src="https://github.com/user-attachments/assets/817b382c-0e19-412e-a2b3-b65f6221d133" />
+<img width="220" alt="Screenshot 2025-10-29 at 11 14 42 PM" src="https://github.com/user-attachments/assets/7c36f8de-b5e1-4324-b40c-1667bfc6a528" />
+<img width="220" alt="Screenshot 2025-10-29 at 11 15 29 PM" src="https://github.com/user-attachments/assets/bedc08ad-2633-44dd-9387-ff1a8786d963" />
+<img width="220" alt="Screenshot 2025-10-29 at 11 17 21 PM" src="https://github.com/user-attachments/assets/8a833850-83ea-4f15-8e80-aec675f55d7a" />
+<img width="220" alt="Screenshot 2025-10-29 at 11 17 28 PM" src="https://github.com/user-attachments/assets/0a18b0e2-67bb-4a62-91f9-8b0c50e493b3" />
 
 ### 📝 Daily Log View
 
@@ -59,9 +60,16 @@ College Mate solves this by:
 ### 📝 Notes View
 
 <img width="220" alt="Notes 1" src="https://github.com/user-attachments/assets/fec7fe26-7599-4ae3-afe7-9fdf7a112785" />
-<img width="220" alt="Notes 2" src="https://github.com/user-attachments/assets/0aac4e16-a1d4-457a-80df-c9bd91655d9b" />
-<img width="220" alt="Notes 3" src="https://github.com/user-attachments/assets/fafb7d9f-cbec-4846-9bb2-5297fc26c2f2" />
-<img width="220" alt="Notes 4" src="https://github.com/user-attachments/assets/606eb314-7f3d-42c2-aa9f-c90128326491" />
+<img width="220"  alt="Screenshot 2025-10-29 at 11 18 03 PM" src="https://github.com/user-attachments/assets/9107175f-66f5-4bf7-a83b-d4da5b88048e" />
+<img width="220"  alt="Screenshot 2025-10-29 at 11 18 59 PM" src="https://github.com/user-attachments/assets/a5d55979-fe3f-451d-9a7e-37f713b4e2ea" />
+<img width="220"  alt="Screenshot 2025-10-29 at 11 19 16 PM" src="https://github.com/user-attachments/assets/7b5973f1-2cbd-40e7-acad-aec02302fb0b" />
+<img width="220"  alt="Screenshot 2025-10-29 at 11 19 29 PM" src="https://github.com/user-attachments/assets/e4c32849-71b8-467f-a941-1ce8b9455278" />
+<img width="220"  alt="Screenshot 2025-10-29 at 11 19 37 PM" src="https://github.com/user-attachments/assets/931612d9-665d-4f92-b449-c3ae6a36be25" />
+<img width="220"  alt="Screenshot 2025-10-29 at 11 20 03 PM" src="https://github.com/user-attachments/assets/7fb60502-3000-46c6-8200-8abd83631d91" />
+<img width="220"  alt="Screenshot 2025-10-29 at 11 20 15 PM" src="https://github.com/user-attachments/assets/c1210e49-556c-475a-94e3-9d8a58293a0d" />
+<img width="220"  alt="Screenshot 2025-10-29 at 11 20 59 PM" src="https://github.com/user-attachments/assets/1fbd8cc6-cae5-434e-90b9-43412263901d" />
+<img width="220"  alt="Screenshot 2025-10-29 at 11 21 25 PM" src="https://github.com/user-attachments/assets/1205975e-27c1-4ca0-bbae-78c79764a1de" />
+
 
 ---
 
