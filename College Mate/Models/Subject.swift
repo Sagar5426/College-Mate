@@ -23,6 +23,9 @@ class Subject {
     @Relationship(deleteRule: .cascade, inverse: \FileMetadata.subject)
     var fileMetadata: [FileMetadata] = []
 
+    // ADDED: Property to store the scratchpad note
+    var ImportantTopicsNote: String = ""
+
     init(name: String, startDateOfSubject: Date = .now, schedules: [Schedule] = [], attendance: Attendance = Attendance(totalClasses: 0, attendedClasses: 0), notes: [Note] = []) {
         self.id = UUID()
         self.name = name
@@ -32,6 +35,3 @@ class Subject {
         self.notes = notes
     }
 }
-
-
-

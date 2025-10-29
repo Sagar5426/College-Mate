@@ -1,20 +1,30 @@
-//
-//  College_MateApp.swift
-//  College Mate
-//
-//  Created by Sagar Jangra on 03/01/2025.
-//
-
 import SwiftUI
+import SwiftData
+import UserNotifications // <-- ADDED
 
 @main
 struct College_MateApp: App {
+    
+    // Create the shared model container for main app and shared extension.
+    private var sharedModelContainer: ModelContainer
+    
+    init() {
+        do {
+            sharedModelContainer = try SharedModelContainer.make()
+        } catch {
+            fatalError("Failed to create shared model container: \(error)")
+        }
+    }
+    
     var body: some Scene {
         WindowGroup {
             HomeView()
                 .preferredColorScheme(.dark)
+                .onAppear {
+                    NotificationManager.shared.requestAuthorization()
+                }
         }
-        .modelContainer(for: [Subject.self, Folder.self, FileMetadata.self])
-        
+        // Use the shared container for the main app.
+        .modelContainer(sharedModelContainer)
     }
 }

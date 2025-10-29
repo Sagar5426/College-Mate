@@ -40,7 +40,7 @@ struct SubjectsView: View {
                 }
                 .padding()
             }
-            .background(LinearGradient(colors: [.gray.opacity(0.1), .black.opacity(0.1), .gray.opacity(0.07)], startPoint: .top, endPoint: .bottom))
+            .background(LinearGradient.appBackground)
             .frame(maxWidth: .infinity)
             .overlay(alignment: .bottomTrailing) {
                 AddSubjectButton(isShowingAddSubject: $isShowingAddSubject)
@@ -53,7 +53,6 @@ struct SubjectsView: View {
             }
         }
     }
-    
     
     
     

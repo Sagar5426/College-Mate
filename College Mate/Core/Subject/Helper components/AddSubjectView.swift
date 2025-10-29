@@ -16,6 +16,7 @@ struct AddSubjectView: View {
     @State private var classTimes: [String: [ClassPeriodTime]] = [:]
     @State private var classCount: [String: Int] = [:]
     @State private var isShowingDuplicateAlert = false
+    private let characterLimit = 20
     
     let daysOfWeek = [
         "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"
@@ -24,8 +25,7 @@ struct AddSubjectView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                LinearGradient(colors: [.gray.opacity(0.1), .black.opacity(0.1), .gray.opacity(0.07)], startPoint: .top, endPoint: .bottom)
-                    .ignoresSafeArea()
+                LinearGradient.appBackground.ignoresSafeArea()
                 Form {
                     SubjectDetailsSection(subjectName: $subjectName)
                     FirstSubjectDatePicker(startDateOfSubject: $startDateOfSubject)
@@ -66,19 +66,28 @@ struct AddSubjectView: View {
     }
     
     private func saveSubject() {
-        guard !subjectName.isEmpty else {
-            print("Subject name cannot be empty.")
+        // Normalize name: trim and enforce character limit
+        let trimmed = subjectName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalizedName = String(trimmed.prefix(characterLimit))
+        
+        // Prevent empty names
+        guard !normalizedName.isEmpty else {
+            isShowingDuplicateAlert = true
             return
         }
         
-        // Check for duplicates (case-insensitive)
-        if subjects.contains(where: { $0.name.lowercased() == subjectName.lowercased() }) {
+        // Check for duplicates among ALL subjects (case-insensitive)
+        let hasDuplicate = subjects.contains {
+            $0.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == normalizedName.lowercased()
+        }
+        
+        guard !hasDuplicate else {
             isShowingDuplicateAlert = true
             return
         }
         
         // Create a new Subject
-        let newSubject = Subject(name: subjectName)
+        let newSubject = Subject(name: normalizedName)
         
         // Create schedules for the selected days
         for day in selectedDays {
@@ -103,6 +112,13 @@ struct AddSubjectView: View {
         
         // Add the new Subject to the modelContext
         modelContext.insert(newSubject)
+        
+        // --- ADDED: Schedule notifications for the new subject ---
+        let subjectToSchedule = newSubject
+        Task {
+            await NotificationManager.shared.scheduleNotifications(for: subjectToSchedule)
+        }
+        // --- END OF ADDED CODE ---
         
         // Reset form fields
         subjectName = ""
@@ -271,11 +287,10 @@ struct DayRowView: View {
 
 extension AddSubjectView {
     var isAllInfoValid: Bool {
-        guard !subjectName.isEmpty else { return false }
+        let trimmed = subjectName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalized = String(trimmed.prefix(20))
+        guard !normalized.isEmpty else { return false }
         guard !selectedDays.isEmpty else { return false }
-        
-        
-        
         return true
     }
 }

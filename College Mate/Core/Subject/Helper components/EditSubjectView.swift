@@ -20,8 +20,7 @@ struct EditSubjectView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                LinearGradient(colors: [.gray.opacity(0.1), .black.opacity(0.1), .gray.opacity(0.07)], startPoint: .top, endPoint: .bottom)
-                    .ignoresSafeArea()
+                LinearGradient.appBackground.ignoresSafeArea()
                 Form {
                     Section(header: Text("Subject Details")) {
                         TextField("Subject Name (Max 20 Characters)", text: $subject.name)
@@ -72,19 +71,43 @@ struct EditSubjectView: View {
     }
     
     private func validateAndSaveChanges() {
-        let newName = subject.name.trimmingCharacters(in: .whitespacesAndNewlines)
-        
-        // Check for duplicates only if the name has changed
-        if newName.lowercased() != originalSubjectName.lowercased() {
-            if subjects.contains(where: { $0.name.lowercased() == newName.lowercased() }) {
+        // Trim whitespace/newlines and enforce character limit again (defensive)
+        let trimmedName = subject.name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let newName = String(trimmedName.prefix(characterLimit))
+
+        // Prevent empty names
+        guard !newName.isEmpty else {
+            isShowingDuplicateAlert = true
+            // Revert to original valid name
+            subject.name = originalSubjectName
+            return
+        }
+
+        // Determine if name actually changed (case-insensitive for comparison but preserve casing for storage)
+        let nameChanged = newName.lowercased() != originalSubjectName.lowercased()
+
+        // Duplicate check should EXCLUDE the current subject
+        if nameChanged {
+            let lowercasedNew = newName.lowercased()
+            let hasDuplicate = subjects.contains { other in
+                // Exclude the current subject instance by comparing persistent identifiers
+                if other.persistentModelID == subject.persistentModelID { return false }
+                return other.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == lowercasedNew
+            }
+
+            if hasDuplicate {
                 isShowingDuplicateAlert = true
-                subject.name = originalSubjectName // Revert to original name
+                // Revert visible text to original name
+                subject.name = originalSubjectName
                 return
             }
         }
-        
+
+        // Apply the normalized name back to the model
+        subject.name = newName
+
         // If validation passes, move files and dismiss
-        if originalSubjectName != newName {
+        if nameChanged {
             moveFilesToNewFolder(oldName: originalSubjectName, newName: newName)
         }
         isShowingEditSubjectView = false
@@ -110,9 +133,20 @@ struct EditSubjectView: View {
                 } ?? []
             )
         }
+        
+        // Reschedule notifications when data is saved ---
+        let subjectToSchedule = subject
+        Task {
+            await NotificationManager.shared.scheduleNotifications(for: subjectToSchedule)
+        }
     }
     
 }
+
+// Helper to access a stable identifier when available; optional for SwiftData models
+// private extension PersistentModel {
+//     var persistentModelID: PersistentIdentifier { self.persistentModelID }
+// }
 
 #Preview {
     do {
@@ -161,3 +195,4 @@ extension EditSubjectView {
         return documentsDirectory.appendingPathComponent("Subjects").appendingPathComponent(subjectName)
     }
 }
+

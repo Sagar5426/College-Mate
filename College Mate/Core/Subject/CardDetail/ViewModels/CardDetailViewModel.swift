@@ -8,15 +8,67 @@ import PhotosUI // Import for modern photo picker
 @MainActor
 class CardDetailViewModel: ObservableObject {
     
+    // MARK: - Enums
+    enum SortType: String {
+        case date = "Date Added"
+        case name = "Alphabetical"
+    }
+
+    enum LayoutStyle: String, CaseIterable {
+        case grid = "Grid"
+        case list = "List"
+    }
+    
     // MARK: - Properties
+    
+    private let layoutStyleKey: String
+    
+    // Centralized entry point to start renaming/captioning a file
+    private func beginRenaming(with metadata: FileMetadata) {
+        self.renamingFileMetadata = metadata
+        self.newFileName = self.suggestedEditableName(from: metadata.fileName)
+        self.isShowingRenameView = true
+    }
+    
+    // Returns an empty string for auto-generated image names like "image_<UUID>", otherwise returns the base name without extension.
+    private func suggestedEditableName(from fileName: String) -> String {
+        let base = (fileName as NSString).deletingPathExtension
+        let lower = base.lowercased()
+        // Accept both image_ and image- prefixes
+        if lower.hasPrefix("image_") || lower.hasPrefix("image-") {
+            let dropCount = lower.hasPrefix("image_") ? 6 : 6 // length of "image_" or "image-"
+            let uuidPart = String(lower.dropFirst(dropCount))
+            // Basic UUID format check: 8-4-4-4-12
+            let components = uuidPart.split(separator: "-")
+            let expected = [8, 4, 4, 4, 12]
+            if components.count == expected.count && zip(components, expected).allSatisfy({ $0.count == $1 }) {
+                return ""
+            }
+        }
+        return base
+    }
     
     let subject: Subject
     private let modelContext: ModelContext
+    
+    // --- View State ---
+    @Published var layoutStyle: LayoutStyle = .grid {
+        didSet {
+            UserDefaults.standard.set(layoutStyle.rawValue, forKey: layoutStyleKey)
+        }
+    }
+    @Published var sortType: SortType = .date
+    @Published var sortAscending: Bool = false // false for newest first/A-Z
+    
+    // ADDED: State for the note sheet
+    @Published var isShowingNoteSheet = false
+    @Published var subjectNote: String = ""
     
     // --- Folder-based State ---
     @Published var currentFolder: Folder? = nil
     @Published var folderPath: [Folder] = [] // Breadcrumb navigation
     @Published var currentFiles: [FileMetadata] = []
+    @Published var originalSubfolders: [Folder] = [] // Store the unfiltered subfolders
     @Published var filteredFileMetadata: [FileMetadata] = []
     @Published var subfolders: [Folder] = []
     
@@ -25,6 +77,20 @@ class CardDetailViewModel: ObservableObject {
     @Published var isShowingFileImporter = false
     @Published var isImportingFile = false
     @Published var isShowingPhotoPicker = false
+    // Dedicated flag for rename/caption UI
+    @Published var isShowingRenameView = false
+    
+    // --- Single Item Delete State ---
+    @Published var itemToDelete: AnyHashable? = nil
+    @Published var isShowingSingleDeleteAlert = false {
+        didSet {
+            // When the alert is dismissed (either by confirm or cancel),
+            // reset the itemToDelete.
+            if !isShowingSingleDeleteAlert {
+                itemToDelete = nil
+            }
+        }
+    }
     
     // --- Search State ---
     @Published var isSearchBarVisible = false
@@ -60,14 +126,22 @@ class CardDetailViewModel: ObservableObject {
     @Published var renamingFileMetadata: FileMetadata? = nil {
         didSet {
             if let metadata = renamingFileMetadata {
-                newFileName = (metadata.fileName as NSString).deletingPathExtension
+                if metadata.fileType == .image {
+                    newFileName = suggestedEditableName(from: metadata.fileName)
+                } else {
+                    newFileName = (metadata.fileName as NSString).deletingPathExtension
+                }
+                isShowingRenameView = true
             }
         }
     }
     @Published var renamingFileURL: URL? = nil {
         didSet {
+            guard renamingFileMetadata == nil else { return }
             if let url = renamingFileURL {
-                newFileName = url.deletingPathExtension().lastPathComponent
+                let base = url.deletingPathExtension().lastPathComponent
+                newFileName = suggestedEditableName(from: base)
+                isShowingRenameView = true
             }
         }
     }
@@ -76,7 +150,19 @@ class CardDetailViewModel: ObservableObject {
     // --- Selection State for Multi-Select ---
     @Published var isEditing = false
     @Published var selectedFileMetadata: Set<FileMetadata> = []
+    @Published var selectedFolders: Set<Folder> = []
     @Published var isShowingMultiDeleteAlert = false
+    
+    // ADDED: Computed property to get total selected item count
+    var selectedItemCount: Int {
+        selectedFileMetadata.count + selectedFolders.count
+    }
+    
+    // Computed property to disable the move button
+    var isMoveButtonDisabled: Bool {
+        // Disable if any folder is selected OR if no files are selected.
+        return !selectedFolders.isEmpty || selectedFileMetadata.isEmpty
+    }
     
     // --- Multi-Sharing State ---
     @Published var urlsToShare: [URL] = []
@@ -88,80 +174,129 @@ class CardDetailViewModel: ObservableObject {
     init(subject: Subject, modelContext: ModelContext) {
         self.subject = subject
         self.modelContext = modelContext
+        self.layoutStyleKey = "CardDetailView_LayoutStyle_\(subject.id.uuidString)"
+        
+        // Load saved layout style
+        if let savedLayoutRawValue = UserDefaults.standard.string(forKey: layoutStyleKey),
+           let savedLayout = LayoutStyle(rawValue: savedLayoutRawValue) {
+            self.layoutStyle = savedLayout
+        } else {
+            self.layoutStyle = .grid // Default
+        }
         
         FileDataService.migrateExistingFiles(for: subject, modelContext: modelContext)
         loadFolderContent()
+        
+        // ADDED: Load the saved note
+        self.subjectNote = subject.ImportantTopicsNote
     }
     
+    // MARK: - Sorting Method
+    func selectSortOption(_ newSortType: SortType) {
+        if sortType == newSortType {
+            sortAscending.toggle()
+        } else {
+            sortType = newSortType
+            sortAscending = false // Default to descending for date, ascending for name
+        }
+        loadFolderContent()
+        performSearch() // Re-apply search with new sort
+    }
+
+    // ADDED: Function to save the note
+    // MARK: - Subject Note
+    
+    func saveSubjectNote() {
+        subject.ImportantTopicsNote = subjectNote
+        do {
+            try modelContext.save()
+        } catch {
+            print("Failed to save subject note: \(error)")
+        }
+    }
+
     // MARK: - Folder-based Methods
     
     func loadFolderContent() {
+        let baseSubfolders: [Folder]
+        let baseFiles: [FileMetadata]
+
         if let currentFolder = currentFolder {
-            subfolders = currentFolder.subfolders.sorted { $0.name < $1.name }
-            currentFiles = currentFolder.files.sorted { $0.createdDate > $1.createdDate }
+            baseSubfolders = currentFolder.subfolders
+            baseFiles = currentFolder.files
         } else {
-            subfolders = subject.rootFolders.sorted { $0.name < $1.name }
-            // At root, show files that have no parent folder.
-            currentFiles = subject.fileMetadata.filter { $0.folder == nil }.sorted { $0.createdDate > $1.createdDate }
+            baseSubfolders = subject.rootFolders
+            baseFiles = subject.fileMetadata.filter { $0.folder == nil }
         }
+
+        // Apply sorting and store original list of folders
+        self.originalSubfolders = sortFolders(baseSubfolders)
+        self.subfolders = self.originalSubfolders
+        currentFiles = sortFiles(baseFiles)
+        
         filterFileMetadata()
+    }
+    
+    // Helper to sort folders
+    private func sortFolders(_ folders: [Folder]) -> [Folder] {
+        return folders.sorted {
+            let name1 = $0.name.lowercased()
+            let name2 = $1.name.lowercased()
+            return sortAscending ? name1 < name2 : name1 > name2
+        }
+    }
+    
+    // Helper to sort files
+    private func sortFiles(_ files: [FileMetadata]) -> [FileMetadata] {
+        return files.sorted {
+            switch sortType {
+            case .date:
+                let date1 = $0.createdDate
+                let date2 = $1.createdDate
+                return sortAscending ? date1 < date2 : date1 > date2
+            case .name:
+                let name1 = $0.fileName.lowercased()
+                let name2 = $1.fileName.lowercased()
+                return sortAscending ? name1 < name2 : name1 > name2
+            }
+        }
     }
     
     func filterFileMetadata() {
         let showSearchAtRoot = isSearching && currentFolder == nil
         let filesToFilter = showSearchAtRoot ? searchResults : currentFiles
-        let foldersToFilter: [Folder] = showSearchAtRoot ? searchFolderResults : (currentFolder?.subfolders ?? subject.rootFolders)
+        
+        // Always start with the original, unfiltered list of folders
+        let foldersToFilter: [Folder] = showSearchAtRoot ? searchFolderResults : self.originalSubfolders
 
         switch selectedFilter {
         case .all:
             filteredFileMetadata = filesToFilter
-            subfolders = foldersToFilter.sorted { $0.name < $1.name }
+            subfolders = foldersToFilter
         case .images:
             filteredFileMetadata = filesToFilter.filter { $0.fileType == .image }
-            if showSearchAtRoot {
-                subfolders = []
-            } else {
-                subfolders = foldersToFilter.filter { folder in
-                    !folder.files.filter { $0.fileType == .image }.isEmpty
-                }.sorted { $0.name < $1.name }
+            subfolders = showSearchAtRoot ? [] : foldersToFilter.filter { folder in
+                !folder.files.filter { $0.fileType == .image }.isEmpty
             }
         case .pdfs:
             filteredFileMetadata = filesToFilter.filter { $0.fileType == .pdf }
-            if showSearchAtRoot {
-                subfolders = []
-            } else {
-                subfolders = foldersToFilter.filter { folder in
-                    !folder.files.filter { $0.fileType == .pdf }.isEmpty
-                }.sorted { $0.name < $1.name }
+            subfolders = showSearchAtRoot ? [] : foldersToFilter.filter { folder in
+                !folder.files.filter { $0.fileType == .pdf }.isEmpty
             }
         case .docs:
             filteredFileMetadata = filesToFilter.filter { $0.fileType == .docx }
-            if showSearchAtRoot {
-                subfolders = []
-            } else {
-                subfolders = foldersToFilter.filter { folder in
-                    !folder.files.filter { $0.fileType == .docx }.isEmpty
-                }.sorted { $0.name < $1.name }
+            subfolders = showSearchAtRoot ? [] : foldersToFilter.filter { folder in
+                !folder.files.filter { $0.fileType == .docx }.isEmpty
             }
         case .favorites:
-            // If we're at the root (no currentFolder) and not searching, show:
-            // - Only individually favorited files (from anywhere)
-            // - Only folders that are themselves favorited (from anywhere)
             if currentFolder == nil && !isSearching {
-                filteredFileMetadata = subject.fileMetadata
-                    .filter { $0.isFavorite }
-                    .sorted { $0.createdDate > $1.createdDate }
-
+                filteredFileMetadata = sortFiles(subject.fileMetadata.filter { $0.isFavorite })
                 let allFolders = allFoldersRecursively(from: subject.rootFolders)
-                subfolders = allFolders
-                    .filter { $0.isFavorite }
-                    .sorted { $0.name < $1.name }
+                subfolders = sortFolders(allFolders.filter { $0.isFavorite })
             } else {
-                // If we navigated into a folder while Favorites is selected (or we're searching),
-                // show the actual contents of the current folder so users can browse normally.
-                // This matches Files app behavior when opening a favorited folder.
-                filteredFileMetadata = currentFiles
-                subfolders = (currentFolder?.subfolders ?? []).sorted { $0.name < $1.name }
+                // When in a folder, just filter the current content
+                filteredFileMetadata = filesToFilter.filter { $0.isFavorite }
+                subfolders = foldersToFilter.filter { $0.isFavorite }
             }
         }
     }
@@ -266,6 +401,22 @@ class CardDetailViewModel: ObservableObject {
         }
     }
     
+    // MARK: - Single Item Delete Methods
+    
+    func promptForDelete(item: AnyHashable) {
+        itemToDelete = item
+        isShowingSingleDeleteAlert = true
+    }
+
+    func confirmDeleteItem() {
+        if let folder = itemToDelete as? Folder {
+            deleteFolder(folder)
+        } else if let fileMetadata = itemToDelete as? FileMetadata {
+            deleteFileMetadata(fileMetadata)
+        }
+        // itemToDelete is reset by the isShowingSingleDeleteAlert.didSet
+    }
+    
     // MARK: - Search Methods
     
     func toggleSearchBarVisibility() {
@@ -290,11 +441,11 @@ class CardDetailViewModel: ObservableObject {
         // Always search all files within the current subject.
         let filesToSearch = self.subject.fileMetadata
         let results = filesToSearch.filter { $0.fileName.lowercased().contains(query) }
-        searchResults = results.sorted { $0.createdDate > $1.createdDate }
+        searchResults = sortFiles(results)
 
         // Search all folders (including nested) by name
         let allFolders = allFoldersRecursively(from: subject.rootFolders)
-        searchFolderResults = allFolders.filter { $0.name.lowercased().contains(query) }
+        searchFolderResults = sortFolders(allFolders.filter { $0.name.lowercased().contains(query) })
         
         filterFileMetadata()
     }
@@ -369,6 +520,7 @@ class CardDetailViewModel: ObservableObject {
         // Reset the renaming state
         renamingFileURL = nil
         renamingFileMetadata = nil
+        isShowingRenameView = false
     }
     
     // MARK: - File Import Handlers
@@ -410,7 +562,13 @@ class CardDetailViewModel: ObservableObject {
             for item in items {
                 if let data = try? await item.loadTransferable(type: Data.self) {
                     let fileName = "image_\(UUID().uuidString).jpg"
-                    _ = FileDataService.saveFile(data: data, fileName: fileName, to: self.currentFolder, in: self.subject, modelContext: self.modelContext)
+                    _ = FileDataService.saveFile(
+                        data: data,
+                        fileName: fileName,
+                        to: self.currentFolder,
+                        in: self.subject,
+                        modelContext: self.modelContext
+                    )
                 }
             }
         }
@@ -428,7 +586,7 @@ class CardDetailViewModel: ObservableObject {
         guard let image = image, let imageData = image.jpegData(compressionQuality: 0.8) else { return }
         let fileName = "image_\(UUID().uuidString).jpg"
         
-        if FileDataService.saveFile(data: imageData, fileName: fileName, to: currentFolder, in: subject, modelContext: modelContext) != nil {
+        if let _ = FileDataService.saveFile(data: imageData, fileName: fileName, to: currentFolder, in: subject, modelContext: modelContext) {
             if self.isEditing { self.toggleEditMode() }
             loadFolderContent()
         }
@@ -461,10 +619,22 @@ class CardDetailViewModel: ObservableObject {
     // MARK: - Sharing Methods
     
     func shareSelectedFiles() {
-        let urls = selectedFileMetadata.compactMap { $0.getFileURL() }
-        guard !urls.isEmpty else { return }
+        var urlsToShare = selectedFileMetadata.compactMap { $0.getFileURL() }
         
-        self.urlsToShare = urls
+        // Add files from selected folders
+        for folder in selectedFolders {
+            func recursivelyCollectFiles(from folder: Folder) {
+                urlsToShare.append(contentsOf: folder.files.compactMap { $0.getFileURL() })
+                for subfolder in folder.subfolders {
+                    recursivelyCollectFiles(from: subfolder)
+                }
+            }
+            recursivelyCollectFiles(from: folder)
+        }
+        
+        guard !urlsToShare.isEmpty else { return }
+        
+        self.urlsToShare = urlsToShare
         self.isShowingMultiShareSheet = true
     }
     
@@ -491,21 +661,52 @@ class CardDetailViewModel: ObservableObject {
     
     // MARK: - Multi-Select / Editing Methods
     
+    // Computed property to check if all *visible* files are selected
+    var allVisibleFilesSelected: Bool {
+        // Can't be "all selected" if there are no files to select
+        if filteredFileMetadata.isEmpty { return false }
+        
+        // Create a Set of visible file IDs for efficient checking
+        let visibleFileIDs = Set(filteredFileMetadata.map { $0.id })
+        // Create a Set of selected file IDs
+        let selectedFileIDs = Set(selectedFileMetadata.map { $0.id })
+        
+        // Check if the selected IDs contain all the visible IDs
+        return selectedFileIDs.isSuperset(of: visibleFileIDs)
+    }
+    
+    func toggleSelectAllFiles() {
+        if allVisibleFilesSelected {
+            // Deselect all visible files
+            selectedFileMetadata.subtract(filteredFileMetadata)
+        } else {
+            // Select all visible files
+            selectedFileMetadata.formUnion(filteredFileMetadata)
+        }
+    }
+    
     func toggleEditMode() {
         isEditing.toggle()
         if !isEditing {
             selectedFileMetadata.removeAll()
+            selectedFolders.removeAll()
         }
     }
 
-    func deleteSelectedFiles() {
+    func deleteSelectedItems() {
         let metadataToDelete = selectedFileMetadata
         for metadata in metadataToDelete {
             deleteFileMetadata(metadata)
         }
         
+        let foldersToDelete = selectedFolders
+        for folder in foldersToDelete {
+            deleteFolder(folder)
+        }
+        
         DispatchQueue.main.async {
             self.selectedFileMetadata.removeAll()
+            self.selectedFolders.removeAll()
             self.isEditing = false
             self.loadFolderContent()
         }
@@ -516,6 +717,14 @@ class CardDetailViewModel: ObservableObject {
             selectedFileMetadata.remove(metadata)
         } else {
             selectedFileMetadata.insert(metadata)
+        }
+    }
+    
+    func toggleSelectionForFolder(_ folder: Folder) {
+        if selectedFolders.contains(folder) {
+            selectedFolders.remove(folder)
+        } else {
+            selectedFolders.insert(folder)
         }
     }
 }

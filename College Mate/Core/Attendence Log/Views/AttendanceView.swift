@@ -28,7 +28,7 @@ struct AttendanceView: View {
                 .padding()
             }
             .id(viewID)
-            .background(LinearGradient(colors: [.gray.opacity(0.1), .black.opacity(0.1), .gray.opacity(0.07)], startPoint: .top, endPoint: .bottom))
+            .background(LinearGradient.appBackground.ignoresSafeArea())
             .blur(radius: viewModel.isShowingDatePicker ? 8 : 0)
             .disabled(viewModel.isShowingDatePicker)
             .fullScreenCover(isPresented: $viewModel.isShowingProfileView) {
@@ -52,7 +52,8 @@ struct AttendanceView: View {
                 }
             }
         }
-        .animation(.snappy, value: viewModel.isShowingDatePicker)
+        // MODIFICATION: Replaced .snappy with a smoother .spring animation
+        .animation(.spring(duration: 0.4), value: viewModel.isShowingDatePicker)
         .onAppear {
             viewModel.setup(subjects: subjects, modelContext: modelContext)
         }
@@ -216,3 +217,4 @@ struct ClassAttendanceRow: View {
         return Text("Failed to create preview: \(error.localizedDescription)")
     }
 }
+

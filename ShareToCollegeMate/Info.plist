@@ -9,19 +9,18 @@
 			<key>NSExtensionActivationRule</key>
 			<dict>
 				<key>NSExtensionActivationSupportsAttachmentsWithMatchingFileTypes</key>
-				<array/>
-				<key>com.adobe.pdf</key>
-				<string></string>
-				<key>org.openxmlformats.wordprocessingml.document</key>
-				<string></string>
-				<key>public.image</key>
-				<string></string>
+				<array>
+
+					<string>com.adobe.pdf</string>
+					<string>org.openxmlformats.wordprocessingml.document</string>
+					<string>public.image</string>
+				</array>
 			</dict>
 		</dict>
-		<key>NSExtensionMainStoryboard</key>
-		<string>MainInterface</string>
 		<key>NSExtensionPointIdentifier</key>
 		<string>com.apple.share-services</string>
+		<key>NSExtensionPrincipalClass</key>
+		<string>$(PRODUCT_MODULE_NAME).ShareExtensionViewController</string>
 	</dict>
 </dict>
 </plist>
