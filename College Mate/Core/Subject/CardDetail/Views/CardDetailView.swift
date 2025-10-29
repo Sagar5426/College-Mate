@@ -76,7 +76,7 @@ struct CardDetailView: View {
             }
             .navigationTitle(viewModel.subject.name)
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar { mainToolbar }
+            .toolbar { mainToolbar } // Toolbar logic updated below
             .alert("Delete this Subject", isPresented: $viewModel.isShowingDeleteAlert) {
                 deleteAlertContent
             } message: {
@@ -91,7 +91,8 @@ struct CardDetailView: View {
             } message: {
                 Text("This action cannot be undone.")
             }
-            .alert("Delete \(viewModel.selectedFileMetadata.count + viewModel.selectedFolders.count) items?", isPresented: $viewModel.isShowingMultiDeleteAlert) {
+             // Use selectedItemCount from ViewModel
+            .alert("Delete \(viewModel.selectedItemCount) items?", isPresented: $viewModel.isShowingMultiDeleteAlert) {
                 Button("Delete", role: .destructive) { viewModel.deleteSelectedItems() }
                 Button("Cancel", role: .cancel) { }
             } message: {
@@ -191,30 +192,17 @@ struct CardDetailView: View {
     @ToolbarContentBuilder
     private var mainToolbar: some ToolbarContent {
         if viewModel.isEditing {
-            // MARK: - Select All Button
-            ToolbarItemGroup(placement: .topBarLeading) {
-                // Only show the button if there are files to select
-                if !viewModel.filteredFileMetadata.isEmpty {
-                    Button(viewModel.allVisibleFilesSelected ? "Deselect All" : "Select All") {
-                        viewModel.toggleSelectAllFiles()
-                    }
-                }
-            }
+            // ** REMOVED ToolbarItemGroup(placement: .topBarLeading) **
             
             ToolbarItemGroup(placement: .topBarTrailing) {
-                Button(action: { viewModel.shareSelectedFiles() }) {
-                    Image(systemName: "square.and.arrow.up")
-                        .frame(width: 24, height: 24)
-                }
-                .disabled(viewModel.selectedFileMetadata.isEmpty && viewModel.selectedFolders.isEmpty)
-                .opacity(viewModel.selectedFileMetadata.isEmpty && viewModel.selectedFolders.isEmpty ? 0 : 1)
-                .accessibilityHidden(viewModel.selectedFileMetadata.isEmpty && viewModel.selectedFolders.isEmpty)
+                // ** REMOVED Share button **
                 
                 Button("Cancel") {
                     viewModel.toggleEditMode()
                 }
             }
         } else {
+            // Keep the non-editing mode toolbar items
             ToolbarItem(placement: .topBarTrailing) {
                 HStack {
                     Button {
@@ -260,7 +248,7 @@ struct CardDetailView: View {
         .background(LinearGradient.appBackground.ignoresSafeArea())
         .overlay(alignment: .bottom) {
             if viewModel.isEditing {
-                editingBottomBar
+                editingBottomBar // Use the new redesigned bottom bar
             } else {
                 addButton
             }
@@ -328,13 +316,14 @@ struct CardDetailView: View {
                 }
                 
                 Menu {
-                    if !viewModel.filteredFileMetadata.isEmpty || !viewModel.subfolders.isEmpty {
-                        Button {
-                            viewModel.toggleEditMode()
-                        } label: {
-                            Label("Select Items", systemImage: "checkmark.circle")
-                        }
-                        Divider()
+                    // Only show Select Items if not already editing
+                    if !viewModel.isEditing && (!viewModel.filteredFileMetadata.isEmpty || !viewModel.subfolders.isEmpty) {
+                         Button {
+                             viewModel.toggleEditMode()
+                         } label: {
+                             Label("Select Items", systemImage: "checkmark.circle")
+                         }
+                         Divider()
                     }
                     
                     // Sorting Options
@@ -540,7 +529,8 @@ struct CardDetailView: View {
             }
             .padding(.vertical)
             .padding(.horizontal)
-            Spacer(minLength: 170)
+             // Increased spacer to ensure content clears the bottom bar
+            Spacer(minLength: 100)
         }
     }
 
@@ -554,9 +544,9 @@ struct CardDetailView: View {
                 fileRow(for: fileMetadata)
             }
             // Custom spacer to prevent overlap with the bottom bar/button
-                        Color.clear
-                            .frame(height: 120)
-                            .listRowSeparator(.hidden)
+            Color.clear
+                .frame(height: 100) // Increased spacer
+                .listRowSeparator(.hidden)
         }
         .listStyle(.plain)
     }
@@ -880,10 +870,11 @@ struct CardDetailView: View {
     
     private var addButton: some View {
         Menu {
+            // Only allow creating folders at the root level for now
             if viewModel.currentFolder == nil {
-                Button("New Folder", systemImage: "folder.badge.plus") {
-                    viewModel.isShowingCreateFolderAlert = true
-                }
+                 Button("New Folder", systemImage: "folder.badge.plus") {
+                     viewModel.isShowingCreateFolderAlert = true
+                 }
             }
             Button("Camera", systemImage: "camera.fill") { viewModel.isShowingCamera = true }
             Button("Images from Photos", systemImage: "photo.on.rectangle.angled") {
@@ -955,41 +946,76 @@ struct CardDetailView: View {
         .frame(maxWidth: .infinity, alignment: .bottomTrailing)
     }
     
+    // MARK: - Redesigned Bottom Bar
     private var editingBottomBar: some View {
-        VStack(spacing: 12) {
-            HStack(spacing: 16) {
-                // Move Button
-                Button {
-                    viewModel.showFolderPickerForSelection()
-                } label: {
-                    Label("Move", systemImage: "folder")
-                        .fontWeight(.semibold)
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(viewModel.isMoveButtonDisabled ? Color.gray : Color.orange)
-                        .foregroundColor(.white)
-                        .clipShape(Capsule())
-                }
-                .disabled(viewModel.isMoveButtonDisabled)
-                
-                // Delete Button
-                Button(role: .destructive) {
-                    viewModel.isShowingMultiDeleteAlert = true
-                } label: {
-                    Label("Delete (\(viewModel.selectedFileMetadata.count + viewModel.selectedFolders.count))", systemImage: "trash")
-                        .fontWeight(.semibold)
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(viewModel.selectedFileMetadata.isEmpty && viewModel.selectedFolders.isEmpty ? Color.gray : Color.red)
-                        .foregroundColor(.white)
-                        .clipShape(Capsule())
-                }
-                .disabled(viewModel.selectedFileMetadata.isEmpty && viewModel.selectedFolders.isEmpty)
+        HStack(alignment: .center) { // Align items vertically center
+            // Select All / Deselect All
+            Button(viewModel.allVisibleFilesSelected ? "Deselect All" : "Select All") {
+                viewModel.toggleSelectAllFiles()
             }
+            .font(.subheadline.weight(.medium))
+            .padding(.leading)
+            .disabled(viewModel.filteredFileMetadata.isEmpty) // Disable if no files to select
+            .foregroundColor(viewModel.filteredFileMetadata.isEmpty ? .gray : .blue)
+
+            Spacer()
+
+            // Share Button
+            Button {
+                viewModel.shareSelectedFiles()
+            } label: {
+                Image(systemName: "square.and.arrow.up")
+                    .font(.title3) // Consistent font size
+                    .frame(width: 44, height: 44) // Make touch target larger
+            }
+            .disabled(viewModel.selectedItemCount == 0)
+
+            Spacer()
+
+            // Move Button
+            Button {
+                viewModel.showFolderPickerForSelection()
+            } label: {
+                Image(systemName: "folder")
+                    .font(.title3) // Consistent font size
+                    .frame(width: 44, height: 44) // Make touch target larger
+            }
+            .disabled(viewModel.isMoveButtonDisabled) // This logic is still good
+
+            Spacer()
+
+            // Delete Button
+            Button {
+                viewModel.isShowingMultiDeleteAlert = true
+            } label: {
+                VStack(spacing: 0) { // Reduced spacing for compact look
+                    Image(systemName: "trash")
+                        .font(.title3) // Consistent font size
+                        .foregroundColor(viewModel.selectedItemCount > 0 ? .red : .gray)
+                    
+                    // Show count only if > 0, make it smaller
+                    if viewModel.selectedItemCount > 0 {
+                        Text("\(viewModel.selectedItemCount)")
+                            .font(.system(size: 10, weight: .bold)) // Smaller font
+                            .foregroundColor(.red)
+                            .padding(.top, 1) // Tiny space
+                            .transition(.scale.combined(with: .opacity))
+                    }
+                }
+                .frame(width: 44, height: 44) // Make touch target larger
+            }
+            .padding(.trailing)
+            .disabled(viewModel.selectedItemCount == 0)
         }
-        .padding()
-        .background(.thinMaterial) // Adding a background for better visual separation
-        .transition(.move(edge: .bottom))
+        .frame(maxWidth: .infinity) // Take full width
+        .padding(.vertical, 4) // Reduced vertical padding
+        .background(.thinMaterial)
+        .clipShape(Capsule())
+        .padding(.horizontal) // Padding outside the capsule
+        .padding(.bottom, 8) // Padding below the capsule
+        .transition(.move(edge: .bottom).combined(with: .opacity))
+         // Animate changes based on selection count for the delete badge
+        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: viewModel.selectedItemCount)
     }
     
     private var deleteAlertContent: some View {

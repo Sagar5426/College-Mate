@@ -153,6 +153,11 @@ class CardDetailViewModel: ObservableObject {
     @Published var selectedFolders: Set<Folder> = []
     @Published var isShowingMultiDeleteAlert = false
     
+    // ADDED: Computed property to get total selected item count
+    var selectedItemCount: Int {
+        selectedFileMetadata.count + selectedFolders.count
+    }
+    
     // Computed property to disable the move button
     var isMoveButtonDisabled: Bool {
         // Disable if any folder is selected OR if no files are selected.
