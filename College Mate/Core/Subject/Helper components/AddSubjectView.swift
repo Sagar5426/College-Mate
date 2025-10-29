@@ -113,6 +113,13 @@ struct AddSubjectView: View {
         // Add the new Subject to the modelContext
         modelContext.insert(newSubject)
         
+        // --- ADDED: Schedule notifications for the new subject ---
+        let subjectToSchedule = newSubject
+        Task {
+            await NotificationManager.shared.scheduleNotifications(for: subjectToSchedule)
+        }
+        // --- END OF ADDED CODE ---
+        
         // Reset form fields
         subjectName = ""
         selectedDays.removeAll()

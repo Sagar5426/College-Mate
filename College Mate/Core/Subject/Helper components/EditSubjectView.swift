@@ -133,6 +133,12 @@ struct EditSubjectView: View {
                 } ?? []
             )
         }
+        
+        // Reschedule notifications when data is saved ---
+        let subjectToSchedule = subject
+        Task {
+            await NotificationManager.shared.scheduleNotifications(for: subjectToSchedule)
+        }
     }
     
 }
@@ -189,3 +195,4 @@ extension EditSubjectView {
         return documentsDirectory.appendingPathComponent("Subjects").appendingPathComponent(subjectName)
     }
 }
+
