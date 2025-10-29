@@ -191,6 +191,16 @@ struct CardDetailView: View {
     @ToolbarContentBuilder
     private var mainToolbar: some ToolbarContent {
         if viewModel.isEditing {
+            // MARK: - Select All Button
+            ToolbarItemGroup(placement: .topBarLeading) {
+                // Only show the button if there are files to select
+                if !viewModel.filteredFileMetadata.isEmpty {
+                    Button(viewModel.allVisibleFilesSelected ? "Deselect All" : "Select All") {
+                        viewModel.toggleSelectAllFiles()
+                    }
+                }
+            }
+            
             ToolbarItemGroup(placement: .topBarTrailing) {
                 Button(action: { viewModel.shareSelectedFiles() }) {
                     Image(systemName: "square.and.arrow.up")

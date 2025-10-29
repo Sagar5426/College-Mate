@@ -656,6 +656,30 @@ class CardDetailViewModel: ObservableObject {
     
     // MARK: - Multi-Select / Editing Methods
     
+    // Computed property to check if all *visible* files are selected
+    var allVisibleFilesSelected: Bool {
+        // Can't be "all selected" if there are no files to select
+        if filteredFileMetadata.isEmpty { return false }
+        
+        // Create a Set of visible file IDs for efficient checking
+        let visibleFileIDs = Set(filteredFileMetadata.map { $0.id })
+        // Create a Set of selected file IDs
+        let selectedFileIDs = Set(selectedFileMetadata.map { $0.id })
+        
+        // Check if the selected IDs contain all the visible IDs
+        return selectedFileIDs.isSuperset(of: visibleFileIDs)
+    }
+    
+    func toggleSelectAllFiles() {
+        if allVisibleFilesSelected {
+            // Deselect all visible files
+            selectedFileMetadata.subtract(filteredFileMetadata)
+        } else {
+            // Select all visible files
+            selectedFileMetadata.formUnion(filteredFileMetadata)
+        }
+    }
+    
     func toggleEditMode() {
         isEditing.toggle()
         if !isEditing {
