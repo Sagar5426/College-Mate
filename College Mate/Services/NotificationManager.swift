@@ -70,6 +70,37 @@ class NotificationManager {
                 do {
                     try await center.add(request)
                     print("Scheduled notification: \(identifier)")
+                    
+                    // Schedule a 10-minute before notification (weekly repeating)
+                    let preContent = UNMutableNotificationContent()
+                    preContent.title = "\(subjectName) class in 10 minutes"
+                    preContent.body = "Get ready to head to class."
+                    preContent.sound = .default
+                    
+                    // Compute 10-min prior time components for the same weekday
+                    var preHour = hour
+                    var preMinute = minute - 10
+                    if preMinute < 0 {
+                        preMinute += 60
+                        preHour = (preHour - 1 + 24) % 24
+                    }
+                    
+                    var preDateComponents = DateComponents()
+                    preDateComponents.weekday = weekday
+                    preDateComponents.hour = preHour
+                    preDateComponents.minute = preMinute
+                    
+                    let preTrigger = UNCalendarNotificationTrigger(dateMatching: preDateComponents, repeats: true)
+                    let preIdentifier = "\(subject.id.uuidString)_\(schedule.day)_\(classTime.id.uuidString)_pre10"
+                    let preRequest = UNNotificationRequest(identifier: preIdentifier, content: preContent, trigger: preTrigger)
+                    
+                    do {
+                        try await center.add(preRequest)
+                        print("Scheduled 10-min prior notification: \(preIdentifier)")
+                    } catch {
+                        print("Failed to schedule 10-min prior notification \(preIdentifier): \(error.localizedDescription)")
+                    }
+                    
                 } catch {
                     print("Failed to schedule notification \(identifier): \(error.localizedDescription)")
                 }
