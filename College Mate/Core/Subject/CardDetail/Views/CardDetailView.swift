@@ -513,6 +513,7 @@ struct CardDetailView: View {
                     folderView(for: folder)
                         .onTapGesture {
                             if viewModel.isEditing {
+                                playNavigationHaptic()
                                 viewModel.toggleSelectionForFolder(folder)
                             } else {
                                 playNavigationHaptic()
@@ -523,7 +524,12 @@ struct CardDetailView: View {
                 
                 ForEach(viewModel.filteredFileMetadata, id: \.id) { fileMetadata in
                     fileMetadataView(for: fileMetadata)
-                        .onTapGesture { handleTapForMetadata(fileMetadata) }
+                        .onTapGesture {
+                            if viewModel.isEditing {
+                                playNavigationHaptic()
+                            }
+                            handleTapForMetadata(fileMetadata)
+                        }
                         .transition(.scale.combined(with: .opacity))
                 }
             }
@@ -575,6 +581,7 @@ struct CardDetailView: View {
         .contentShape(Rectangle())
         .onTapGesture {
             if viewModel.isEditing {
+                playNavigationHaptic()
                 viewModel.toggleSelectionForFolder(folder)
             } else {
                 playNavigationHaptic()
@@ -619,6 +626,9 @@ struct CardDetailView: View {
         .padding(.vertical, 8)
         .contentShape(Rectangle())
         .onTapGesture {
+            if viewModel.isEditing {
+                playNavigationHaptic()
+            }
             handleTapForMetadata(fileMetadata)
         }
         .contextMenu {
@@ -801,6 +811,7 @@ struct CardDetailView: View {
     
     private func handleTapForMetadata(_ fileMetadata: FileMetadata) {
         if viewModel.isEditing {
+            playNavigationHaptic()
             viewModel.toggleSelectionForMetadata(fileMetadata)
         } else {
             if let fileURL = fileMetadata.getFileURL() {
