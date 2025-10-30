@@ -661,27 +661,31 @@ class CardDetailViewModel: ObservableObject {
     
     // MARK: - Multi-Select / Editing Methods
     
-    // Computed property to check if all *visible* files are selected
-    var allVisibleFilesSelected: Bool {
-        // Can't be "all selected" if there are no files to select
-        if filteredFileMetadata.isEmpty { return false }
-        
-        // Create a Set of visible file IDs for efficient checking
+    // Computed property to check if all *visible* items (files and folders) are selected
+    var allVisibleItemsSelected: Bool {
+        // Build sets of visible IDs
         let visibleFileIDs = Set(filteredFileMetadata.map { $0.id })
-        // Create a Set of selected file IDs
+        let visibleFolderIDs = Set(subfolders.map { $0.id })
+        // If there are no visible items at all, return false
+        if visibleFileIDs.isEmpty && visibleFolderIDs.isEmpty { return false }
+        // Selected sets
         let selectedFileIDs = Set(selectedFileMetadata.map { $0.id })
-        
-        // Check if the selected IDs contain all the visible IDs
-        return selectedFileIDs.isSuperset(of: visibleFileIDs)
+        let selectedFolderIDs = Set(selectedFolders.map { $0.id })
+        // Check both are fully covered
+        let filesCovered = selectedFileIDs.isSuperset(of: visibleFileIDs)
+        let foldersCovered = selectedFolderIDs.isSuperset(of: visibleFolderIDs)
+        return filesCovered && foldersCovered
     }
     
-    func toggleSelectAllFiles() {
-        if allVisibleFilesSelected {
-            // Deselect all visible files
+    func toggleSelectAllItems() {
+        if allVisibleItemsSelected {
+            // Deselect all visible
             selectedFileMetadata.subtract(filteredFileMetadata)
+            selectedFolders.subtract(subfolders)
         } else {
-            // Select all visible files
+            // Select all visible
             selectedFileMetadata.formUnion(filteredFileMetadata)
+            selectedFolders.formUnion(subfolders)
         }
     }
     

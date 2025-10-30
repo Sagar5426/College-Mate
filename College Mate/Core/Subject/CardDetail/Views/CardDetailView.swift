@@ -815,6 +815,7 @@ struct CardDetailView: View {
             viewModel.toggleSelectionForMetadata(fileMetadata)
         } else {
             if let fileURL = fileMetadata.getFileURL() {
+                playNavigationHaptic()
                 viewModel.documentToPreview = PreviewableDocument(url: fileURL)
             }
         }
@@ -961,18 +962,20 @@ struct CardDetailView: View {
     private var editingBottomBar: some View {
         HStack(alignment: .center) { // Align items vertically center
             // Select All / Deselect All
-            Button(viewModel.allVisibleFilesSelected ? "Deselect All" : "Select All") {
-                viewModel.toggleSelectAllFiles()
+            Button(viewModel.allVisibleItemsSelected ? "Deselect All" : "Select All") {
+                playNavigationHaptic()
+                viewModel.toggleSelectAllItems()
             }
             .font(.subheadline.weight(.medium))
             .padding(.leading)
-            .disabled(viewModel.filteredFileMetadata.isEmpty) // Disable if no files to select
-            .foregroundColor(viewModel.filteredFileMetadata.isEmpty ? .gray : .blue)
+            .disabled(viewModel.filteredFileMetadata.isEmpty && viewModel.subfolders.isEmpty) // Disable if no files or folders to select
+            .foregroundColor((viewModel.filteredFileMetadata.isEmpty && viewModel.subfolders.isEmpty) ? .gray : .blue)
 
             Spacer()
 
             // Share Button
             Button {
+                playNavigationHaptic()
                 viewModel.shareSelectedFiles()
             } label: {
                 Image(systemName: "square.and.arrow.up")
@@ -985,6 +988,7 @@ struct CardDetailView: View {
 
             // Move Button
             Button {
+                playNavigationHaptic()
                 viewModel.showFolderPickerForSelection()
             } label: {
                 Image(systemName: "folder")
@@ -997,6 +1001,7 @@ struct CardDetailView: View {
 
             // Delete Button
             Button {
+                playNavigationHaptic()
                 viewModel.isShowingMultiDeleteAlert = true
             } label: {
                 VStack(spacing: 0) { // Reduced spacing for compact look
