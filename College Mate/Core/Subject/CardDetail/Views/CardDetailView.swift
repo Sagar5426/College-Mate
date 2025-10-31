@@ -525,9 +525,6 @@ struct CardDetailView: View {
                 ForEach(viewModel.filteredFileMetadata, id: \.id) { fileMetadata in
                     fileMetadataView(for: fileMetadata)
                         .onTapGesture {
-                            if viewModel.isEditing {
-                                playNavigationHaptic()
-                            }
                             handleTapForMetadata(fileMetadata)
                         }
                         .transition(.scale.combined(with: .opacity))
@@ -626,9 +623,6 @@ struct CardDetailView: View {
         .padding(.vertical, 8)
         .contentShape(Rectangle())
         .onTapGesture {
-            if viewModel.isEditing {
-                playNavigationHaptic()
-            }
             handleTapForMetadata(fileMetadata)
         }
         .contextMenu {

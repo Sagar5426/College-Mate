@@ -16,70 +16,96 @@ struct ProfileView: View {
     @State private var isShowingCropper = false
     @State private var imageToCrop: UIImage? = nil
     
+    // MARK: 1. ADDED State for Sign Out Animation
+    @State private var isSigningOut = false
+    
     var body: some View {
-        NavigationStack {
-            ZStack {
-                Color(UIColor.systemGroupedBackground).ignoresSafeArea()
+        // MARK: 2. ADDED ZStack wrapper for overlay
+        ZStack {
+            NavigationStack {
+                ZStack {
+                    Color(UIColor.systemGroupedBackground).ignoresSafeArea()
 
-                VStack {
-                    Form {
-                        ProfileHeaderView(viewModel: viewModel)
-                        UserDetailsSection(viewModel: viewModel)
-                        AttendanceHistorySection(viewModel: viewModel)
+                    VStack {
+                        Form {
+                            ProfileHeaderView(viewModel: viewModel)
+                            UserDetailsSection(viewModel: viewModel)
+                            AttendanceHistorySection(viewModel: viewModel)
+                        }
+                        .scrollContentBackground(.hidden)
+                        .background(Color.clear)
                     }
-                    .scrollContentBackground(.hidden)
-                    .background(Color.clear)
-                }
-                .navigationTitle("Profile")
-                .toolbar {
-                    ToolbarItem(placement: .topBarLeading) {
-                        Button("Close", systemImage: "xmark") {
-                            isShowingProfileView = false
+                    .navigationTitle("Profile")
+                    .toolbar {
+                        ToolbarItem(placement: .topBarLeading) {
+                            Button("Close", systemImage: "xmark") {
+                                isShowingProfileView = false
+                            }
                         }
                     }
-                }
-                .sheet(isPresented: $viewModel.isEditingProfile) {
-                    // Pass the authService into the sheet
-                    EditProfileView(viewModel: viewModel, isShowingPhotoPicker: $isShowingPhotoPicker, authService: authService)
-                }
-                .sheet(isPresented: $viewModel.isShowingDatePicker) {
-                    ProfileDatePickerSheet(viewModel: viewModel)
-                }
-                .onAppear {
-                    viewModel.subjects = subjects
-                    viewModel.filterAttendanceLogs()
-                }
-                .onChange(of: subjects) {
-                    viewModel.subjects = subjects
-                    viewModel.filterAttendanceLogs()
-                }
-                .onChange(of: viewModel.selectedFilter) {
-                    if viewModel.selectedFilter != .selectDate {
+                    .sheet(isPresented: $viewModel.isEditingProfile) {
+                        // MARK: 3. UPDATED to pass isSigningOut binding
+                        EditProfileView(
+                            viewModel: viewModel,
+                            isShowingPhotoPicker: $isShowingPhotoPicker,
+                            authService: authService,
+                            isSigningOut: $isSigningOut // Pass binding here
+                        )
+                    }
+                    .sheet(isPresented: $viewModel.isShowingDatePicker) {
+                        ProfileDatePickerSheet(viewModel: viewModel)
+                    }
+                    .onAppear {
+                        viewModel.subjects = subjects
                         viewModel.filterAttendanceLogs()
                     }
+                    .onChange(of: subjects) {
+                        viewModel.subjects = subjects
+                        viewModel.filterAttendanceLogs()
+                    }
+                    .onChange(of: viewModel.selectedFilter) {
+                        if viewModel.selectedFilter != .selectDate {
+                            viewModel.filterAttendanceLogs()
+                        }
+                    }
+                    .onChange(of: viewModel.selectedSubjectName) { viewModel.filterAttendanceLogs() }
                 }
-                .onChange(of: viewModel.selectedSubjectName) { viewModel.filterAttendanceLogs() }
             }
-        }
-        .photosPicker(isPresented: $isShowingPhotoPicker, selection: $selectedPhoto, matching: .images)
-        .onChange(of: selectedPhoto) {
-            Task {
-                if let data = try? await selectedPhoto?.loadTransferable(type: Data.self),
-                   let uiImage = UIImage(data: data) {
-                    imageToCrop = uiImage
-                    isShowingCropper = true
+            .photosPicker(isPresented: $isShowingPhotoPicker, selection: $selectedPhoto, matching: .images)
+            .onChange(of: selectedPhoto) {
+                Task {
+                    if let data = try? await selectedPhoto?.loadTransferable(type: Data.self),
+                       let uiImage = UIImage(data: data) {
+                        imageToCrop = uiImage
+                        isShowingCropper = true
+                    }
                 }
             }
-        }
-        .fullScreenCover(isPresented: $isShowingCropper) {
-            if let imageToCrop {
-                ProfileImageCropperFullScreen(image: imageToCrop, viewModel: viewModel, isPresented: $isShowingCropper)
+            .fullScreenCover(isPresented: $isShowingCropper) {
+                if let imageToCrop {
+                    ProfileImageCropperFullScreen(image: imageToCrop, viewModel: viewModel, isPresented: $isShowingCropper)
+                }
             }
-        }
-        .onChange(of: isShowingCropper) {
-            if !isShowingCropper {
-                imageToCrop = nil
-                selectedPhoto = nil
+            .onChange(of: isShowingCropper) {
+                if !isShowingCropper {
+                    imageToCrop = nil
+                    selectedPhoto = nil
+                }
+            }
+            
+            // MARK: 4. ADDED overlay for signing out
+            if isSigningOut {
+                Color.black.opacity(0.4)
+                    .ignoresSafeArea()
+                    .transition(.opacity.animation(.easeIn(duration: 0.2)))
+                
+                ProgressView("Signing Out...")
+                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                    .padding()
+                    .background(Color.black.opacity(0.6))
+                    .cornerRadius(10)
+                    .foregroundColor(.white)
+                    .transition(.opacity.animation(.easeIn(duration: 0.2)))
             }
         }
     }
@@ -160,6 +186,7 @@ struct UserDetailsSection: View {
     }
 }
 
+// MARK: - Attendance History Section
 struct AttendanceHistorySection: View {
     @ObservedObject var viewModel: ProfileViewModel
 
@@ -237,8 +264,11 @@ struct AttendanceHistorySection: View {
 struct EditProfileView: View {
     @ObservedObject var viewModel: ProfileViewModel
     @Binding var isShowingPhotoPicker: Bool
-    // 1. Add authService as a property
     @ObservedObject var authService: AuthenticationService
+    
+    // MARK: 1. ADDED binding for sign out animation
+    @Binding var isSigningOut: Bool
+    
     @Environment(\.dismiss) private var dismiss
     
     var body: some View {
@@ -300,11 +330,23 @@ struct EditProfileView: View {
                 
                 Spacer()
                 
-                // 3. Added the Sign Out Button here
+                // MARK: 2. UPDATED Sign Out Button Action
                 Button(role: .destructive) {
+                    // 1. Dismiss the sheet
                     dismiss()
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                        authService.logout()
+                    
+                    // 2. Wait for sheet to dismiss, then trigger animation
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        // 3. Fade in the overlay
+                        withAnimation(.easeIn(duration: 0.2)) {
+                            isSigningOut = true
+                        }
+                        
+                        // 4. Wait for "medium speed" animation, then log out
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                            authService.logout()
+                            // No need to set isSigningOut = false, the view will be gone
+                        }
                     }
                 } label: {
                     Text("Sign Out")
@@ -315,8 +357,8 @@ struct EditProfileView: View {
                         .foregroundColor(.red)
                         .cornerRadius(12)
                 }
-                .padding(.horizontal)
-                .padding(.bottom, 20)
+                .padding(.horizontal) // Match text fields
+                .padding(.bottom, 20) // Padding from bottom edge
             }
             .background(Color(UIColor.systemGroupedBackground).ignoresSafeArea())
             .navigationTitle("Edit Profile")
@@ -342,7 +384,7 @@ private struct ProfileDatePickerSheet: View {
                 displayedComponents: .date
             )
             .datePickerStyle(GraphicalDatePickerStyle())
-            .padding()
+            .padding() // Added padding around the date picker
             
             Button(action: {
                 viewModel.isShowingDatePicker = false
@@ -356,9 +398,9 @@ private struct ProfileDatePickerSheet: View {
             .background(Color.blue)
             .foregroundColor(.white)
             .cornerRadius(10)
-            .padding(.horizontal)
+            .padding(.horizontal) // Padding for the button
         }
-        .padding(.vertical) 
+        .padding(.vertical) // Overall vertical padding for the sheet content
         .presentationDetents([.medium])
     }
 }
@@ -370,6 +412,7 @@ private struct ProfileImageCropperFullScreen: View {
     @Binding var isPresented: Bool
 
     var body: some View {
+        // Replaced the placeholder VStack with the actual ImageCropService call
         ImageCropService(
             image: image,
             onCrop: { cropped in
@@ -387,10 +430,8 @@ private struct ProfileImageCropperFullScreen: View {
 #Preview {
     ProfileView(isShowingProfileView: .constant(true))
         .modelContainer(for: Subject.self, inMemory: true)
+        // 4. Added auth service to preview
         .environmentObject(AuthenticationService())
         .preferredColorScheme(.dark)
 }
-
-
-
 
