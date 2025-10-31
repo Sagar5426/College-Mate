@@ -6,7 +6,6 @@ struct ProfileView: View {
     @Binding var isShowingProfileView: Bool
     @Query var subjects: [Subject]
     
-    // 1. Get the AuthenticationService from the environment
     @EnvironmentObject var authService: AuthenticationService
     
     @StateObject private var viewModel = ProfileViewModel()
@@ -20,19 +19,12 @@ struct ProfileView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                // Using a darker, more solid background for better contrast
-                // Assuming LinearGradient.appBackground is defined elsewhere
-                // For now, let's use a standard system background
                 Color(UIColor.systemGroupedBackground).ignoresSafeArea()
 
                 VStack {
                     Form {
                         ProfileHeaderView(viewModel: viewModel)
                         UserDetailsSection(viewModel: viewModel)
-                        
-                        // 2. Added the new Account Section here
-                        AccountSection(authService: authService)
-                        
                         AttendanceHistorySection(viewModel: viewModel)
                     }
                     .scrollContentBackground(.hidden)
@@ -47,8 +39,8 @@ struct ProfileView: View {
                     }
                 }
                 .sheet(isPresented: $viewModel.isEditingProfile) {
-                    // We now pass a binding to our new state variable into the sheet.
-                    EditProfileView(viewModel: viewModel, isShowingPhotoPicker: $isShowingPhotoPicker)
+                    // Pass the authService into the sheet
+                    EditProfileView(viewModel: viewModel, isShowingPhotoPicker: $isShowingPhotoPicker, authService: authService)
                 }
                 .sheet(isPresented: $viewModel.isShowingDatePicker) {
                     ProfileDatePickerSheet(viewModel: viewModel)
@@ -62,8 +54,6 @@ struct ProfileView: View {
                     viewModel.filterAttendanceLogs()
                 }
                 .onChange(of: viewModel.selectedFilter) {
-                    // We only need to filter if the selection is NOT for a specific date,
-                    // as that case is handled by its own button and the sheet's Done button.
                     if viewModel.selectedFilter != .selectDate {
                         viewModel.filterAttendanceLogs()
                     }
@@ -71,10 +61,7 @@ struct ProfileView: View {
                 .onChange(of: viewModel.selectedSubjectName) { viewModel.filterAttendanceLogs() }
             }
         }
-        // The PhotosPicker is now attached to the main view, not the sheet.
-        // It is presented when isShowingPhotoPicker becomes true.
         .photosPicker(isPresented: $isShowingPhotoPicker, selection: $selectedPhoto, matching: .images)
-        // When a photo is selected, this modifier handles the data loading.
         .onChange(of: selectedPhoto) {
             Task {
                 if let data = try? await selectedPhoto?.loadTransferable(type: Data.self),
@@ -90,7 +77,6 @@ struct ProfileView: View {
             }
         }
         .onChange(of: isShowingCropper) {
-            // Cleanup state when cropper is dismissed to avoid stale state and re-presentation issues
             if !isShowingCropper {
                 imageToCrop = nil
                 selectedPhoto = nil
@@ -174,30 +160,6 @@ struct UserDetailsSection: View {
     }
 }
 
-// 3. Create the new Account Section
-// MARK: - Account Section
-struct AccountSection: View {
-    @ObservedObject var authService: AuthenticationService
-    
-    var body: some View {
-        Section {
-            Button(role: .destructive) {
-                // Call the logout function
-                authService.logout()
-            } label: {
-                Text("Sign Out")
-                    .frame(maxWidth: .infinity, alignment: .center)
-            }
-        } header: {
-            Text("Account")
-                .foregroundColor(.gray)
-        }
-        .listRowBackground(Color(UIColor.secondarySystemGroupedBackground))
-    }
-}
-
-
-// MARK: - Attendance History Section
 struct AttendanceHistorySection: View {
     @ObservedObject var viewModel: ProfileViewModel
 
@@ -275,12 +237,16 @@ struct AttendanceHistorySection: View {
 struct EditProfileView: View {
     @ObservedObject var viewModel: ProfileViewModel
     @Binding var isShowingPhotoPicker: Bool
+    // 1. Add authService as a property
+    @ObservedObject var authService: AuthenticationService
     @Environment(\.dismiss) private var dismiss
     
     var body: some View {
         NavigationStack {
-            VStack(spacing: 32) {
-                Spacer()
+            // 2. Adjusted spacing for the new button
+            VStack(spacing: 20) {
+                // Use a small spacer for top padding
+                Spacer().frame(height: 32)
                 
                 // --- Profile Image Section ---
                 Button(action: {
@@ -307,6 +273,7 @@ struct EditProfileView: View {
                             .offset(x: 4, y: 4)
                     }
                 }
+                .padding(.bottom, 20) // Add padding after image
                 
                 // --- TextFields Section ---
                 VStack(spacing: 16) {
@@ -332,7 +299,24 @@ struct EditProfileView: View {
                 .padding(.horizontal)
                 
                 Spacer()
-                Spacer()
+                
+                // 3. Added the Sign Out Button here
+                Button(role: .destructive) {
+                    dismiss()
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        authService.logout()
+                    }
+                } label: {
+                    Text("Sign Out")
+                        .fontWeight(.semibold)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color(UIColor.tertiarySystemFill))
+                        .foregroundColor(.red)
+                        .cornerRadius(12)
+                }
+                .padding(.horizontal)
+                .padding(.bottom, 20)
             }
             .background(Color(UIColor.systemGroupedBackground).ignoresSafeArea())
             .navigationTitle("Edit Profile")
@@ -358,7 +342,7 @@ private struct ProfileDatePickerSheet: View {
                 displayedComponents: .date
             )
             .datePickerStyle(GraphicalDatePickerStyle())
-            .padding() // Added padding around the date picker
+            .padding()
             
             Button(action: {
                 viewModel.isShowingDatePicker = false
@@ -372,23 +356,20 @@ private struct ProfileDatePickerSheet: View {
             .background(Color.blue)
             .foregroundColor(.white)
             .cornerRadius(10)
-            .padding(.horizontal) // Padding for the button
+            .padding(.horizontal)
         }
-        .padding(.vertical) // Overall vertical padding for the sheet content
+        .padding(.vertical) 
         .presentationDetents([.medium])
     }
 }
 
-// MARK: - Image Cropper Full Screen (extracted)
-// Assuming ImageCropService is defined in another file.
-// If not, you'll need to add its definition.
+// MARK: - Image Cropper Full Screen
 private struct ProfileImageCropperFullScreen: View {
     let image: UIImage
     @ObservedObject var viewModel: ProfileViewModel
     @Binding var isPresented: Bool
 
     var body: some View {
-        // Replaced the placeholder VStack with the actual ImageCropService call
         ImageCropService(
             image: image,
             onCrop: { cropped in
@@ -406,9 +387,10 @@ private struct ProfileImageCropperFullScreen: View {
 #Preview {
     ProfileView(isShowingProfileView: .constant(true))
         .modelContainer(for: Subject.self, inMemory: true)
-        // 4. Added auth service to preview
         .environmentObject(AuthenticationService())
         .preferredColorScheme(.dark)
 }
+
+
 
 
