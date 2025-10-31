@@ -601,7 +601,10 @@ class CardDetailViewModel: ObservableObject {
         return renderer.image { ctx in
             UIColor.white.set()
             ctx.fill(pageRect)
-            page.draw(with: .mediaBox, to: ctx.cgContext)
+            let cgContext = ctx.cgContext
+            cgContext.translateBy(x: 0.0, y: pageRect.size.height)
+            cgContext.scaleBy(x: 1.0, y: -1.0)
+            page.draw(with: .mediaBox, to: cgContext)
         }
     }
     
@@ -609,9 +612,23 @@ class CardDetailViewModel: ObservableObject {
         let size = CGSize(width: 80, height: 100)
         let scale = UIScreen.main.scale
         let request = QLThumbnailGenerator.Request(fileAt: url, size: size, scale: scale, representationTypes: .thumbnail)
+        
         QLThumbnailGenerator.shared.generateBestRepresentation(for: request) { representation, error in
+            guard let generatedImage = representation?.uiImage else {
+                DispatchQueue.main.async {
+                    completion(nil)
+                }
+                return
+            }
+            
+            let renderer = UIGraphicsImageRenderer(size: generatedImage.size)
+            let finalImage = renderer.image { ctx in                UIColor.white.set()
+                ctx.fill(CGRect(origin: .zero, size: generatedImage.size))
+                generatedImage.draw(in: CGRect(origin: .zero, size: generatedImage.size))
+            }
+            
             DispatchQueue.main.async {
-                completion(representation?.uiImage)
+                completion(finalImage)
             }
         }
     }
