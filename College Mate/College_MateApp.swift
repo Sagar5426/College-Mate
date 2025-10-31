@@ -7,6 +7,7 @@ struct College_MateApp: App {
     
     // 1. Brought back the AuthenticationService
     @StateObject private var authService = AuthenticationService()
+    @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
     // 2. Kept your shared model container setup
     private var sharedModelContainer: ModelContainer
