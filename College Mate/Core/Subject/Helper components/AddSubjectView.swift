@@ -86,28 +86,41 @@ struct AddSubjectView: View {
             return
         }
         
-        // Create a new Subject
+        // --- CloudKit Fix: Initialize new Subject and its optional properties ---
         let newSubject = Subject(name: normalizedName)
+        newSubject.startDateOfSubject = startDateOfSubject
         
+        // 1. Initialize optional Attendance
+        let newAttendance = Attendance()
+        newAttendance.minimumPercentageRequirement = Double(MinimumAttendancePercentage)
+        newSubject.attendance = newAttendance
+        
+        // 2. Initialize optional Schedules array
+        newSubject.schedules = []
+        // --- End of Fix ---
+
         // Create schedules for the selected days
         for day in selectedDays {
             let newSchedule = Schedule(day: day)
             
+            // --- CloudKit Fix: Initialize optional classTimes array ---
+            newSchedule.classTimes = []
+            // --- End of Fix ---
+
             // Add class times to the schedule
             if let times = classTimes[day] {
                 for time in times {
                     let newClassTime = ClassTime(startTime: time.startTime, endTime: time.endTime, date: Date())
-                    newSchedule.classTimes.append(newClassTime)
+                    // --- CloudKit Fix: Append to optional array ---
+                    newSchedule.classTimes?.append(newClassTime)
+                    // --- End of Fix ---
                 }
             }
-            // Add first date of class
-            newSubject.startDateOfSubject = startDateOfSubject
-            
-            // Add minimum attendence requirement
-            newSubject.attendance.minimumPercentageRequirement = Double(MinimumAttendancePercentage)
             
             // Add the schedule to the subject
-            newSubject.schedules.append(newSchedule)
+            // --- CloudKit Fix: Append to optional array ---
+            newSubject.schedules?.append(newSchedule)
+            // --- End of Fix ---
         }
         
         // Add the new Subject to the modelContext
@@ -278,11 +291,38 @@ struct DayRowView: View {
 
 
 
-#Preview {
-    NavigationStack {
-        AddSubjectView(isShowingAddSubjectView: .constant(true))
-    }
-}
+//#Preview {
+//    // --- CloudKit Fix: Wrap in helper view to handle do-catch ---
+//    struct PreviewWrapper: View {
+//        var body: some View {
+//            do {
+//                // Add ALL models to the container
+//                let config = ModelConfiguration(isStoredInMemoryOnly: true)
+//                let container = try ModelContainer(for: [
+//                    Subject.self,
+//                    Attendance.self,
+//                    Schedule.self,
+//                    ClassTime.self,
+//                    Note.self,
+//                    Folder.self,
+//                    FileMetadata.self,
+//                    AttendanceRecord.self
+//                ], configurations: config)
+//                
+//                NavigationStack {
+//                    AddSubjectView(isShowingAddSubjectView: .constant(true))
+//                }
+//                .modelContainer(container)
+//                
+//            } catch {
+//                Text("Failed to create preview: \(error.localizedDescription)")
+//            }
+//        }
+//    }
+//    
+//    PreviewWrapper()
+//    // --- End of Fix ---
+//}
 
 
 extension AddSubjectView {
@@ -340,4 +380,3 @@ struct MinimumAttendenceStepper: View {
         }
     }
 }
-

@@ -563,9 +563,11 @@ struct CardDetailView: View {
             VStack(alignment: .leading) {
                 Text(folder.name)
                     .font(.headline)
-                Text("\(folder.files.count) files")
+                // --- CloudKit Fix: Use nil coalescing ---
+                Text("\((folder.files ?? []).count) files")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
+                // --- End of Fix ---
             }
             
             Spacer()
@@ -691,9 +693,11 @@ struct CardDetailView: View {
                 .lineLimit(2)
                 .frame(maxWidth: tileSize + 20)
             
-            Text("\(folder.files.count) files")
+            // --- CloudKit Fix: Use nil coalescing ---
+            Text("\((folder.files ?? []).count) files")
                 .font(.caption2)
                 .foregroundColor(.gray)
+            // --- End of Fix ---
         }
         .contextMenu {
             if !viewModel.isEditing {
@@ -1413,45 +1417,75 @@ private func isPlaceholderImageName(_ fileName: String) -> Bool {
     return false
 }
 
-#Preview("Card Detail Preview") {
-    if let container = try? ModelContainer(for: Subject.self, Folder.self, FileMetadata.self, configurations: ModelConfiguration(isStoredInMemoryOnly: true)) {
-        let context = container.mainContext
-        let subject = Subject(name: "Physics", startDateOfSubject: Date(), schedules: [])
-        context.insert(subject)
-
-        let notesFolder = Folder(name: "Notes", parentFolder: nil, subject: subject)
-        let refsFolder = Folder(name: "References", parentFolder: nil, subject: subject)
-        context.insert(notesFolder)
-        context.insert(refsFolder)
-
-        FileDataService.createSubjectFolder(for: subject)
-
-        func writeMockFile(named fileName: String, data: Data, folder: Folder?) {
-            _ = FileDataService.saveFile(
-                data: data,
-                fileName: fileName,
-                to: folder,
-                in: subject,
-                modelContext: context
-            )
-        }
-
-        let tinyJPEG: Data = Data([0xFF, 0xD8, 0xFF, 0xDB, 0x00, 0x43, 0x00, 0xFF, 0xD9])
-        let tinyPDF: Data = Data([0x25, 0x50, 0x44, 0x46, 0x2D, 0x31, 0x2E, 0x34, 0x0A])
-        let tinyDOCX: Data = Data([0x50, 0x4B, 0x03, 0x04])
-
-        writeMockFile(named: "image_\(UUID().uuidString).jpg", data: tinyJPEG, folder: notesFolder)
-        writeMockFile(named: "Syllabus.pdf", data: tinyPDF, folder: refsFolder)
-        writeMockFile(named: "Assignment.docx", data: tinyDOCX, folder: nil)
-
-        return AnyView(
-            NavigationStack {
-                CardDetailView(subject: subject, modelContext: context)
-            }
-            .modelContainer(container)
-        )
-    } else {
-        return AnyView(Text("Failed to create preview container."))
-    }
-}
-
+//#Preview("Card Detail Preview") {
+//    
+//    // --- CloudKit Fix: Wrap in helper view ---
+//    struct PreviewWrapper: View {
+//        var body: some View {
+//            do {
+//                // --- CloudKit Fix: Add all models to container ---
+//                let config = ModelConfiguration(isStoredInMemoryOnly: true)
+//                let container = try ModelContainer(for: [
+//                    Subject.self,
+//                    Folder.self,
+//                    FileMetadata.self,
+//                    Attendance.self,
+//                    Schedule.self,
+//                    ClassTime.self,
+//                    Note.self,
+//                    AttendanceRecord.self
+//                ], configurations: config)
+//                let context = container.mainContext
+//                
+//                // --- CloudKit Fix: Use new init() and set properties ---
+//                let subject = Subject()
+//                subject.name = "Physics"
+//                subject.startDateOfSubject = Date()
+//                subject.schedules = []
+//                subject.attendance = Attendance(totalClasses: 0, attendedClasses: 0)
+//                subject.notes = []
+//                subject.rootFolders = []
+//                subject.fileMetadata = []
+//                subject.records = []
+//                
+//                context.insert(subject)
+//
+//                let notesFolder = Folder(name: "Notes", parentFolder: nil, subject: subject)
+//                let refsFolder = Folder(name: "References", parentFolder: nil, subject: subject)
+//                context.insert(notesFolder)
+//                context.insert(refsFolder)
+//
+//                FileDataService.createSubjectFolder(for: subject)
+//
+//                func writeMockFile(named fileName: String, data: Data, folder: Folder?) {
+//                    _ = FileDataService.saveFile(
+//                        data: data,
+//                        fileName: fileName,
+//                        to: folder,
+//                        in: subject,
+//                        modelContext: context
+//                    )
+//                }
+//
+//                let tinyJPEG: Data = Data([0xFF, 0xD8, 0xFF, 0xDB, 0x00, 0x43, 0x00, 0xFF, 0xD9])
+//                let tinyPDF: Data = Data([0x25, 0x50, 0x44, 0x46, 0x2D, 0x31, 0x2E, 0x34, 0x0A])
+//                let tinyDOCX: Data = Data([0x50, 0x4B, 0x03, 0x04])
+//
+//                writeMockFile(named: "image_\(UUID().uuidString).jpg", data: tinyJPEG, folder: notesFolder)
+//                writeMockFile(named: "Syllabus.pdf", data: tinyPDF, folder: refsFolder)
+//                writeMockFile(named: "Assignment.docx", data: tinyDOCX, folder: nil)
+//
+//                return NavigationStack {
+//                    CardDetailView(subject: subject, modelContext: context)
+//                }
+//                .modelContainer(container)
+//                
+//            } catch {
+//                return Text("Failed to create preview container: \(error.localizedDescription)")
+//            }
+//        }
+//    }
+//    
+//    PreviewWrapper()
+//    // --- End of Fix ---
+//}

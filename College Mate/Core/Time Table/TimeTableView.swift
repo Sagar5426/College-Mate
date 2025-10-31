@@ -113,8 +113,12 @@ struct TimeTableView: View {
     private func sortedClassTimes(for day: Day) -> [ScheduledClass] {
         var result: [ScheduledClass] = []
         for subject in subjects {
-            for schedule in subject.schedules where schedule.day == day.rawValue {
-                for classTime in schedule.classTimes {
+            // --- FIX 1 ---
+            // Use nil coalescing `?? []` to safely loop over optional array
+            for schedule in (subject.schedules ?? []) where schedule.day == day.rawValue {
+                // --- FIX 2 ---
+                // Use nil coalescing `?? []` to safely loop over optional array
+                for classTime in (schedule.classTimes ?? []) {
                     // Each class time becomes a unique, identifiable object.
                     result.append(ScheduledClass(id: classTime.id, subject: subject, classTime: classTime))
                 }
@@ -190,21 +194,34 @@ struct ScheduleCard: View {
             
             Spacer()
             
-            ZStack {
-                Circle()
-                    // --- MODIFICATION: Use the new computed property for the color ---
-                    .stroke(attendanceRingColor, lineWidth: 2.5)
-                
-                VStack {
-                    Text("\(Int(subject.attendance.percentage))%")
-                        .font(.caption).bold()
-                        .foregroundStyle(.white)
-                    Text("ATT")
-                        .font(.system(size: 8))
-                        .foregroundStyle(.gray)
+            // --- FIX 3 ---
+            // Safely unwrap the optional attendance object
+            if let attendance = subject.attendance {
+                ZStack {
+                    Circle()
+                        .stroke(attendanceRingColor(for: attendance), lineWidth: 2.5)
+                    
+                    VStack {
+                        Text("\(Int(attendance.percentage))%")
+                            .font(.caption).bold()
+                            .foregroundStyle(.white)
+                        Text("ATT")
+                            .font(.system(size: 8))
+                            .foregroundStyle(.gray)
+                    }
                 }
+                .frame(width: 50, height: 50)
+            } else {
+                // Fallback view if attendance is nil
+                ZStack {
+                    Circle()
+                        .stroke(.gray, lineWidth: 2.5)
+                    Text("N/A")
+                        .font(.caption).bold()
+                }
+                .frame(width: 50, height: 50)
             }
-            .frame(width: 50, height: 50)
+            // --- END OF FIX ---
         }
         .padding()
         .background(Color.black.opacity(0.2))
@@ -212,10 +229,10 @@ struct ScheduleCard: View {
         .padding(.leading, 10)
     }
 
-    // --- ADDED: Computed property for the 3-state ring color ---
-    private var attendanceRingColor: Color {
-        let percentage = subject.attendance.percentage
-        let minRequirement = subject.attendance.minimumPercentageRequirement
+    // --- MODIFICATION: Function now takes attendance as a parameter ---
+    private func attendanceRingColor(for attendance: Attendance) -> Color {
+        let percentage = attendance.percentage
+        let minRequirement = attendance.minimumPercentageRequirement
         
         if percentage >= minRequirement {
             return .green
@@ -247,39 +264,50 @@ extension Subject {
 }
 
 // MARK: - Preview
-#Preview {
-    // Create a more robust preview with sample data.
-    do {
-        let config = ModelConfiguration(isStoredInMemoryOnly: true)
-        let container = try ModelContainer(for: Subject.self, configurations: config)
-        
-        // Sample Data with two classes on the same day.
-        let mathSchedule = Schedule(day: "Monday", classTimes: [
-            ClassTime(startTime: Date().addingTimeInterval(-3600*4), endTime: Date().addingTimeInterval(-3600*3)),
-            ClassTime(startTime: Date().addingTimeInterval(-3600*2), endTime: Date().addingTimeInterval(-3600*1))
-        ])
-        // --- Preview Data for 3-color logic ---
-        // 1. Green: 80% (>= 75% req)
-        let math = Subject(name: "Mathematics", schedules: [mathSchedule], attendance: Attendance(totalClasses: 10, attendedClasses: 8, minimumPercentageRequirement: 75.0))
-        
-        // 2. Yellow: 60% (between 37.5% and 75%)
-        let physicsSchedule = Schedule(day: "Tuesday", classTimes: [ClassTime(startTime: Date().addingTimeInterval(-3600*2), endTime: Date().addingTimeInterval(-3600*1))])
-        let physics = Subject(name: "Physics", schedules: [physicsSchedule], attendance: Attendance(totalClasses: 10, attendedClasses: 6, minimumPercentageRequirement: 75.0))
-        
-        // 3. Red: 30% (<= 37.5%)
-        let chemSchedule = Schedule(day: "Monday", classTimes: [ClassTime(startTime: Date().addingTimeInterval(-3600*1), endTime: Date().addingTimeInterval(0))])
-        let chemistry = Subject(name: "Chemistry", schedules: [chemSchedule], attendance: Attendance(totalClasses: 10, attendedClasses: 3, minimumPercentageRequirement: 75.0))
-
-        container.mainContext.insert(math)
-        container.mainContext.insert(physics)
-        container.mainContext.insert(chemistry)
-        
-        return TimeTableView()
-            .modelContainer(container)
-            .preferredColorScheme(.dark)
-            
-    } catch {
-        return Text("Failed to create preview: \(error.localizedDescription)")
-    }
-}
-
+//#Preview {
+//    // Create a more robust preview with sample data.
+//    do {
+//        // --- FIX 4 ---
+//        // Add ALL models used by Subject to the container
+//        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+//        let container = try ModelContainer(for: [
+//            Subject.self,
+//            Attendance.self,
+//            Schedule.self,
+//            ClassTime.self,
+//            Note.self,
+//            Folder.self,
+//            FileMetadata.self,
+//            AttendanceRecord.self
+//        ], configurations: config)
+//        // --- END OF FIX ---
+//        
+//        // Sample Data with two classes on the same day.
+//        let mathSchedule = Schedule(day: "Monday", classTimes: [
+//            ClassTime(startTime: Date().addingTimeInterval(-3600*4), endTime: Date().addingTimeInterval(-3600*3)),
+//            ClassTime(startTime: Date().addingTimeInterval(-3600*2), endTime: Date().addingTimeInterval(-3600*1))
+//        ])
+//        // --- Preview Data for 3-color logic ---
+//        // 1. Green: 80% (>= 75% req)
+//        let math = Subject(name: "Mathematics", schedules: [mathSchedule], attendance: Attendance(totalClasses: 10, attendedClasses: 8, minimumPercentageRequirement: 75.0))
+//        
+//        // 2. Yellow: 60% (between 37.5% and 75%)
+//        let physicsSchedule = Schedule(day: "Tuesday", classTimes: [ClassTime(startTime: Date().addingTimeInterval(-3600*2), endTime: Date().addingTimeInterval(-3600*1))])
+//        let physics = Subject(name: "Physics", schedules: [physicsSchedule], attendance: Attendance(totalClasses: 10, attendedClasses: 6, minimumPercentageRequirement: 75.0))
+//        
+//        // 3. Red: 30% (<= 37.5%)
+//        let chemSchedule = Schedule(day: "Monday", classTimes: [ClassTime(startTime: Date().addingTimeInterval(-3600*1), endTime: Date().addingTimeInterval(0))])
+//        let chemistry = Subject(name: "Chemistry", schedules: [chemSchedule], attendance: Attendance(totalClasses: 10, attendedClasses: 3, minimumPercentageRequirement: 75.0))
+//
+//        container.mainContext.insert(math)
+//        container.mainContext.insert(physics)
+//        container.mainContext.insert(chemistry)
+//        
+//        return TimeTableView()
+//            .modelContainer(container)
+//            .preferredColorScheme(.dark)
+//            
+//    } catch {
+//        return Text("Failed to create preview: \(error.localizedDescription)")
+//    }
+//}

@@ -1,20 +1,17 @@
-//
-//  ClassTime.swift
-//  College Mate
-//
-//  Created by Sagar Jangra on 04/01/2025.
-//
-
 import Foundation
 import SwiftData
 
 @Model
 class ClassTime {
-    var id: UUID
-    // 'label' has been removed. This is now just a template for a time.
+    // 1. Added default value
+    var id: UUID = UUID()
+    
+    // These were already optional, which is good
     var date: Date?
     var startTime: Date?
     var endTime: Date?
+    
+    // Inverse relationship already exists
     var schedule: Schedule?
     
     init(startTime: Date? = nil, endTime: Date? = nil, date: Date? = Date()) {
@@ -23,7 +20,11 @@ class ClassTime {
         self.endTime = endTime
         self.date = date
     }
+    
+    // 2. Added default init for CloudKit
+    init() {}
 }
+
 // Define a custom struct for class times
 struct ClassPeriodTime: Hashable {
     var startTime: Date?

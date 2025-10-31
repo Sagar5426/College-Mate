@@ -63,7 +63,9 @@ struct ShareView: View {
                             if let subject = selectedSubject {
                                 Picker("Folder (Optional)", selection: $selectedFolder) {
                                     Text("Root of \(subject.name)").tag(nil as Folder?)
-                                    ForEach(subject.rootFolders.sorted(by: { $0.name < $1.name })) { folder in
+
+                                    ForEach((subject.rootFolders ?? []).sorted(by: { $0.name < $1.name })) { folder in
+                                                                
                                         Text(folder.name).tag(folder as Folder?)
                                     }
                                 }

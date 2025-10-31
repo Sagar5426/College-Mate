@@ -70,7 +70,11 @@
 				Models/Note.swift,
 				Models/Schedule.swift,
 				Models/Subject.swift,
+				Services/AuthenticationService.swift,
 				Services/FilesDataService.swift,
+				Services/iCloudStorage.swift,
+				Services/SharedAppGroup.swift,
+				Services/SoundService.swift,
 			);
 			target = 452B61092E76926B00E655B1 /* ShareToCollegeMate */;
 		};

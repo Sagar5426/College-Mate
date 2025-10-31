@@ -14,94 +14,116 @@ struct SubjectCardView: View {
     private var isPad: Bool { UIDevice.current.userInterfaceIdiom == .pad }
     
     var body: some View {
-        VStack(spacing: 7) {
-            // Subject Card
-            VStack(alignment: .leading, spacing: isPad ? 20 : 16) {
-                HStack {
-                    VStack(alignment: .leading, spacing: 20) {
-                        Text(subject.name)
-                            // If the name is longer than 12 characters, use a smaller font.
-                            .font(isPad ? (subject.name.count > 12 ? .title2 : .title) : (subject.name.count > 12 ? .headline : .title2))
-                            .fontWeight(.bold)
-                            .foregroundColor(.white)
-                            .lineLimit(2) // Allow wrapping to a second line if needed
+        // --- THIS IS THE FIX ---
+        // We must now safely unwrap the optional 'attendance' object
+        if let attendance = subject.attendance {
+            VStack(spacing: 7) {
+                // Subject Card
+                VStack(alignment: .leading, spacing: isPad ? 20 : 16) {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 20) {
+                            Text(subject.name)
+                                // If the name is longer than 12 characters, use a smaller font.
+                                .font(isPad ? (subject.name.count > 12 ? .title2 : .title) : (subject.name.count > 12 ? .headline : .title2))
+                                .fontWeight(.bold)
+                                .foregroundColor(.white)
+                                .lineLimit(2) // Allow wrapping to a second line if needed
 
-                        AttendanceStatsView(attendance: subject.attendance)
+                            // Pass the unwrapped 'attendance' object
+                            AttendanceStatsView(attendance: attendance)
 
-                        AttendanceInfoView(attendance: subject.attendance)
+                            AttendanceInfoView(attendance: attendance)
+                        }
+
+                        Spacer()
+
+                        // Pass the unwrapped 'attendance' object
+                        CircularProgressView(attendance: attendance)
+                            .frame(width: isPad ? 160 : 120, height: isPad ? 160 : 120)
                     }
+                }
+                .frame(minHeight: isPad ? 220 : nil)
+                .padding(isPad ? 24 : 16)
+                .background(Color.gray.opacity(0.2))
+                .cornerRadius(16)
+                .shadow(radius: 4)
 
+                // Attendance Controls
+                HStack(spacing: 16) {
+                    AttendanceControl(label: "Attended", onIncrement: incrementAttended, onDecrement: decrementAttended)
                     Spacer()
-
-                    CircularProgressView(attendance: subject.attendance)
-                        .frame(width: isPad ? 160 : 120, height: isPad ? 160 : 120)
+                    AttendanceControl(label: "Missed", onIncrement: incrementMissed, onDecrement: decrementMissed)
                 }
             }
-            .frame(minHeight: isPad ? 220 : nil)
-            .padding(isPad ? 24 : 16)
-            .background(Color.gray.opacity(0.2))
-            .cornerRadius(16)
-            .shadow(radius: 4)
-
-            // Attendance Controls
-            HStack(spacing: 16) {
-                AttendanceControl(label: "Attended", onIncrement: incrementAttended, onDecrement: decrementAttended)
-                Spacer()
-                AttendanceControl(label: "Missed", onIncrement: incrementMissed, onDecrement: decrementMissed)
-            }
+        } else {
+            // Show a placeholder or loading view if attendance is nil
+            // This shouldn't happen if the Subject's init is set up correctly,
+            // but it's good practice to have a fallback.
+            Text("Loading \(subject.name)...")
+                .padding()
+                .background(Color.gray.opacity(0.2))
+                .cornerRadius(16)
         }
+        // --- END OF FIX ---
     }
 
     // MARK: Attendance Modification Functions
     private func addLog(_ action: String) {
+        // 'logs' is not a @Model, so it was not made optional. This is fine.
         let log = AttendanceLogEntry(timestamp: Date(), subjectName: subject.name, action: action)
         subject.logs.append(log)
     }
 
+    // --- FIX IN ALL FUNCTIONS ---
+    // Add a guard to safely unwrap attendance
     private func incrementAttended() {
-            subject.attendance.attendedClasses += 1
-            subject.attendance.totalClasses += 1
-        
+        guard let attendance = subject.attendance else { return }
+        attendance.attendedClasses += 1
+        attendance.totalClasses += 1
         addLog("+ Attended")
     }
 
     private func decrementAttended() {
-        if subject.attendance.attendedClasses > 0 {
-
-                subject.attendance.attendedClasses -= 1
-                subject.attendance.totalClasses -= 1
-            
+        guard let attendance = subject.attendance else { return }
+        if attendance.attendedClasses > 0 {
+            attendance.attendedClasses -= 1
+            attendance.totalClasses -= 1
             addLog("− Attended")
         }
     }
 
     private func incrementMissed() {
-        
-            subject.attendance.totalClasses += 1
-        
+        guard let attendance = subject.attendance else { return }
+        attendance.totalClasses += 1
         addLog("+ Missed")
     }
 
     private func decrementMissed() {
-        let missed = subject.attendance.totalClasses - subject.attendance.attendedClasses
+        guard let attendance = subject.attendance else { return }
+        let missed = attendance.totalClasses - attendance.attendedClasses
         if missed > 0 {
-            
-                subject.attendance.totalClasses -= 1
-            
+            attendance.totalClasses -= 1
             addLog("− Missed")
         }
     }
-
-
+    // --- END OF FIX ---
 }
 
 #Preview {
     do {
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
-        let container = try ModelContainer(for: Subject.self, configurations: config)
+        // --- FIX ---
+        // 1. Added Attendance.self to the container
+        let container = try ModelContainer(for: Subject.self, Attendance.self, configurations: config)
+        
+        // 2. Create Subject
         let subject = Subject(name: "Operating Systems", startDateOfSubject: Date(), schedules: [])
-        subject.attendance.totalClasses = 6
-        subject.attendance.attendedClasses = 4
+        
+        // 3. Use optional chaining `?.` to set properties
+        subject.attendance?.totalClasses = 6
+        subject.attendance?.attendedClasses = 4
+        // --- END OF FIX ---
+        
         return SubjectCardView(subject: subject)
             .modelContainer(container)
             .background(.black.opacity(0.2))
@@ -172,7 +194,10 @@ struct AttendanceControl: View {
 }
 
 struct AttendanceStatsView: View {
+    // --- FIX ---
+    // This view now receives a non-optional Attendance
     @Bindable var attendance: Attendance
+    // --- END OF FIX ---
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -185,7 +210,10 @@ struct AttendanceStatsView: View {
 
 extension SubjectCardView {
     struct CircularProgressView: View {
+        // --- FIX ---
+        // This view now receives a non-optional Attendance
         @Bindable var attendance: Attendance
+        // --- END OF FIX ---
         
         // Derived values
         private var percentage: Double { attendance.percentage }
@@ -244,7 +272,10 @@ extension SubjectCardView {
     
     
     struct AttendanceInfoView: View {
+        // --- FIX ---
+        // This view now receives a non-optional Attendance
         @Bindable var attendance: Attendance
+        // --- END OF FIX ---
         
         var body: some View {
             VStack(alignment: .leading, spacing: 3) {
@@ -259,13 +290,16 @@ extension SubjectCardView {
                     var tempAttended = attendedClasses
                     // Avoid division by zero
                     if tempTotal <= 0 {
-                        return 0
+                        // If no classes, assume 0 needed if req is 0, else 1
+                        return minimumRequiredPercentage > 0 ? 1 : 0
                     }
                     
                     while (Double(tempAttended) / Double(tempTotal)) * 100 < minimumRequiredPercentage {
                         futureClasses += 1
                         tempTotal += 1
                         tempAttended += 1
+                        // Add a safety break to prevent infinite loops if logic is flawed
+                        if futureClasses > 1000 { return 999 }
                     }
                     return futureClasses
                 }()
@@ -275,7 +309,12 @@ extension SubjectCardView {
                 let skippableClasses = max(0, attendedClasses - requiredClasses)
                 
                 // Display appropriate messages
-                if futureClassesToAttend > 0 {
+                if totalClasses == 0 && minimumRequiredPercentage > 0 {
+                    Text("Start by attending a class.")
+                        .font(.footnote)
+                        .foregroundColor(.blue)
+                        .lineLimit(2)
+                } else if futureClassesToAttend > 0 {
                     Text("Need to attend \(futureClassesToAttend) \(futureClassesToAttend == 1 ? "class" : "classes").")
                         .font(.footnote)
                         .foregroundColor(.yellow)

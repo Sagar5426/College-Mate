@@ -1,21 +1,22 @@
-//
-//  Note.swift
-//  College Mate
-//
-//  Created by Sagar Jangra on 20/01/2025.
-//
-
-
 import Foundation
 import SwiftData
 
 @Model
 class Note {
-    var id: UUID
-    var title: String
-    var type: NoteType
-    var content: Data
-    var createdDate: Date
+    // 1. Added default values
+    var id: UUID = UUID()
+    var title: String = ""
+    
+    // --- THIS IS THE FIX ---
+    // Changed .pdf to NoteType.pdf
+    var type: NoteType = NoteType.pdf
+    // --- END OF FIX ---
+    
+    var content: Data = Data()
+    var createdDate: Date = Date()
+    
+    // 2. Added inverse relationship
+    var subject: Subject?
 
     init(title: String, type: NoteType, content: Data, createdDate: Date = .now) {
         self.id = UUID()
@@ -24,9 +25,13 @@ class Note {
         self.content = content
         self.createdDate = createdDate
     }
+    
+    // 3. Added default init for CloudKit
+    init() {}
 }
 
 enum NoteType: String, Codable {
     case pdf
     case image
 }
+

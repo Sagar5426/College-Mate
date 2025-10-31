@@ -189,6 +189,15 @@ class CardDetailViewModel: ObservableObject {
         
         // ADDED: Load the saved note
         self.subjectNote = subject.ImportantTopicsNote
+        
+        // --- CloudKit Fix ---
+        // Ensure optional arrays are initialized
+        if subject.rootFolders == nil {
+            subject.rootFolders = []
+        }
+        if subject.fileMetadata == nil {
+            subject.fileMetadata = []
+        }
     }
     
     // MARK: - Sorting Method
@@ -221,13 +230,15 @@ class CardDetailViewModel: ObservableObject {
         let baseSubfolders: [Folder]
         let baseFiles: [FileMetadata]
 
+        // --- CloudKit Fix: Use nil coalescing ---
         if let currentFolder = currentFolder {
-            baseSubfolders = currentFolder.subfolders
-            baseFiles = currentFolder.files
+            baseSubfolders = currentFolder.subfolders ?? []
+            baseFiles = currentFolder.files ?? []
         } else {
-            baseSubfolders = subject.rootFolders
-            baseFiles = subject.fileMetadata.filter { $0.folder == nil }
+            baseSubfolders = subject.rootFolders ?? []
+            baseFiles = (subject.fileMetadata ?? []).filter { $0.folder == nil }
         }
+        // --- End of Fix ---
 
         // Apply sorting and store original list of folders
         self.originalSubfolders = sortFolders(baseSubfolders)
@@ -269,6 +280,7 @@ class CardDetailViewModel: ObservableObject {
         // Always start with the original, unfiltered list of folders
         let foldersToFilter: [Folder] = showSearchAtRoot ? searchFolderResults : self.originalSubfolders
 
+        // --- CloudKit Fix: Use nil coalescing ---
         switch selectedFilter {
         case .all:
             filteredFileMetadata = filesToFilter
@@ -276,22 +288,22 @@ class CardDetailViewModel: ObservableObject {
         case .images:
             filteredFileMetadata = filesToFilter.filter { $0.fileType == .image }
             subfolders = showSearchAtRoot ? [] : foldersToFilter.filter { folder in
-                !folder.files.filter { $0.fileType == .image }.isEmpty
+                !(folder.files ?? []).filter { $0.fileType == .image }.isEmpty
             }
         case .pdfs:
             filteredFileMetadata = filesToFilter.filter { $0.fileType == .pdf }
             subfolders = showSearchAtRoot ? [] : foldersToFilter.filter { folder in
-                !folder.files.filter { $0.fileType == .pdf }.isEmpty
+                !(folder.files ?? []).filter { $0.fileType == .pdf }.isEmpty
             }
         case .docs:
             filteredFileMetadata = filesToFilter.filter { $0.fileType == .docx }
             subfolders = showSearchAtRoot ? [] : foldersToFilter.filter { folder in
-                !folder.files.filter { $0.fileType == .docx }.isEmpty
+                !(folder.files ?? []).filter { $0.fileType == .docx }.isEmpty
             }
         case .favorites:
             if currentFolder == nil && !isSearching {
-                filteredFileMetadata = sortFiles(subject.fileMetadata.filter { $0.isFavorite })
-                let allFolders = allFoldersRecursively(from: subject.rootFolders)
+                filteredFileMetadata = sortFiles((subject.fileMetadata ?? []).filter { $0.isFavorite })
+                let allFolders = allFoldersRecursively(from: (subject.rootFolders ?? []))
                 subfolders = sortFolders(allFolders.filter { $0.isFavorite })
             } else {
                 // When in a folder, just filter the current content
@@ -299,6 +311,7 @@ class CardDetailViewModel: ObservableObject {
                 subfolders = foldersToFilter.filter { $0.isFavorite }
             }
         }
+        // --- End of Fix ---
     }
     
     // Recursively collect all folders starting from a list of folders
@@ -306,9 +319,12 @@ class CardDetailViewModel: ObservableObject {
         var result: [Folder] = []
         for folder in folders {
             result.append(folder)
-            if !folder.subfolders.isEmpty {
-                result.append(contentsOf: allFoldersRecursively(from: folder.subfolders))
+            // --- CloudKit Fix: Use nil coalescing ---
+            let subfolders = folder.subfolders ?? []
+            if !subfolders.isEmpty {
+                result.append(contentsOf: allFoldersRecursively(from: subfolders))
             }
+            // --- End of Fix ---
         }
         return result
     }
@@ -316,6 +332,14 @@ class CardDetailViewModel: ObservableObject {
     // MARK: - Navigation Methods
     
     func navigateToFolder(_ folder: Folder) {
+        // --- CloudKit Fix: Ensure sub-arrays are initialized ---
+        if folder.subfolders == nil {
+            folder.subfolders = []
+        }
+        if folder.files == nil {
+            folder.files = []
+        }
+        // --- End of Fix ---
         folderPath.append(folder)
         currentFolder = folder
         loadFolderContent()
@@ -340,6 +364,11 @@ class CardDetailViewModel: ObservableObject {
         guard !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         
         let folder = Folder(name: name, parentFolder: currentFolder, subject: subject)
+        // --- CloudKit Fix: Initialize optional arrays ---
+        folder.files = []
+        folder.subfolders = []
+        // --- End of Fix ---
+        
         modelContext.insert(folder)
         _ = FileDataService.createFolder(named: name, in: currentFolder, for: subject)
         
@@ -438,13 +467,15 @@ class CardDetailViewModel: ObservableObject {
         isSearching = true
         let query = searchText.lowercased()
         
-        // Always search all files within the current subject.
-        let filesToSearch = self.subject.fileMetadata
+        // --- CloudKit Fix: Use nil coalescing ---
+        let filesToSearch = self.subject.fileMetadata ?? []
+        // --- End of Fix ---
         let results = filesToSearch.filter { $0.fileName.lowercased().contains(query) }
         searchResults = sortFiles(results)
 
-        // Search all folders (including nested) by name
-        let allFolders = allFoldersRecursively(from: subject.rootFolders)
+        // --- CloudKit Fix: Use nil coalescing ---
+        let allFolders = allFoldersRecursively(from: subject.rootFolders ?? [])
+        // --- End of Fix ---
         searchFolderResults = sortFolders(allFolders.filter { $0.name.lowercased().contains(query) })
         
         filterFileMetadata()
@@ -493,7 +524,9 @@ class CardDetailViewModel: ObservableObject {
         var folders: [Folder] = []
         // This recursive function fetches all subfolders
         func addFoldersRecursively(from parentFolder: Folder?) {
-            let foldersToAdd = parentFolder?.subfolders ?? subject.rootFolders
+            // --- CloudKit Fix: Use nil coalescing ---
+            let foldersToAdd = (parentFolder?.subfolders ?? subject.rootFolders) ?? []
+            // --- End of Fix ---
             for folder in foldersToAdd.sorted(by: { $0.name < $1.name }) {
                 folders.append(folder)
                 // Since we are not allowing nested folders, we don't need the recursive call
@@ -641,10 +674,12 @@ class CardDetailViewModel: ObservableObject {
         // Add files from selected folders
         for folder in selectedFolders {
             func recursivelyCollectFiles(from folder: Folder) {
-                urlsToShare.append(contentsOf: folder.files.compactMap { $0.getFileURL() })
-                for subfolder in folder.subfolders {
+                // --- CloudKit Fix: Use nil coalescing ---
+                urlsToShare.append(contentsOf: (folder.files ?? []).compactMap { $0.getFileURL() })
+                for subfolder in (folder.subfolders ?? []) {
                     recursivelyCollectFiles(from: subfolder)
                 }
+                // --- End of Fix ---
             }
             recursivelyCollectFiles(from: folder)
         }
@@ -659,10 +694,12 @@ class CardDetailViewModel: ObservableObject {
         var urls: [URL] = []
         
         func recursivelyCollectFiles(from folder: Folder) {
-            urls.append(contentsOf: folder.files.compactMap { $0.getFileURL() })
-            for subfolder in folder.subfolders {
+            // --- CloudKit Fix: Use nil coalescing ---
+            urls.append(contentsOf: (folder.files ?? []).compactMap { $0.getFileURL() })
+            for subfolder in (folder.subfolders ?? []) {
                 recursivelyCollectFiles(from: subfolder)
             }
+            // --- End of Fix ---
         }
         
         recursivelyCollectFiles(from: folder)
@@ -749,4 +786,3 @@ class CardDetailViewModel: ObservableObject {
         }
     }
 }
-

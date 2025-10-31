@@ -3,12 +3,15 @@ import SwiftData
 
 @Model
 class AttendanceRecord {
-    var id: UUID
-    var date: Date
-    var status: String
-    var classTimeID: UUID
+    // 1. Added default values
+    var id: UUID = UUID()
+    var date: Date = Date()
+    var status: String = ""
+    var classTimeID: UUID = UUID()
+    var isHoliday: Bool = false
+    
+    // Inverse relationship already exists
     var subject: Subject?
-    var isHoliday: Bool
     
     init(date: Date, status: String, classTimeID: UUID, isHoliday: Bool = false) {
         self.id = UUID()
@@ -17,4 +20,7 @@ class AttendanceRecord {
         self.classTimeID = classTimeID
         self.isHoliday = isHoliday
     }
+    
+    // 2. Added default init for CloudKit
+    init() {}
 }

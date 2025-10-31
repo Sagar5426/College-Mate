@@ -1,27 +1,21 @@
-//
-//  FileMetaData.swift
-//  College Mate
-//
-//  Created by Sagar Jangra on 13/09/2025.
-//
-
 import Foundation
 import SwiftData
 
 @Model
 class FileMetadata {
-    var id: UUID
-    var fileName: String
-    var fileType: FileType
-    var createdDate: Date
-    var isFavorite: Bool
-    var relativePath: String // Path relative to subject folder
-    var fileSize: Int64
+    // 1. Added default values
+    var id: UUID = UUID()
+    var fileName: String = ""
     
-    // Relationship to folder
+    var fileType: FileType = FileType.unknown
+    
+    var createdDate: Date = Date()
+    var isFavorite: Bool = false
+    var relativePath: String = ""
+    var fileSize: Int64 = 0
+    
+    // Relationships to folder/subject already exist and are optional
     var folder: Folder?
-    
-    // Relationship to subject
     var subject: Subject?
     
     init(fileName: String, fileType: FileType, relativePath: String, fileSize: Int64 = 0, isFavorite: Bool = false, folder: Folder? = nil, subject: Subject? = nil) {
@@ -35,6 +29,9 @@ class FileMetadata {
         self.folder = folder
         self.subject = subject
     }
+    
+    // 2. Added default init for CloudKit
+    init() {}
     
     // Get the full file URL
     func getFileURL() -> URL? {
@@ -64,7 +61,9 @@ enum FileType: String, Codable, CaseIterable {
         case .pdf: return "doc.richtext.fill"
         case .image: return "photo.fill"
         case .docx: return "doc.text.fill"
-        case .unknown: return "doc.fill"
+        // --- THIS IS THE FIX ---
+        case .unknown: return "doc.fill" // Added the 'return' keyword
+        // --- END OF FIX ---
         }
     }
     

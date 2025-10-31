@@ -29,10 +29,13 @@ struct EditSubjectView: View {
                             }
                     }
                     FirstSubjectDatePicker(startDateOfSubject: $subject.startDateOfSubject)
+                    
+                    // --- CloudKit Fix: Safely unwrap attendance ---
                     MinimumAttendenceStepper(MinimumAttendancePercentage: Binding<Int>(
-                        get: { Int(subject.attendance.minimumPercentageRequirement) }, // Convert Double to Int
-                        set: { subject.attendance.minimumPercentageRequirement = Double($0) } // Convert Int back to Double
+                        get: { Int(subject.attendance?.minimumPercentageRequirement ?? 75.0) }, // Read from optional
+                        set: { subject.attendance?.minimumPercentageRequirement = Double($0) } // Write to optional
                     ))
+                    // --- End of Fix ---
                     
                     ClassScheduleSection(
                         daysOfWeek: daysOfWeek,
@@ -114,25 +117,29 @@ struct EditSubjectView: View {
     }
     
     private func populateExistingData() {
-        for schedule in subject.schedules {
+        // --- CloudKit Fix: Use nil coalescing ---
+        for schedule in (subject.schedules ?? []) {
             selectedDays.insert(schedule.day)
             // Convert ClassTime to ClassPeriodTime
-            classTimes[schedule.day] = schedule.classTimes.map { classTime in
+            classTimes[schedule.day] = (schedule.classTimes ?? []).map { classTime in
                 ClassPeriodTime(startTime: classTime.startTime, endTime: classTime.endTime)
             }
-            classCount[schedule.day] = schedule.classTimes.count
+            classCount[schedule.day] = (schedule.classTimes ?? []).count
         }
+        // --- End of Fix ---
     }
     
     private func saveUpdatedData() {
+        // --- CloudKit Fix: We are assigning a new array, which is fine ---
         subject.schedules = selectedDays.map { day in
-            Schedule(
-                day: day,
-                classTimes: classTimes[day]?.map { classPeriodTime in
-                    ClassTime(startTime: classPeriodTime.startTime, endTime: classPeriodTime.endTime, date: Date())
-                } ?? []
-            )
+            let schedule = Schedule(day: day)
+            // Map ClassPeriodTime back to ClassTime
+            schedule.classTimes = classTimes[day]?.map { classPeriodTime in
+                ClassTime(startTime: classPeriodTime.startTime, endTime: classPeriodTime.endTime, date: Date())
+            } ?? []
+            return schedule
         }
+        // --- End of Fix ---
         
         // Reschedule notifications when data is saved ---
         let subjectToSchedule = subject
@@ -148,24 +155,55 @@ struct EditSubjectView: View {
 //     var persistentModelID: PersistentIdentifier { self.persistentModelID }
 // }
 
-#Preview {
-    do {
-        let config = ModelConfiguration(isStoredInMemoryOnly: true)
-        let container = try ModelContainer(for: Subject.self, configurations: config)
-        let subject = Subject(name: "Math", startDateOfSubject: Date(), schedules: [])
-        return EditSubjectView(subject: subject, isShowingEditSubjectView: .constant(true))
-            .modelContainer(container)
-    } catch {
-        return Text("Failed to create container: \(error.localizedDescription)")
-    }
-}
+//#Preview {
+//    // --- CloudKit Fix: Wrap in helper view to handle do-catch ---
+//    struct PreviewWrapper: View {
+//        var body: some View {
+//            do {
+//                // Add ALL models to the container
+//                let config = ModelConfiguration(isStoredInMemoryOnly: true)
+//                let container = try ModelContainer(for: [
+//                    Subject.self,
+//                    Attendance.self,
+//                    Schedule.self,
+//                    ClassTime.self,
+//                    Note.self,
+//                    Folder.self,
+//                    FileMetadata.self,
+//                    AttendanceRecord.self
+//                ], configurations: config)
+//                
+//                // Use the default init() and set properties
+//                let subject = Subject()
+//                subject.name = "Math"
+//                subject.startDateOfSubject = Date()
+//                subject.schedules = []
+//                subject.attendance = Attendance(totalClasses: 10, attendedClasses: 8)
+//                
+//                container.mainContext.insert(subject)
+//                
+//                return EditSubjectView(subject: subject, isShowingEditSubjectView: .constant(true))
+//                    .modelContainer(container)
+//                
+//            } catch {
+//                return Text("Failed to create container: \(error.localizedDescription)")
+//            }
+//        }
+//    }
+//    
+//    PreviewWrapper()
+//    // --- End of Fix ---
+//}
 
 // MARK: Helper Views
 extension EditSubjectView {
     func moveFilesToNewFolder(oldName: String, newName: String) {
         let fileManager = FileManager.default
-        let oldFolderURL = getFolderURL(for: oldName)
-        let newFolderURL = getFolderURL(for: newName)
+        
+        // --- CloudKit Fix: Use FileDataService.baseFolder ---
+        let oldFolderURL = FileDataService.baseFolder.appendingPathComponent(oldName)
+        let newFolderURL = FileDataService.baseFolder.appendingPathComponent(newName)
+        // --- End of Fix ---
         
         do {
             if fileManager.fileExists(atPath: oldFolderURL.path) {
@@ -190,9 +228,14 @@ extension EditSubjectView {
         }
     }
     
+    // --- CloudKit Fix: This function is now redundant, but we keep it for reference ---
+    // We now use FileDataService.baseFolder to get the correct container
     func getFolderURL(for subjectName: String) -> URL {
-        let documentsDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        return documentsDirectory.appendingPathComponent("Subjects").appendingPathComponent(subjectName)
+        // This is the OLD, incorrect path:
+        // let documentsDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        // return documentsDirectory.appendingPathComponent("Subjects").appendingPathComponent(subjectName)
+        
+        // This is the NEW, correct path:
+        return FileDataService.baseFolder.appendingPathComponent(subjectName)
     }
 }
-

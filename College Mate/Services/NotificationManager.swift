@@ -39,13 +39,13 @@ class NotificationManager {
         
         let subjectName = subject.name
         
-        for schedule in subject.schedules {
+        for schedule in (subject.schedules ?? []) {
             guard let weekday = dayToWeekday(schedule.day) else { continue }
             
-            for classTime in schedule.classTimes {
-                guard let startTime = classTime.startTime else { continue }
-                
-                let components = Calendar.current.dateComponents([.hour, .minute], from: startTime)
+            for classTime in (schedule.classTimes ?? []) {
+                            guard let startTime = classTime.startTime else { continue }
+                            
+                            let components = Calendar.current.dateComponents([.hour, .minute], from: startTime)
                 guard let hour = components.hour, let minute = components.minute else { continue }
                 
                 // 1. Create Content

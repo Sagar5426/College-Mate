@@ -110,7 +110,7 @@ struct ControlPanelView: View {
                     generator.impactOccurred()
                     viewModel.toggleHoliday()
                 }) {
-                    Text(viewModel.isHoliday ? "Marked as Holiday" : "Mark Today as Holiday")
+                    Text(viewModel.isHoliday ? "Marked as Holiday" : "MarkToday as Holiday")
                         .fontWeight(.semibold)
                         .frame(maxWidth: .infinity)
                         .padding()
@@ -136,6 +136,13 @@ struct ControlPanelView: View {
 struct ClassesList: View {
     @ObservedObject var viewModel: AttendanceViewModel
     
+    // --- FIX 2: Helper function to fix compiler timeout ---
+    /// This helper function breaks up the complex expression that was confusing the compiler.
+    private func scheduledSchedules(for subject: Subject) -> [Schedule] {
+        let dayOfWeek = viewModel.selectedDate.formatted(Date.FormatStyle().weekday(.wide))
+        return (subject.schedules ?? []).filter { $0.day == dayOfWeek }
+    }
+    
     var body: some View {
         if viewModel.isHoliday {
             VStack(spacing: 10) {
@@ -152,9 +159,10 @@ struct ClassesList: View {
             Text("No classes scheduled for this day.").font(.subheadline).foregroundColor(.gray).padding()
         } else {
             VStack(alignment: .leading, spacing: 20) {
+                // Use the helper function here
                 ForEach(viewModel.scheduledSubjects) { subject in
-                    ForEach(subject.schedules.filter { $0.day == viewModel.selectedDate.formatted(Date.FormatStyle().weekday(.wide)) }) { schedule in
-                        ForEach(schedule.classTimes) { classTime in
+                    ForEach(scheduledSchedules(for: subject)) { schedule in
+                        ForEach(schedule.classTimes ?? []) { classTime in
                             ClassAttendanceRow(
                                 subject: subject,
                                 record: viewModel.record(for: classTime, in: subject),
@@ -167,18 +175,31 @@ struct ClassesList: View {
         }
     }
 }
+// --- End of Fix 2 ---
 
 struct ClassAttendanceRow: View {
     let subject: Subject
     let record: AttendanceRecord
     @ObservedObject var viewModel: AttendanceViewModel
     
+    // --- CloudKit Fix: Safely unwrap attendance ---
+    private var percentage: Double {
+        subject.attendance?.percentage ?? 0.0
+    }
+    
+    private var isAboveThreshold: Bool {
+        percentage >= (subject.attendance?.minimumPercentageRequirement ?? 75.0)
+    }
+    // --- End of Fix ---
+    
     var body: some View {
         HStack {
             VStack(alignment: .leading, spacing: 5) {
                 Text(subject.name).font(.title2).foregroundStyle(.primary)
-                Text("Attendance: \(Int(subject.attendance.percentage))%").font(.caption)
-                    .foregroundColor(subject.attendance.percentage >= 75 ? .green : .red)
+                // --- CloudKit Fix: Use the new computed properties ---
+                Text("Attendance: \(Int(percentage))%").font(.caption)
+                    .foregroundColor(isAboveThreshold ? .green : .red)
+                // --- End of Fix ---
             }
             Spacer()
             Menu {
@@ -204,17 +225,49 @@ struct ClassAttendanceRow: View {
     }
 }
 
-#Preview {
-    do {
-        let config = ModelConfiguration(isStoredInMemoryOnly: true)
-        let container = try ModelContainer(for: Subject.self, configurations: config)
-        let todayString = Date().formatted(Date.FormatStyle().weekday(.wide))
-        let todaySchedule = Schedule(day: todayString, classTimes: [ClassTime()])
-        let subject = Subject(name: "Computer Science", schedules: [todaySchedule])
-        container.mainContext.insert(subject)
-        return AttendanceView().modelContainer(container)
-    } catch {
-        return Text("Failed to create preview: \(error.localizedDescription)")
-    }
-}
+//#Preview {
+//    // --- CloudKit Fix: Wrap in helper view to handle do-catch ---
+//    struct PreviewWrapper: View {
+//        var body: some View {
+//            do {
+//                // Add ALL models to the container
+//                let config = ModelConfiguration(isStoredInMemoryOnly: true)
+//                
+//                // --- FIX 1: Remove the array brackets [] ---
+//                // The ModelContainer initializer takes a variadic list, not an array.
+//                let container = try ModelContainer(for:
+//                    Subject.self,
+//                    Attendance.self,
+//                    Schedule.self,
+//                    ClassTime.self,
+//                    Note.self,
+//                    Folder.self,
+//                    FileMetadata.self,
+//                    AttendanceRecord.self
+//                , configurations: config)
+//                // --- End of Fix 1 ---
+//                
+//                let todayString = Date().formatted(Date.FormatStyle().weekday(.wide))
+//                
+//                let classTime = ClassTime()
+//                let todaySchedule = Schedule(day: todayString)
+//                todaySchedule.classTimes = [classTime]
+//                
+//                let subject = Subject(name: "Computer Science")
+//                subject.schedules = [todaySchedule]
+//                subject.attendance = Attendance(totalClasses: 0, attendedClasses: 0)
+//                
+//                container.mainContext.insert(subject)
+//                
+//                return AttendanceView().modelContainer(container)
+//                
+//            } catch {
+//                return Text("Failed to create preview: \(error.localizedDescription)")
+//            }
+//        }
+//    }
+//    
+//    return PreviewWrapper()
+//    // --- End of CloudKit Fix ---
+//}
 

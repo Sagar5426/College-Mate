@@ -1,27 +1,24 @@
-//
-//  Folder.swift
-//  College Mate
-//
-//  Created by Sagar Jangra on 13/09/2025.
-//
-
 import Foundation
 import SwiftData
 
 @Model
 class Folder {
-    var id: UUID
-    var name: String
-    var createdDate: Date
-    var isFavorite: Bool // New property to track favorite status
-    var parentFolder: Folder?
-    @Relationship(deleteRule: .cascade, inverse: \Folder.parentFolder)
-    var subfolders: [Folder] = []
-    @Relationship(deleteRule: .cascade, inverse: \FileMetadata.folder)
-    var files: [FileMetadata] = []
+    // 1. Added default values
+    var id: UUID = UUID()
+    var name: String = ""
+    var createdDate: Date = Date()
+    var isFavorite: Bool = false
     
-    // Reference to the subject this folder belongs to
+    // Inverse relationships already exist and are optional
+    var parentFolder: Folder?
     var subject: Subject?
+    
+    // 2. Made relationships optional
+    @Relationship(deleteRule: .cascade, inverse: \Folder.parentFolder)
+    var subfolders: [Folder]? // Was [Folder]
+    
+    @Relationship(deleteRule: .cascade, inverse: \FileMetadata.folder)
+    var files: [FileMetadata]? // Was [FileMetadata]
     
     init(name: String, parentFolder: Folder? = nil, subject: Subject? = nil, isFavorite: Bool = false) {
         self.id = UUID()
@@ -31,6 +28,9 @@ class Folder {
         self.parentFolder = parentFolder
         self.subject = subject
     }
+    
+    // 3. Added default init for CloudKit
+    init() {}
     
     // Computed property to get full path
     var fullPath: String {

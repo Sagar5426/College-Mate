@@ -51,8 +51,10 @@ class AttendanceViewModel: ObservableObject {
         
         // Find all classes scheduled for this day.
         for subject in scheduledSubjects {
-            for schedule in subject.schedules where schedule.day == selectedDate.formatted(.dateTime.weekday(.wide)) {
-                for classTime in schedule.classTimes {
+            // --- CloudKit Fix: Use nil coalescing on optional array ---
+            for schedule in (subject.schedules ?? []) where schedule.day == selectedDate.formatted(.dateTime.weekday(.wide)) {
+                // --- CloudKit Fix: Use nil coalescing on optional array ---
+                for classTime in (schedule.classTimes ?? []) {
                     // Get or create the record for this class on this specific date.
                     let record = self.record(for: classTime, in: subject)
                     
@@ -78,7 +80,8 @@ class AttendanceViewModel: ObservableObject {
     func record(for classTime: ClassTime, in subject: Subject) -> AttendanceRecord {
         let targetDate = Calendar.current.startOfDay(for: selectedDate)
         
-        if let existingRecord = subject.records.first(where: { $0.classTimeID == classTime.id && Calendar.current.isDate($0.date, inSameDayAs: targetDate) }) {
+        // --- CloudKit Fix: Use nil coalescing on optional array ---
+        if let existingRecord = (subject.records ?? []).first(where: { $0.classTimeID == classTime.id && Calendar.current.isDate($0.date, inSameDayAs: targetDate) }) {
             return existingRecord
         } else {
             // When creating a new record, check if the day is already a holiday.
@@ -94,22 +97,23 @@ class AttendanceViewModel: ObservableObject {
         let oldStatus = record.status
         guard oldStatus != newStatus else { return }
 
+        // --- CloudKit Fix: Use optional chaining (?.) ---
         // Attendance Calculation Logic
         if newStatus == "Attended" {
-            if oldStatus == "Not Attended" { subject.attendance.attendedClasses += 1 }
+            if oldStatus == "Not Attended" { subject.attendance?.attendedClasses += 1 }
             else if oldStatus == "Canceled" {
-                subject.attendance.attendedClasses += 1
-                subject.attendance.totalClasses += 1
+                subject.attendance?.attendedClasses += 1
+                subject.attendance?.totalClasses += 1
             }
         } else if newStatus == "Not Attended" {
-            if oldStatus == "Attended" { subject.attendance.attendedClasses -= 1 }
-            else if oldStatus == "Canceled" { subject.attendance.totalClasses += 1 }
+            if oldStatus == "Attended" { subject.attendance?.attendedClasses -= 1 }
+            else if oldStatus == "Canceled" { subject.attendance?.totalClasses += 1 }
         } else if newStatus == "Canceled" {
             if oldStatus == "Attended" {
-                subject.attendance.attendedClasses -= 1
-                subject.attendance.totalClasses -= 1
+                subject.attendance?.attendedClasses -= 1
+                subject.attendance?.totalClasses -= 1
             } else if oldStatus == "Not Attended" {
-                subject.attendance.totalClasses -= 1
+                subject.attendance?.totalClasses -= 1
             }
         }
         
@@ -117,7 +121,11 @@ class AttendanceViewModel: ObservableObject {
         
         let logAction = newStatus == "Attended" ? "+ Attended" : (newStatus == "Not Attended" ? "- Missed" : (newStatus == "Holiday" ? "🌴 Holiday" : "ø Canceled"))
         let log = AttendanceLogEntry(timestamp: Date(), subjectName: subject.name, action: logAction)
+        
+        // --- THIS IS THE FIX ---
+        // Removed the '?' because 'logs' is not an optional property.
         subject.logs.append(log)
+        // --- End of Fix ---
     }
     
     // MARK - Private Helper Methods
@@ -132,7 +140,8 @@ class AttendanceViewModel: ObservableObject {
         let targetDate = Calendar.current.startOfDay(for: date)
         // We only need to find one record marked as a holiday to consider the whole day a holiday.
         for subject in allSubjects {
-            if subject.records.contains(where: { Calendar.current.isDate($0.date, inSameDayAs: targetDate) && $0.isHoliday }) {
+            // --- CloudKit Fix: Use nil coalescing on optional array ---
+            if (subject.records ?? []).contains(where: { Calendar.current.isDate($0.date, inSameDayAs: targetDate) && $0.isHoliday }) {
                 return true // Exit early once we find one
             }
         }
@@ -143,7 +152,9 @@ class AttendanceViewModel: ObservableObject {
         let dayOfWeek = selectedDate.formatted(Date.FormatStyle().weekday(.wide))
         scheduledSubjects = allSubjects.filter { subject in
             guard selectedDate >= subject.startDateOfSubject else { return false }
-            return subject.schedules.contains { $0.day == dayOfWeek }
+            // --- CloudKit Fix: Use nil coalescing on optional array ---
+            return (subject.schedules ?? []).contains { $0.day == dayOfWeek }
         }
     }
 }
+
