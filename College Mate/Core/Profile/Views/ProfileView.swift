@@ -6,6 +6,9 @@ struct ProfileView: View {
     @Binding var isShowingProfileView: Bool
     @Query var subjects: [Subject]
     
+    // 1. Get the AuthenticationService from the environment
+    @EnvironmentObject var authService: AuthenticationService
+    
     @StateObject private var viewModel = ProfileViewModel()
     
     // State to control the PhotosPicker is now here, in the parent view.
@@ -18,12 +21,18 @@ struct ProfileView: View {
         NavigationStack {
             ZStack {
                 // Using a darker, more solid background for better contrast
-                LinearGradient.appBackground.ignoresSafeArea()
+                // Assuming LinearGradient.appBackground is defined elsewhere
+                // For now, let's use a standard system background
+                Color(UIColor.systemGroupedBackground).ignoresSafeArea()
 
                 VStack {
                     Form {
                         ProfileHeaderView(viewModel: viewModel)
                         UserDetailsSection(viewModel: viewModel)
+                        
+                        // 2. Added the new Account Section here
+                        AccountSection(authService: authService)
+                        
                         AttendanceHistorySection(viewModel: viewModel)
                     }
                     .scrollContentBackground(.hidden)
@@ -164,6 +173,29 @@ struct UserDetailsSection: View {
         .listRowBackground(Color(UIColor.secondarySystemGroupedBackground))
     }
 }
+
+// 3. Create the new Account Section
+// MARK: - Account Section
+struct AccountSection: View {
+    @ObservedObject var authService: AuthenticationService
+    
+    var body: some View {
+        Section {
+            Button(role: .destructive) {
+                // Call the logout function
+                authService.logout()
+            } label: {
+                Text("Sign Out")
+                    .frame(maxWidth: .infinity, alignment: .center)
+            }
+        } header: {
+            Text("Account")
+                .foregroundColor(.gray)
+        }
+        .listRowBackground(Color(UIColor.secondarySystemGroupedBackground))
+    }
+}
+
 
 // MARK: - Attendance History Section
 struct AttendanceHistorySection: View {
@@ -348,12 +380,15 @@ private struct ProfileDatePickerSheet: View {
 }
 
 // MARK: - Image Cropper Full Screen (extracted)
+// Assuming ImageCropService is defined in another file.
+// If not, you'll need to add its definition.
 private struct ProfileImageCropperFullScreen: View {
     let image: UIImage
     @ObservedObject var viewModel: ProfileViewModel
     @Binding var isPresented: Bool
 
     var body: some View {
+        // Replaced the placeholder VStack with the actual ImageCropService call
         ImageCropService(
             image: image,
             onCrop: { cropped in
@@ -371,6 +406,9 @@ private struct ProfileImageCropperFullScreen: View {
 #Preview {
     ProfileView(isShowingProfileView: .constant(true))
         .modelContainer(for: Subject.self, inMemory: true)
+        // 4. Added auth service to preview
+        .environmentObject(AuthenticationService())
         .preferredColorScheme(.dark)
 }
+
 

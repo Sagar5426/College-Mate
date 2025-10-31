@@ -9,6 +9,7 @@ import SwiftUI
 import SwiftData
 
 struct HomeView: View {
+    @EnvironmentObject var authService: AuthenticationService
     @Query var subjects: [Subject]
     
     var body: some View {
@@ -25,6 +26,9 @@ struct HomeView: View {
             Tab("TimeTable", systemImage: "calendar") {
                 TimeTableView()
             }
+            
+            
+            
         }
         .tint(.cyan)
         .environment(\.colorScheme, .dark)

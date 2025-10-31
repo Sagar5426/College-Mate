@@ -1,11 +1,14 @@
 import SwiftUI
 import SwiftData
-import UserNotifications // <-- ADDED
+import UserNotifications // <-- Kept from your file
 
 @main
 struct College_MateApp: App {
     
-    // Create the shared model container for main app and shared extension.
+    // 1. Brought back the AuthenticationService
+    @StateObject private var authService = AuthenticationService()
+
+    // 2. Kept your shared model container setup
     private var sharedModelContainer: ModelContainer
     
     init() {
@@ -18,13 +21,23 @@ struct College_MateApp: App {
     
     var body: some Scene {
         WindowGroup {
-            HomeView()
-                .preferredColorScheme(.dark)
-                .onAppear {
-                    NotificationManager.shared.requestAuthorization()
-                }
+            // 3. Restored the authentication logic
+            if authService.isLoggedIn {
+                HomeView()
+                    .environmentObject(authService) // Pass auth service
+                    .preferredColorScheme(.dark) // Keep your preference
+                    .onAppear { // Keep your notification request
+                        NotificationManager.shared.requestAuthorization()
+                    }
+            } else {
+                LoginView()
+                    .environmentObject(authService) // Pass auth service
+                    .preferredColorScheme(.dark) // Keep preference consistent
+            }
         }
-        // Use the shared container for the main app.
+        // 4. Correctly attach the model container to the Scene
+        //    This makes it available to both HomeView and LoginView.
         .modelContainer(sharedModelContainer)
     }
 }
+
