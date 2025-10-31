@@ -8,12 +8,12 @@ class ProfileViewModel: ObservableObject {
     // MARK: - Properties
     
     // --- User Profile Data ---
-    @AppStorage("username") var username: String = "Your Name"
-    @AppStorage("age") var userDob: Date = Date()
-    @AppStorage("collegeName") var collegeName: String = "Your College"
-    @AppStorage("email") var email: String = ""
-    @AppStorage("profileImage") var profileImageData: Data?
-    @AppStorage("gender") var gender: Gender = .male
+    @iCloudStorage("username") var username: String = "Your Name"
+    @iCloudStorage("age") var userDob: Date = Date()
+    @iCloudStorage("collegeName") var collegeName: String = "Your College"
+    @iCloudStorage("email") var email: String = ""
+    @iCloudStorage("profileImage") var profileImageData: Data? = nil
+    @iCloudStorage("gender") var gender: Gender = .male
     
     // --- UI State ---
     @Published var isEditingProfile = false

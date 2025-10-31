@@ -1,37 +1,61 @@
 import Foundation
 import SwiftData
 
-/// Provides a shared ModelContainer configured for the app and its extensions.
-/// This replaces the missing symbol used by ShareView.
 struct SharedModelContainer {
-    /// Attempts to build a ModelContainer using an App Group configuration if available.
-    /// Falls back to the default configuration when no App Group identifier is provided.
+    
     static func make() throws -> ModelContainer {
-        // Build the schema for the known models used by the app.
-        // Ensure these types exist in your project: Subject, Folder, FileMetadata.
+        
+        // 1. Build the complete schema for ALL models
         let schema = Schema([
             Subject.self,
             Folder.self,
-            FileMetadata.self
+            FileMetadata.self,
+            Attendance.self,
+            AttendanceRecord.self,
+            Schedule.self,
+            ClassTime.self,
+            Note.self
         ])
 
-        // --- THIS IS THE SECOND CRITICAL FIX ---
-        // We use the hardcoded App Group ID string, just like in FileDataService.
-        // The old logic of reading from Info.plist was the bug.
+        // 2. Define App Group ID
         let appGroupID: String? = "group.com.sagarjangra.College-Mate"
 
-        if let appGroupID,
-           let groupURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupID) {
-            // Place the SwiftData store in the App Group container
-            let storeURL = groupURL.appendingPathComponent("Database.store", isDirectory: false)
-            let configuration = ModelConfiguration(url: storeURL)
-            print("[SharedModelContainer] Using App Group database at: \(storeURL.path)")
-            return try ModelContainer(for: schema, configurations: [configuration])
+        // 3. --- THIS IS THE CORRECT CONFIGURATION ---
+        // We define the configuration here. We will create it inside the 'if' block.
+        let configuration: ModelConfiguration
+
+        if let appGroupID {
+            // We are in the main app or an extension with the App Group
+            
+            // This is the correct initializer.
+            // We provide:
+            // 1. The name of the database file (e.g., "Database.store")
+            // 2. The group container
+            // 3. The CloudKit setting
+            //
+            // We DO NOT provide a 'url:' or 'schema:'.
+            
+            configuration = ModelConfiguration(
+                "Database.store", // This is the file name for the database
+                groupContainer: .identifier(appGroupID),
+                cloudKitDatabase: .automatic
+            )
+            
+            print("[SharedModelContainer] Using App Group with CloudKit sync.")
+            
         } else {
-            // Default, non–App Group store (useful for development or when entitlements are missing).
+            // Fallback (e.g., in simulator without App Groups)
             print("[SharedModelContainer] WARNING: App Group not found. Using default non-shared database.")
-            return try ModelContainer(for: schema)
+            
+            configuration = ModelConfiguration(
+                "Database.store", // Use the same name
+                cloudKitDatabase: .automatic
+            )
         }
+        
+        // 4. Create the ModelContainer
+        // We pass the schema (which we defined at the top)
+        // and the single configuration we just created.
+        return try ModelContainer(for: schema, configurations: [configuration])
     }
 }
-

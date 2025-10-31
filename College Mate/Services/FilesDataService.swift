@@ -33,27 +33,43 @@ struct FileDataService {
     // We hardcode the App Group ID string. Your entitlements file makes this safe.
     // The old `resolvedAppGroupID()` function was the bug.
     private static let appGroupID = "group.com.sagarjangra.College-Mate"
+    
+    private static let iCloudContainerID = "iCloud.com.sagarjangra.College-Mate"
 
     static let baseFolder: URL = {
-        // Use the hardcoded App Group ID
-        if let groupURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupID) {
-            let base = groupURL.appendingPathComponent("Subjects", isDirectory: true)
-            if !FileManager.default.fileExists(atPath: base.path) {
-                try? FileManager.default.createDirectory(at: base, withIntermediateDirectories: true)
-            }
-            print("[FileDataService] Using App Group URL: \(base.path)")
-            return base
-        } else {
-            // Fallback to documents if App Group unavailable/misconfigured
-            // This should NOT happen if your entitlements are correct.
-            let paths = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
-            let base = paths[0].appendingPathComponent("Subjects", isDirectory: true)
-            if !FileManager.default.fileExists(atPath: base.path) {
-                try? FileManager.default.createDirectory(at: base, withIntermediateDirectories: true)
-            }
-            print("[FileDataService] WARNING: App Group not found. Falling back to Documents directory: \(base.path)")
-            return base
-        }
+        // Priority 1: Use the iCloud Drive container if available
+                if let cloudURL = FileManager.default.url(forUbiquityContainerIdentifier: iCloudContainerID)?
+                                            .appendingPathComponent("Documents") // Standard subfolder for user files
+                                            .appendingPathComponent("Subjects", isDirectory: true) {
+                    
+                    if !FileManager.default.fileExists(atPath: cloudURL.path) {
+                        try? FileManager.default.createDirectory(at: cloudURL, withIntermediateDirectories: true)
+                    }
+                    print("[FileDataService] Using iCloud Drive URL: \(cloudURL.path)")
+                    return cloudURL
+                    
+                } else {
+                    // Fallback 2: Use App Group (if iCloud is logged out or disabled)
+                    // Files will not sync, but the app will still work locally.
+                    print("[FileDataService] WARNING: iCloud container not found. Falling back to App Group.")
+                    if let groupURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupID) {
+                        let base = groupURL.appendingPathComponent("Subjects", isDirectory: true)
+                        if !FileManager.default.fileExists(atPath: base.path) {
+                            try? FileManager.default.createDirectory(at: base, withIntermediateDirectories: true)
+                        }
+                        print("[FileDataService] Using App Group URL: \(base.path)")
+                        return base
+                    } else {
+                        // Fallback 3: Documents directory (original fallback)
+                        let paths = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
+                        let base = paths[0].appendingPathComponent("Subjects", isDirectory: true)
+                        if !FileManager.default.fileExists(atPath: base.path) {
+                            try? FileManager.default.createDirectory(at: base, withIntermediateDirectories: true)
+                        }
+                        print("[FileDataService] WARNING: App Group not found. Falling back to Documents directory: \(base.path)")
+                        return base
+                    }
+                }
     }()
 
     static func subjectFolder(for subject: Subject) -> URL {
