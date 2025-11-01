@@ -2,6 +2,16 @@ import SwiftUI
 import PhotosUI
 import SwiftData
 
+// ADDED: A helper to format the time nicely
+extension DateFormatter {
+    static let shortTime: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .none
+        formatter.timeStyle = .short
+        return formatter
+    }()
+}
+
 struct ProfileView: View {
     @Binding var isShowingProfileView: Bool
     @Query var subjects: [Subject]
@@ -30,6 +40,45 @@ struct ProfileView: View {
                         Form {
                             ProfileHeaderView(viewModel: viewModel)
                             UserDetailsSection(viewModel: viewModel)
+                            
+                            // --- THIS IS THE NEW SECTION ---
+                            Section {
+                                HStack {
+                                    if viewModel.isSyncing {
+                                        ProgressView()
+                                            .padding(.trailing, 4)
+                                        Text("Syncing Profile...")
+                                            .foregroundColor(.secondary)
+                                    } else {
+                                        Button(action: { viewModel.triggerSync() }) {
+                                            HStack(spacing: 8) {
+                                                Image(systemName: "arrow.clockwise")
+                                                Text("Sync Now")
+                                            }
+                                        }
+                                        .buttonStyle(PlainButtonStyle()) // Ensure it looks like text
+                                        .foregroundColor(.accentColor)
+                                    }
+                                    
+                                    Spacer()
+                                    
+                                    if let lastSyncedTime = viewModel.lastSyncedTime {
+                                        Text("Last: \(lastSyncedTime, formatter: DateFormatter.shortTime)")
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                    } else {
+                                        Text("Ready to sync")
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                    }
+                                }
+                            } header: {
+                                Text("Profile Sync (iCloud)")
+                                    .foregroundColor(.gray)
+                            }
+                            .listRowBackground(Color(UIColor.secondarySystemGroupedBackground))
+                            // --- END OF NEW SECTION ---
+                            
                             AttendanceHistorySection(viewModel: viewModel)
                         }
                         .scrollContentBackground(.hidden)
@@ -416,9 +465,13 @@ private struct ProfileImageCropperFullScreen: View {
         ImageCropService(
             image: image,
             onCrop: { cropped in
-                if let data = cropped.jpegData(compressionQuality: 0.9) {
+                // --- THIS IS THE FIX ---
+                // Changed compressionQuality from 0.9 to 0.5 to
+                // reduce file size and fit within 1MB iCloud KVS limit.
+                if let data = cropped.jpegData(compressionQuality: 0.5) {
                     viewModel.profileImageData = data
                 }
+                // --- END OF FIX ---
             },
             isPresented: $isPresented
         )

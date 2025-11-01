@@ -12,6 +12,8 @@ struct HomeView: View {
     @EnvironmentObject var authService: AuthenticationService
     @Query var subjects: [Subject]
     
+    // --- ALL REFRESH LOGIC HAS BEEN REMOVED ---
+    
     var body: some View {
         
         TabView {
@@ -32,6 +34,8 @@ struct HomeView: View {
         }
         .tint(.cyan)
         .environment(\.colorScheme, .dark)
+        
+        // --- ALL MODIFIERS (.id, .onAppear) ARE GONE ---
         
     }
 }

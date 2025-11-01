@@ -39,6 +39,13 @@ class ProfileViewModel: ObservableObject {
 
     // --- 3. Combine cancellables ---
     private var cancellables = Set<AnyCancellable>()
+    
+    // --- 4. ADDED: Sync State Properties ---
+    @Published var isSyncing: Bool = false
+    @Published var lastSyncedTime: Date?
+    
+    // --- 5. UPDATED: Removed notification observer, kept task manager ---
+    private var syncTask: Task<Void, Error>?
 
     // MARK: - Enums (from original file)
     
@@ -88,6 +95,15 @@ class ProfileViewModel: ObservableObject {
         self.email = syncedEmail
         self.profileImageData = syncedProfileImageData
         self.gender = syncedGender
+        
+        // --- ADDED: Load last synced time from UserDefaults ---
+        // --- THIS IS THE FIX ---
+        // `double(forKey:)` returns 0.0 if not found, not nil.
+        // So we check the value directly.
+        let lastSyncTimestamp = UserDefaults.standard.double(forKey: "profileLastSyncedTime")
+        if lastSyncTimestamp > 0 {
+            self.lastSyncedTime = Date(timeIntervalSince1970: lastSyncTimestamp)
+        }
         
         // --- 5. Set up two-way data binding ---
         
@@ -191,6 +207,92 @@ class ProfileViewModel: ObservableObject {
                 self?.gender = newValue
             }
             .store(in: &cancellables)
+            
+        // --- ADDED ---
+        // Now that all observers are set up, request an initial sync
+        // to populate the UI with the latest data.
+        print("[ProfileViewModel] Init: Requesting initial sync...")
+        NSUbiquitousKeyValueStore.default.synchronize()
+    }
+    
+    // MARK: - UPDATED: Sync Method
+    
+    @MainActor
+    func triggerSync() {
+        guard !isSyncing else { return }
+        
+        isSyncing = true
+        
+        // Cancel any previous sync task that might be lingering
+        syncTask?.cancel()
+        
+        let store = NSUbiquitousKeyValueStore.default
+        
+        // 1. Request the sync.
+        store.synchronize()
+        print("[ProfileViewModel] triggerSync: Requesting sync...")
+
+        // 2. Start an async task to wait, then force re-read the data.
+        syncTask = Task {
+            do {
+                // --- THIS IS THE FIX ---
+                // Give the OS 10 seconds to fetch the data from iCloud.
+                // This matches your observation that the sync
+                // takes about 5-10 seconds to complete.
+                try await Task.sleep(for: .seconds(10))
+                
+                // If the task wasn't cancelled, proceed to stop.
+                await MainActor.run {
+                    print("[ProfileViewModel] 10s delay complete. Forcing UI refresh from store.")
+                    // --- THIS IS THE CRITICAL FIX ---
+                    // Manually re-read all values from the store
+                    // to update the UI.
+                    self.forceReadFromStore()
+                    // ---------------------------------
+                    self.stopSyncing()
+                }
+                
+            } catch {
+                // This catches the cancellation, which is normal.
+                print("[ProfileViewModel] Sync task was cancelled.")
+                await MainActor.run {
+                    self.isSyncing = false // Ensure spinner stops if cancelled
+                }
+            }
+        }
+    }
+    
+    // --- UPDATED: New helper function ---
+    @MainActor
+    private func forceReadFromStore() {
+        print("[ProfileViewModel] forceReadFromStore: Re-reading all values directly from store.")
+        
+        let store = NSUbiquitousKeyValueStore.default
+        
+        // This explicitly bypasses the @iCloudStorage wrappers and reads
+        // the latest values directly from the key-value store.
+        self.username = (store.object(forKey: "username") as? String) ?? self.username
+        self.userDob = (store.object(forKey: "age") as? Date) ?? self.userDob
+        self.collegeName = (store.object(forKey: "collegeName") as? String) ?? self.collegeName
+        self.email = (store.object(forKey: "email") as? String) ?? self.email
+        self.profileImageData = store.object(forKey: "profileImage") as? Data
+        self.gender = (store.object(forKey: "gender") as? Gender.RawValue)
+            .flatMap(Gender.init) ?? self.gender
+    }
+    
+    @MainActor
+    private func stopSyncing() {
+        guard isSyncing else { return }
+        
+        print("[ProfileViewModel] Sync complete. Updating UI.")
+        isSyncing = false
+        
+        let now = Date()
+        self.lastSyncedTime = now
+        UserDefaults.standard.set(now.timeIntervalSince1970, forKey: "profileLastSyncedTime")
+        
+        // Clean up task
+        syncTask = nil
     }
     
     // MARK: - Methods (from original file)
@@ -220,4 +322,9 @@ class ProfileViewModel: ObservableObject {
             .sorted { $0.timestamp > $1.timestamp }
     }
 }
+
+
+
+
+
 

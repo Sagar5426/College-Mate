@@ -33,7 +33,7 @@ struct iCloudStorage<Value> {
         }
         
         // Sync from iCloud on first launch
-        store.synchronize()
+        // store.synchronize() // <-- REMOVED (Will be triggered by ViewModel)
     }
 
     var wrappedValue: Value {
@@ -76,7 +76,7 @@ extension iCloudStorage where Value == Data? {
             let newValue = (store.object(forKey: key) as? Value) ?? defaultValue
             publisher.send(newValue)
         }
-        store.synchronize()
+        // store.synchronize() // <-- REMOVED (Will be triggered by ViewModel)
     }
 }
 
@@ -100,7 +100,7 @@ extension iCloudStorage where Value == Date {
             let newValue = (store.object(forKey: key) as? Value) ?? defaultValue
             publisher.send(newValue)
         }
-        store.synchronize()
+        // store.synchronize() // <-- REMOVED (Will be triggered by ViewModel)
     }
 
     var wrappedValue: Date {
@@ -140,7 +140,7 @@ extension iCloudStorage where Value: RawRepresentable {
             let newValue = Value(rawValue: rawValue) ?? defaultValue
             publisher.send(newValue)
         }
-        store.synchronize()
+        // store.synchronize() // <-- REMOVED (Will be triggered by ViewModel)
     }
 
     var wrappedValue: Value {
@@ -157,3 +157,4 @@ extension iCloudStorage where Value: RawRepresentable {
         }
     }
 }
+
