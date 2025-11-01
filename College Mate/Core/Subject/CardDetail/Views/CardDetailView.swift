@@ -185,6 +185,12 @@ struct CardDetailView: View {
             }) {
                 SubjectNoteSheetView(noteText: $viewModel.subjectNote)
             }
+            // --- ADDED: Overlay for downloading ---
+            .overlay {
+                if viewModel.isDownloading {
+                    downloadingOverlay
+                }
+            }
     }
     
     // MARK: - Subviews
@@ -459,6 +465,32 @@ struct CardDetailView: View {
         }
     }
     
+    // --- ADDED: Downloading Overlay ---
+    private var downloadingOverlay: some View {
+        ZStack {
+            Color.black.opacity(0.5).ignoresSafeArea()
+            VStack(spacing: 12) {
+                ProgressView()
+                    .progressViewStyle(.circular)
+                    .tint(.white)
+                    .scaleEffect(1.5)
+                
+                Text("Downloading file...")
+                    .font(.headline)
+                    .foregroundColor(.white)
+                
+                if let file = viewModel.fileToDownload {
+                    Text((file.fileName as NSString).deletingPathExtension)
+                        .font(.subheadline)
+                        .foregroundColor(.white.opacity(0.8))
+                }
+            }
+            .padding(20)
+            .background(.ultraThinMaterial)
+            .cornerRadius(16)
+        }
+    }
+    
     private var noNotesView: some View {
         ScrollView {
             VStack {
@@ -525,7 +557,7 @@ struct CardDetailView: View {
                 ForEach(viewModel.filteredFileMetadata, id: \.id) { fileMetadata in
                     fileMetadataView(for: fileMetadata)
                         .onTapGesture {
-                            handleTapForMetadata(fileMetadata)
+                            handleTapForMetadata(fileMetadata) // --- UPDATED ---
                         }
                         .transition(.scale.combined(with: .opacity))
                 }
@@ -625,7 +657,7 @@ struct CardDetailView: View {
         .padding(.vertical, 8)
         .contentShape(Rectangle())
         .onTapGesture {
-            handleTapForMetadata(fileMetadata)
+            handleTapForMetadata(fileMetadata) // --- UPDATED ---
         }
         .contextMenu {
             if !viewModel.isEditing {
@@ -637,10 +669,11 @@ struct CardDetailView: View {
 
     @ViewBuilder
     private func listThumbnail(for fileMetadata: FileMetadata) -> some View {
-        ZStack {
+        ZStack(alignment: .bottomTrailing) {
             switch fileMetadata.fileType {
             case .image:
                 if let fileURL = fileMetadata.getFileURL(),
+                   FileManager.default.fileExists(atPath: fileURL.path), // Check if it exists
                    let imageData = try? Data(contentsOf: fileURL),
                    let image = UIImage(data: imageData) {
                     Image(uiImage: image)
@@ -648,7 +681,10 @@ struct CardDetailView: View {
                         .scaledToFit()
                         .clipShape(RoundedRectangle(cornerRadius: 4))
                 } else {
+                    // Show placeholder
                     Image(systemName: "photo.fill")
+                        .font(.title)
+                        .foregroundColor(.green)
                 }
             case .pdf:
                 Image(systemName: "doc.richtext.fill")
@@ -662,6 +698,19 @@ struct CardDetailView: View {
                 Image(systemName: "doc.fill")
                     .font(.title)
                     .foregroundColor(.gray)
+            }
+            
+            // --- ADDED: Download icon for non-existent files ---
+            if let fileURL = fileMetadata.getFileURL(),
+               !FileManager.default.fileExists(atPath: fileURL.path) {
+                Image(systemName: "icloud.and.arrow.down.fill")
+                    .font(.caption)
+                    .foregroundColor(.blue)
+                    .padding(2)
+                    .background(.white)
+                    .clipShape(Circle())
+                    .shadow(radius: 1)
+                    .offset(x: 4, y: 4)
             }
         }
     }
@@ -714,6 +763,7 @@ struct CardDetailView: View {
                 switch fileMetadata.fileType {
                 case .image:
                     if let fileURL = fileMetadata.getFileURL(),
+                       FileManager.default.fileExists(atPath: fileURL.path), // Check if it exists
                        let imageData = try? Data(contentsOf: fileURL),
                        let image = UIImage(data: imageData) {
                         Image(uiImage: image)
@@ -731,7 +781,9 @@ struct CardDetailView: View {
                     }
                     
                 case .pdf:
-                    if let fileURL = fileMetadata.getFileURL(), let pdfThumbnail = viewModel.generatePDFThumbnail(from: fileURL) {
+                    if let fileURL = fileMetadata.getFileURL(),
+                       FileManager.default.fileExists(atPath: fileURL.path), // Check if it exists
+                       let pdfThumbnail = viewModel.generatePDFThumbnail(from: fileURL) {
                         Image(uiImage: pdfThumbnail)
                             .resizable()
                             .scaledToFit()
@@ -748,7 +800,8 @@ struct CardDetailView: View {
                     }
                     
                 case .docx:
-                    if let fileURL = fileMetadata.getFileURL() {
+                    if let fileURL = fileMetadata.getFileURL(),
+                       FileManager.default.fileExists(atPath: fileURL.path) { // Check if it exists
                         DocxThumbnailView(fileURL: fileURL, viewModel: viewModel, size: tileSize)
                     } else {
                         Image(systemName: "doc.text.fill")
@@ -779,6 +832,20 @@ struct CardDetailView: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                         .padding(4)
                 }
+                
+                // --- ADDED: Download icon for non-existent files ---
+                if let fileURL = fileMetadata.getFileURL(),
+                   !FileManager.default.fileExists(atPath: fileURL.path) {
+                    Image(systemName: "icloud.and.arrow.down.fill")
+                        .font(.callout)
+                        .foregroundColor(.blue)
+                        .padding(4)
+                        .background(.white)
+                        .clipShape(Circle())
+                        .shadow(radius: 2)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                        .padding(4)
+                }
             }
             .frame(width: tileSize, height: tileSize)
             
@@ -807,15 +874,23 @@ struct CardDetailView: View {
         )
     }
     
+    // --- UPDATED: Tap Handler ---
     private func handleTapForMetadata(_ fileMetadata: FileMetadata) {
         if viewModel.isEditing {
             playNavigationHaptic()
             viewModel.toggleSelectionForMetadata(fileMetadata)
-        } else {
-            if let fileURL = fileMetadata.getFileURL() {
-                playNavigationHaptic()
-                viewModel.documentToPreview = PreviewableDocument(url: fileURL)
-            }
+            return
+        }
+        
+        // File is not local, start download
+        if let fileURL = fileMetadata.getFileURL(),
+           !FileManager.default.fileExists(atPath: fileURL.path) {
+            playNavigationHaptic()
+            viewModel.startDownload(for: fileMetadata)
+        } else if let fileURL = fileMetadata.getFileURL() {
+            // File is local, open it
+            playNavigationHaptic()
+            viewModel.documentToPreview = PreviewableDocument(url: fileURL)
         }
     }
     
@@ -861,7 +936,8 @@ struct CardDetailView: View {
         }
         
         Button {
-            viewModel.renamingFileMetadata = fileMetadata
+            // Use the centralized renaming function
+            viewModel.beginRenaming(with: fileMetadata)
         } label: {
             if fileMetadata.fileType == .image {
                 Label("Add Caption", systemImage: "pencil")
@@ -967,6 +1043,7 @@ struct CardDetailView: View {
             .font(.subheadline.weight(.medium))
             .padding(.leading)
             .disabled(viewModel.filteredFileMetadata.isEmpty && viewModel.subfolders.isEmpty) // Disable if no files or folders to select
+            // --- FIX: Typo corrected ---
             .foregroundColor((viewModel.filteredFileMetadata.isEmpty && viewModel.subfolders.isEmpty) ? .gray : .blue)
 
             Spacer()
@@ -1418,7 +1495,7 @@ private func isPlaceholderImageName(_ fileName: String) -> Bool {
 }
 
 //#Preview("Card Detail Preview") {
-//    
+//
 //    // --- CloudKit Fix: Wrap in helper view ---
 //    struct PreviewWrapper: View {
 //        var body: some View {
@@ -1436,7 +1513,7 @@ private func isPlaceholderImageName(_ fileName: String) -> Bool {
 //                    AttendanceRecord.self
 //                ], configurations: config)
 //                let context = container.mainContext
-//                
+//
 //                // --- CloudKit Fix: Use new init() and set properties ---
 //                let subject = Subject()
 //                subject.name = "Physics"
@@ -1447,7 +1524,7 @@ private func isPlaceholderImageName(_ fileName: String) -> Bool {
 //                subject.rootFolders = []
 //                subject.fileMetadata = []
 //                subject.records = []
-//                
+//
 //                context.insert(subject)
 //
 //                let notesFolder = Folder(name: "Notes", parentFolder: nil, subject: subject)
@@ -1479,13 +1556,14 @@ private func isPlaceholderImageName(_ fileName: String) -> Bool {
 //                    CardDetailView(subject: subject, modelContext: context)
 //                }
 //                .modelContainer(container)
-//                
+//
 //            } catch {
 //                return Text("Failed to create preview container: \(error.localizedDescription)")
 //            }
 //        }
 //    }
-//    
+//
 //    PreviewWrapper()
 //    // --- End of Fix ---
 //}
+

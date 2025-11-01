@@ -24,7 +24,27 @@ class CardDetailViewModel: ObservableObject {
     private let layoutStyleKey: String
     
     // Centralized entry point to start renaming/captioning a file
-    private func beginRenaming(with metadata: FileMetadata) {
+    // --- FIX: Made public to be accessible from View ---
+    func beginRenaming(with metadata: FileMetadata) {
+        // --- FIX: Check if file exists before renaming ---
+        guard let url = metadata.getFileURL(),
+              FileManager.default.fileExists(atPath: url.path) else {
+            // If file doesn't exist, only allow renaming if it's an image (for captioning)
+            // --- FIX: This check now correctly uses 'metadata' ---
+            if metadata.fileType == .image {
+                // Allow captioning a metadata-only image
+                self.renamingFileMetadata = metadata
+                self.newFileName = self.suggestedEditableName(from: metadata.fileName)
+                self.isShowingRenameView = true
+            } else {
+                // Can't rename a non-existent, non-image file
+                print("Error: Cannot rename file that is not downloaded.")
+                // Optionally, set an error message for the user
+                return
+            }
+            return
+        }
+        
         self.renamingFileMetadata = metadata
         self.newFileName = self.suggestedEditableName(from: metadata.fileName)
         self.isShowingRenameView = true
@@ -125,16 +145,21 @@ class CardDetailViewModel: ObservableObject {
     // --- Renaming State ---
     @Published var renamingFileMetadata: FileMetadata? = nil {
         didSet {
-            if let metadata = renamingFileMetadata {
-                if metadata.fileType == .image {
-                    newFileName = suggestedEditableName(from: metadata.fileName)
-                } else {
-                    newFileName = (metadata.fileName as NSString).deletingPathExtension
+            if renamingFileMetadata != nil {
+                // This logic is now handled by beginRenaming()
+                // We keep the isShowingRenameView = true
+                // in case it's set programmatically
+                if !isShowingRenameView {
+                    isShowingRenameView = true
                 }
-                isShowingRenameView = true
             }
         }
     }
+    
+    // --- ADDED: iCloud Download State ---
+    @Published var isDownloading: Bool = false
+    @Published var fileToDownload: FileMetadata? = nil
+    
     @Published var renamingFileURL: URL? = nil {
         didSet {
             guard renamingFileMetadata == nil else { return }
@@ -397,19 +422,39 @@ class CardDetailViewModel: ObservableObject {
         loadFolderContent() // Refresh to show favorite status change
     }
     
+    // --- UPDATED: Delete function ---
     func deleteFileMetadata(_ fileMetadata: FileMetadata) {
-        guard let fileURL = fileMetadata.getFileURL() else { return }
-        
-        do {
-            try FileManager.default.removeItem(at: fileURL)
+        guard let fileURL = fileMetadata.getFileURL() else {
+            // Failsafe: if we can't get a URL, just delete the metadata
             modelContext.delete(fileMetadata)
             try? modelContext.save()
             loadFolderContent()
-        } catch {
-            print("Failed to delete file: \(error)")
+            return
         }
+
+        // Check if the file exists locally
+        if FileManager.default.fileExists(atPath: fileURL.path) {
+            do {
+                try FileManager.default.removeItem(at: fileURL)
+                // Deleting the file worked, now delete metadata
+            } catch {
+                print("Failed to delete physical file: \(error)")
+                // Don't delete metadata, as the file is still there
+                return
+            }
+        } else {
+            // The file doesn't exist locally (corrupted metadata)
+            // We proceed to delete the metadata entry only.
+            print("File not found locally. Deleting metadata for: \(fileMetadata.fileName)")
+        }
+        
+        // Delete the metadata object from SwiftData
+        modelContext.delete(fileMetadata)
+        try? modelContext.save()
+        loadFolderContent()
     }
     
+    // --- UPDATED: Rename function ---
     func renameFileMetadata(_ fileMetadata: FileMetadata, to newName: String) {
         guard let oldURL = fileMetadata.getFileURL() else { return }
         
@@ -417,17 +462,28 @@ class CardDetailViewModel: ObservableObject {
         let newFileName = "\(newName).\(fileExtension)"
         let newURL = oldURL.deletingLastPathComponent().appendingPathComponent(newFileName)
         
-        do {
-            try FileManager.default.moveItem(at: oldURL, to: newURL)
-            fileMetadata.fileName = newFileName
-            let folderPath = fileMetadata.folder?.fullPath ?? ""
-            fileMetadata.relativePath = folderPath.isEmpty ? newFileName : "\(folderPath)/\(newFileName)"
-            
-            try? modelContext.save()
-            loadFolderContent()
-        } catch {
-            print("Failed to rename file: \(error)")
+        // Check if the file exists locally
+        if FileManager.default.fileExists(atPath: oldURL.path) {
+            // File exists, rename it
+            do {
+                try FileManager.default.moveItem(at: oldURL, to: newURL)
+            } catch {
+                print("Failed to rename physical file: \(error)")
+                return // Don't update metadata if file op failed
+            }
+        } else {
+            // File does NOT exist (corrupted metadata)
+            // We will *only* update the metadata
+            print("File not found locally. Updating metadata name for: \(fileMetadata.fileName)")
         }
+
+        // Update metadata
+        fileMetadata.fileName = newFileName
+        let folderPath = fileMetadata.folder?.fullPath ?? ""
+        fileMetadata.relativePath = folderPath.isEmpty ? newFileName : "\(folderPath)/\(newFileName)"
+        
+        try? modelContext.save()
+        loadFolderContent()
     }
     
     // MARK: - Single Item Delete Methods
@@ -507,7 +563,18 @@ class CardDetailViewModel: ObservableObject {
         for fileMetadata in selectedFileMetadata {
             // We need to know the source subject to move correctly
             guard let sourceSubject = fileMetadata.subject else { continue }
-            _ = FileDataService.moveFile(fileMetadata, to: targetFolder, in: sourceSubject)
+            
+            // --- FIX: Check if file exists before moving ---
+            if let url = fileMetadata.getFileURL(),
+               FileManager.default.fileExists(atPath: url.path)
+            {
+                _ = FileDataService.moveFile(fileMetadata, to: targetFolder, in: sourceSubject)
+            } else {
+                // File doesn't exist, just update its metadata parent
+                fileMetadata.folder = targetFolder
+                let folderPath = targetFolder?.fullPath ?? ""
+                fileMetadata.relativePath = folderPath.isEmpty ? fileMetadata.fileName : "\(folderPath)/\(fileMetadata.fileName)"
+            }
         }
         
         Task {
@@ -669,13 +736,21 @@ class CardDetailViewModel: ObservableObject {
     // MARK: - Sharing Methods
     
     func shareSelectedFiles() {
-        var urlsToShare = selectedFileMetadata.compactMap { $0.getFileURL() }
+        // --- FIX: Only share files that exist locally ---
+        var urlsToShare = selectedFileMetadata
+            .compactMap { $0.getFileURL() }
+            .filter { FileManager.default.fileExists(atPath: $0.path) }
         
         // Add files from selected folders
         for folder in selectedFolders {
             func recursivelyCollectFiles(from folder: Folder) {
                 // --- CloudKit Fix: Use nil coalescing ---
-                urlsToShare.append(contentsOf: (folder.files ?? []).compactMap { $0.getFileURL() })
+                let files = (folder.files ?? [])
+                    .compactMap { $0.getFileURL() }
+                    .filter { FileManager.default.fileExists(atPath: $0.path) }
+                
+                urlsToShare.append(contentsOf: files)
+                
                 for subfolder in (folder.subfolders ?? []) {
                     recursivelyCollectFiles(from: subfolder)
                 }
@@ -695,7 +770,13 @@ class CardDetailViewModel: ObservableObject {
         
         func recursivelyCollectFiles(from folder: Folder) {
             // --- CloudKit Fix: Use nil coalescing ---
-            urls.append(contentsOf: (folder.files ?? []).compactMap { $0.getFileURL() })
+            // --- FIX: Only share files that exist locally ---
+            let files = (folder.files ?? [])
+                .compactMap { $0.getFileURL() }
+                .filter { FileManager.default.fileExists(atPath: $0.path) }
+            
+            urls.append(contentsOf: files)
+            
             for subfolder in (folder.subfolders ?? []) {
                 recursivelyCollectFiles(from: subfolder)
             }
@@ -754,7 +835,7 @@ class CardDetailViewModel: ObservableObject {
     func deleteSelectedItems() {
         let metadataToDelete = selectedFileMetadata
         for metadata in metadataToDelete {
-            deleteFileMetadata(metadata)
+            deleteFileMetadata(metadata) // Use the updated delete function
         }
         
         let foldersToDelete = selectedFolders
@@ -785,4 +866,77 @@ class CardDetailViewModel: ObservableObject {
             selectedFolders.insert(folder)
         }
     }
+    
+    // MARK: - ADDED: iCloud Download Method
+    
+    func startDownload(for fileMetadata: FileMetadata) {
+        guard let fileURL = fileMetadata.getFileURL() else {
+            print("Error: Cannot get file URL to start download.")
+            return
+        }
+        
+        // Check if file already exists. If so, just open it.
+        if FileManager.default.fileExists(atPath: fileURL.path) {
+            print("File already exists, opening.")
+            self.documentToPreview = PreviewableDocument(url: fileURL)
+            return
+        }
+        
+        // File doesn't exist, start download
+        self.fileToDownload = fileMetadata
+        self.isDownloading = true
+        
+        Task(priority: .userInitiated) {
+            do {
+                // This is the call that tells iCloud Drive to start downloading
+                try FileManager.default.startDownloadingUbiquitousItem(at: fileURL)
+                
+                // Now we have to poll (check repeatedly) until the file is downloaded.
+                let success = await pollForFile(at: fileURL)
+                
+                // Once done, update UI on the main thread
+                await MainActor.run {
+                    self.isDownloading = false
+                    self.fileToDownload = nil
+                    if success {
+                        print("Download complete, opening file.")
+                        self.documentToPreview = PreviewableDocument(url: fileURL)
+                    } else {
+                        print("Error: File download timed out.")
+                        // Optionally: show an error to the user
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    self.isDownloading = false
+                    self.fileToDownload = nil
+                    print("Error starting download: \(error.localizedDescription)")
+                    // Optionally: show an error to the user
+                }
+            }
+        }
+    }
+    
+    private func pollForFile(at url: URL, timeout: TimeInterval = 30.0) async -> Bool {
+        let startTime = Date()
+        while Date().timeIntervalSince(startTime) < timeout {
+            // Check if the file exists locally
+            if FileManager.default.fileExists(atPath: url.path) {
+                // File exists, but we must check its download status
+                do {
+                    let resourceValues = try url.resourceValues(forKeys: [.ubiquitousItemDownloadingStatusKey])
+                    if resourceValues.ubiquitousItemDownloadingStatus == .current {
+                        return true // Download is complete!
+                    }
+                } catch {
+                    print("Error checking resource values: \(error)")
+                    return false // Error occurred
+                }
+            }
+            // Wait for 0.5 seconds before checking again
+            try? await Task.sleep(nanoseconds: 500_000_000)
+        }
+        return false // Timed out
+    }
 }
+
