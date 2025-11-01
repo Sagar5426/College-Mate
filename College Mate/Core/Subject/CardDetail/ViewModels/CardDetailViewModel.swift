@@ -867,7 +867,7 @@ class CardDetailViewModel: ObservableObject {
         }
     }
     
-    // MARK: - ADDED: iCloud Download Method
+    // MARK: - iCloud Download Method (REWRITTEN)
     
     func startDownload(for fileMetadata: FileMetadata) {
         guard let fileURL = fileMetadata.getFileURL() else {
@@ -875,14 +875,22 @@ class CardDetailViewModel: ObservableObject {
             return
         }
         
-        // Check if file already exists. If so, just open it.
-        if FileManager.default.fileExists(atPath: fileURL.path) {
-            print("File already exists, opening.")
-            self.documentToPreview = PreviewableDocument(url: fileURL)
-            return
+        // --- NEW PRE-FLIGHT CHECK ---
+        do {
+            if FileManager.default.fileExists(atPath: fileURL.path) {
+                let resourceValues = try fileURL.resourceValues(forKeys: [.ubiquitousItemDownloadingStatusKey])
+                if resourceValues.ubiquitousItemDownloadingStatus == .current {
+                    print("File already exists and is .current, opening.")
+                    self.documentToPreview = PreviewableDocument(url: fileURL)
+                    return
+                }
+            }
+        } catch {
+             print("Pre-flight check failed: \(error.localizedDescription). Proceeding with download attempt.")
         }
+        // --- END NEW CHECK ---
         
-        // File doesn't exist, start download
+        // File doesn't exist or is not .current, start download
         self.fileToDownload = fileMetadata
         self.isDownloading = true
         
@@ -891,7 +899,7 @@ class CardDetailViewModel: ObservableObject {
                 // This is the call that tells iCloud Drive to start downloading
                 try FileManager.default.startDownloadingUbiquitousItem(at: fileURL)
                 
-                // Now we have to poll (check repeatedly) until the file is downloaded.
+                // Now we poll...
                 let success = await pollForFile(at: fileURL)
                 
                 // Once done, update UI on the main thread
@@ -900,7 +908,12 @@ class CardDetailViewModel: ObservableObject {
                     self.fileToDownload = nil
                     if success {
                         print("Download complete, opening file.")
-                        self.documentToPreview = PreviewableDocument(url: fileURL)
+                        // Re-check status one last time to be sure
+                        if (try? fileURL.resourceValues(forKeys: [.ubiquitousItemDownloadingStatusKey]))?.ubiquitousItemDownloadingStatus == .current {
+                            self.documentToPreview = PreviewableDocument(url: fileURL)
+                        } else {
+                            print("Error: Polling succeeded but file is not .current on final check.")
+                        }
                     } else {
                         print("Error: File download timed out.")
                         // Optionally: show an error to the user
@@ -917,26 +930,55 @@ class CardDetailViewModel: ObservableObject {
         }
     }
     
+    // --- POLLING FUNCTION (REWRITTEN) ---
     private func pollForFile(at url: URL, timeout: TimeInterval = 30.0) async -> Bool {
         let startTime = Date()
-        while Date().timeIntervalSince(startTime) < timeout {
-            // Check if the file exists locally
-            if FileManager.default.fileExists(atPath: url.path) {
-                // File exists, but we must check its download status
+        var fileIsCurrent = false
+
+        while !fileIsCurrent && Date().timeIntervalSince(startTime) < timeout {
+            do {
+                // Try to get the resource values for the file
+                let resourceValues = try url.resourceValues(forKeys: [.ubiquitousItemDownloadingStatusKey])
+                
+                switch resourceValues.ubiquitousItemDownloadingStatus {
+                case .current:
+                    print("Polling: File is .current")
+                    fileIsCurrent = true // Success! Exit loop.
+                
+                case .notDownloaded, .downloaded:
+                    print("Polling: File is .notDownloaded or .downloaded. Requesting download again.")
+                    // File is not local. Request the download (again).
+                    try FileManager.default.startDownloadingUbiquitousItem(at: url)
+                
+                case nil:
+                    // status is nil, which means it's in the process of downloading.
+                    print("Polling: File is actively downloading (status is nil), continuing to wait...")
+                    // Do nothing, just let the loop continue and sleep
+                
+                default:
+                    print("Polling: Unknown download status.")
+                    // Unknown status, let's wait.
+                }
+            } catch {
+                // This error (e.g., "file not found") can happen if the placeholder isn't even synced.
+                // We should request the download to create the placeholder.
+                print("Polling: Error getting resource values (\(error.localizedDescription)). Requesting download.")
                 do {
-                    let resourceValues = try url.resourceValues(forKeys: [.ubiquitousItemDownloadingStatusKey])
-                    if resourceValues.ubiquitousItemDownloadingStatus == .current {
-                        return true // Download is complete!
-                    }
+                    try FileManager.default.startDownloadingUbiquitousItem(at: url)
                 } catch {
-                    print("Error checking resource values: \(error)")
-                    return false // Error occurred
+                    print("Polling: Failed to re-request download. Aborting poll.")
+                    return false // Abort
                 }
             }
-            // Wait for 0.5 seconds before checking again
-            try? await Task.sleep(nanoseconds: 500_000_000)
+            
+            // If not yet current, sleep before next check
+            if !fileIsCurrent {
+                try? await Task.sleep(nanoseconds: 1_000_000_000) // Sleep for 1 second
+            }
         }
-        return false // Timed out
+        
+        return fileIsCurrent
     }
 }
+
 
