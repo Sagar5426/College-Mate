@@ -7,6 +7,8 @@ struct SubjectsView: View {
     @State var isShowingAddSubject: Bool = false
     @State var isShowingProfileView = false // Keep this as @State to modify it
     
+    @State private var viewID = UUID()
+    
     var body: some View {
         NavigationStack {
             ScrollView(.vertical) {
@@ -40,6 +42,7 @@ struct SubjectsView: View {
                 }
                 .padding()
             }
+            .id(viewID)
             .background(LinearGradient.appBackground)
             .frame(maxWidth: .infinity)
             .overlay(alignment: .bottomTrailing) {
@@ -51,6 +54,18 @@ struct SubjectsView: View {
             .fullScreenCover(isPresented: $isShowingProfileView) {
                 ProfileView(isShowingProfileView: $isShowingProfileView)
             }
+            // --- MODIFICATION: Listen for the context-did-change notification from ANY context ---
+            .onReceive(NotificationCenter.default.publisher(for: .NSManagedObjectContextObjectsDidChange)) { notification in
+                // We are now listening for notifications from *all* contexts.
+                // This will fire when the CloudKit background context saves.
+                print("[SubjectsView] Received modelContext did change notification. Forcing refresh.")
+
+                // Perform the refresh on the main thread
+                DispatchQueue.main.async {
+                    viewID = UUID()
+                }
+            }
+            // --- END MODIFICATION ---
         }
     }
     

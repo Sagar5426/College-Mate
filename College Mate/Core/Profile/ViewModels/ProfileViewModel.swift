@@ -48,7 +48,7 @@ class ProfileViewModel: ObservableObject {
     @Published var lastSyncedTime: Date?
     
     // --- 5. UPDATED: Removed notification observer, kept task manager ---
-    private var syncTask: Task<Void, Error>?
+    private var syncTask: Task<Void, Never>?
 
     // MARK: - Enums (from original file)
     
@@ -102,7 +102,7 @@ class ProfileViewModel: ObservableObject {
         return components.year ?? 0
     }
     
-    // MARK: - Initializer 
+    // MARK: - Initializer
     
     init() {
         // --- 4. Initialize @Published properties from iCloud ---
@@ -215,6 +215,23 @@ class ProfileViewModel: ObservableObject {
             }
             .store(in: &cancellables)
             
+        // --- MODIFICATION: Listen for KVS notification ---
+        // We listen for the KVS notification to stop our sync spinner
+        // when a sync *actually* completes.
+        NotificationCenter.default.addObserver(
+            forName: NSUbiquitousKeyValueStore.didChangeExternallyNotification,
+            object: NSUbiquitousKeyValueStore.default,
+            queue: nil // Listen on any thread
+        ) { [weak self] _ in
+            // --- FIX: Dispatch to main thread to resolve actor isolation warning ---
+            DispatchQueue.main.async {
+                print("[ProfileViewModel] Received KVS didChange notification. Stopping sync spinner.")
+                self?.stopSyncing()
+            }
+            // --- END FIX ---
+        }
+        // --- END MODIFICATION ---
+            
         // Now that all observers are set up, request an initial sync
         // to populate the UI with the latest data.
         print("[ProfileViewModel] Init: Requesting initial sync...")
@@ -228,37 +245,27 @@ class ProfileViewModel: ObservableObject {
         guard !isSyncing else { return }
         
         isSyncing = true
-        
-        // Cancel any previous sync task that might be lingering
-        syncTask?.cancel()
+        syncTask?.cancel() // Cancel any old "timeout" task
         
         let store = NSUbiquitousKeyValueStore.default
         
-        // 1. Request the sync.
+        // 1. Request the KVS sync.
         store.synchronize()
-        print("[ProfileViewModel] triggerSync: Requesting sync...")
+        print("[ProfileViewModel] triggerSync: Requesting KVS sync...")
 
-        // 2. Start an async task to wait, then force re-read the data.
+        // 2. Start a "timeout" task.
+        // If we don't get a notification back in 15s, stop the spinner anyway.
         syncTask = Task {
             do {
-                // Give the OS 10 seconds to fetch the data from iCloud.
-                // This matches your observation that the sync
-                // takes about 5-10 seconds to complete.
-                try await Task.sleep(for: .seconds(10))
-                
-                // If the task wasn't cancelled, proceed to stop.
+                try await Task.sleep(for: .seconds(15))
+                // If the task wasn't cancelled by the notification, stop manually.
                 await MainActor.run {
-                    print("[ProfileViewModel] 10s delay complete. Forcing UI refresh from store.")
-                    self.forceReadFromStore()
+                    print("[ProfileViewModel] 15s timeout reached. Stopping sync spinner.")
                     self.stopSyncing()
                 }
-                
             } catch {
                 // This catches the cancellation, which is normal.
-                print("[ProfileViewModel] Sync task was cancelled.")
-                await MainActor.run {
-                    self.isSyncing = false // Ensure spinner stops if cancelled
-                }
+                print("[ProfileViewModel] Sync timeout task was cancelled (sync completed).")
             }
         }
     }
@@ -293,6 +300,7 @@ class ProfileViewModel: ObservableObject {
         UserDefaults.standard.set(now.timeIntervalSince1970, forKey: "profileLastSyncedTime")
         
         // Clean up task
+        syncTask?.cancel()
         syncTask = nil
     }
     
@@ -323,10 +331,4 @@ class ProfileViewModel: ObservableObject {
             .sorted { $0.timestamp > $1.timestamp }
     }
 }
-
-
-
-
-
-
 

@@ -27,6 +27,8 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         // This notification is a signal from CloudKit that data has changed.
         // We don't need to do anything with it.
         // SwiftData's ModelContainer will see it and update itself automatically.
+        // The ModelContainer will then post a .NSManagedObjectContextObjectsDidChange
+        // notification, which our views are listening for.
         
         completionHandler(.newData)
     }
@@ -37,3 +39,4 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         print("Failed to register for remote notifications: \(error.localizedDescription)")
     }
 }
+

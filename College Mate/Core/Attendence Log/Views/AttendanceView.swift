@@ -26,7 +26,7 @@ struct AttendanceView: View {
                 }
                 .padding()
             }
-            .id(viewID)
+            .id(viewID) // This ID is the key to our refresh
             .background(LinearGradient.appBackground.ignoresSafeArea())
             .blur(radius: viewModel.isShowingDatePicker ? 8 : 0)
             .disabled(viewModel.isShowingDatePicker)
@@ -58,6 +58,19 @@ struct AttendanceView: View {
         .onChange(of: subjects) {
             viewModel.setup(subjects: subjects, modelContext: modelContext)
         }
+        // --- MODIFICATION: Listen for the context-did-change notification from ANY context ---
+        .onReceive(NotificationCenter.default.publisher(for: .NSManagedObjectContextObjectsDidChange)) { notification in
+            // We are now listening for notifications from *all* contexts.
+            // As long as the notification's context shares the same store, this will work.
+            // This will fire when the CloudKit background context saves.
+            print("[AttendanceView] Received modelContext did change notification. Forcing refresh.")
+            
+            // Perform the refresh on the main thread
+            DispatchQueue.main.async {
+                viewID = UUID()
+            }
+        }
+        // --- END MODIFICATION ---
     }
 }
 
@@ -219,7 +232,7 @@ struct ClassAttendanceRow: View {
 //            do {
 
 //                let config = ModelConfiguration(isStoredInMemoryOnly: true)
-//                
+//
 
 
 //                let container = try ModelContainer(for:
@@ -233,27 +246,27 @@ struct ClassAttendanceRow: View {
 //                    AttendanceRecord.self
 //                , configurations: config)
 
-//                
+//
 //                let todayString = Date().formatted(Date.FormatStyle().weekday(.wide))
-//                
+//
 //                let classTime = ClassTime()
 //                let todaySchedule = Schedule(day: todayString)
 //                todaySchedule.classTimes = [classTime]
-//                
+//
 //                let subject = Subject(name: "Computer Science")
 //                subject.schedules = [todaySchedule]
 //                subject.attendance = Attendance(totalClasses: 0, attendedClasses: 0)
-//                
+//
 //                container.mainContext.insert(subject)
-//                
+//
 //                return AttendanceView().modelContainer(container)
-//                
+//
 //            } catch {
 //                return Text("Failed to create preview: \(error.localizedDescription)")
 //            }
 //        }
 //    }
-//    
+//
 //    return PreviewWrapper()
 //}
 
