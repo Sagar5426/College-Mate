@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import CoreData // Import CoreData for the notification name
 
 struct AttendanceView: View {
     @Environment(\.modelContext) private var modelContext
@@ -26,7 +27,7 @@ struct AttendanceView: View {
                 }
                 .padding()
             }
-            .id(viewID) // This ID is the key to our refresh
+            .id(viewID)
             .background(LinearGradient.appBackground.ignoresSafeArea())
             .blur(radius: viewModel.isShowingDatePicker ? 8 : 0)
             .disabled(viewModel.isShowingDatePicker)
@@ -50,6 +51,16 @@ struct AttendanceView: View {
                     .transition(.move(edge: .leading))
                 }
             }
+            // --- THIS IS THE CORRECTED SYNC LISTENER ---
+            .onReceive(NotificationCenter.default.publisher(for: .NSManagedObjectContextObjectsDidChange)
+                .receive(on: DispatchQueue.main) // <-- Ensures the code runs on the main thread
+            ) { _ in
+                // We don't filter by 'object' so we get all context save notifications,
+                // including the one from the background CloudKit sync.
+                print("[AttendanceView] Received modelContext did change notification on main thread. Forcing refresh.")
+                viewID = UUID() // This is now safe to do
+            }
+            // --- END CORRECTION ---
         }
         .animation(.spring(duration: 0.4), value: viewModel.isShowingDatePicker)
         .onAppear {
@@ -58,19 +69,6 @@ struct AttendanceView: View {
         .onChange(of: subjects) {
             viewModel.setup(subjects: subjects, modelContext: modelContext)
         }
-        // --- MODIFICATION: Listen for the context-did-change notification from ANY context ---
-        .onReceive(NotificationCenter.default.publisher(for: .NSManagedObjectContextObjectsDidChange)) { notification in
-            // We are now listening for notifications from *all* contexts.
-            // As long as the notification's context shares the same store, this will work.
-            // This will fire when the CloudKit background context saves.
-            print("[AttendanceView] Received modelContext did change notification. Forcing refresh.")
-            
-            // Perform the refresh on the main thread
-            DispatchQueue.main.async {
-                viewID = UUID()
-            }
-        }
-        // --- END MODIFICATION ---
     }
 }
 

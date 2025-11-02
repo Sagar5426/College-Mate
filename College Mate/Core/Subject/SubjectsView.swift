@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import CoreData // Import CoreData for the notification name
 
 struct SubjectsView: View {
     @Environment(\.modelContext) var modelContext
@@ -7,8 +8,9 @@ struct SubjectsView: View {
     @State var isShowingAddSubject: Bool = false
     @State var isShowingProfileView = false // Keep this as @State to modify it
     
+    // This is used to force the view to refresh
     @State private var viewID = UUID()
-    
+
     var body: some View {
         NavigationStack {
             ScrollView(.vertical) {
@@ -42,6 +44,7 @@ struct SubjectsView: View {
                 }
                 .padding()
             }
+            // Add the view ID here
             .id(viewID)
             .background(LinearGradient.appBackground)
             .frame(maxWidth: .infinity)
@@ -54,18 +57,16 @@ struct SubjectsView: View {
             .fullScreenCover(isPresented: $isShowingProfileView) {
                 ProfileView(isShowingProfileView: $isShowingProfileView)
             }
-            // --- MODIFICATION: Listen for the context-did-change notification from ANY context ---
-            .onReceive(NotificationCenter.default.publisher(for: .NSManagedObjectContextObjectsDidChange)) { notification in
-                // We are now listening for notifications from *all* contexts.
-                // This will fire when the CloudKit background context saves.
-                print("[SubjectsView] Received modelContext did change notification. Forcing refresh.")
-
-                // Perform the refresh on the main thread
-                DispatchQueue.main.async {
-                    viewID = UUID()
-                }
+            // --- THIS IS THE CORRECTED SYNC LISTENER ---
+            .onReceive(NotificationCenter.default.publisher(for: .NSManagedObjectContextObjectsDidChange)
+                .receive(on: DispatchQueue.main) // <-- Ensures the code runs on the main thread
+            ) { _ in
+                // We don't filter by 'object' so we get all context save notifications,
+                // including the one from the background CloudKit sync.
+                print("[SubjectsView] Received modelContext did change notification on main thread. Forcing refresh.")
+                viewID = UUID() // This is now safe to do
             }
-            // --- END MODIFICATION ---
+            // --- END CORRECTION ---
         }
     }
     
