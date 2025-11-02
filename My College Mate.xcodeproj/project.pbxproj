@@ -37,7 +37,7 @@
 
 /* Begin PBXFileReference section */
 		452B610A2E76926B00E655B1 /* ShareToCollegeMate.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ShareToCollegeMate.appex; sourceTree = BUILT_PRODUCTS_DIR; };
-		452D1A5C2D283ED7006E2FAA /* College Mate.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "College Mate.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		452D1A5C2D283ED7006E2FAA /* My College Mate.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "My College Mate.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -48,7 +48,7 @@
 			);
 			target = 452B61092E76926B00E655B1 /* ShareToCollegeMate */;
 		};
-		452B611F2E76993A00E655B1 /* Exceptions for "ShareToCollegeMate" folder in "College Mate" target */ = {
+		452B611F2E76993A00E655B1 /* Exceptions for "ShareToCollegeMate" folder in "My College Mate" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				SharedModelContainer.swift,
@@ -56,7 +56,7 @@
 				ShareView.swift,
 				ShareViewController.swift,
 			);
-			target = 452D1A5B2D283ED7006E2FAA /* College Mate */;
+			target = 452D1A5B2D283ED7006E2FAA /* My College Mate */;
 		};
 		45BA4A3F2E769BA400743622 /* Exceptions for "College Mate" folder in "ShareToCollegeMate" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
@@ -85,7 +85,7 @@
 		452B610B2E76926B00E655B1 /* ShareToCollegeMate */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				452B611F2E76993A00E655B1 /* Exceptions for "ShareToCollegeMate" folder in "College Mate" target */,
+				452B611F2E76993A00E655B1 /* Exceptions for "ShareToCollegeMate" folder in "My College Mate" target */,
 				452B61152E76926B00E655B1 /* Exceptions for "ShareToCollegeMate" folder in "ShareToCollegeMate" target */,
 			);
 			path = ShareToCollegeMate;
@@ -132,7 +132,7 @@
 		452D1A5D2D283ED7006E2FAA /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				452D1A5C2D283ED7006E2FAA /* College Mate.app */,
+				452D1A5C2D283ED7006E2FAA /* My College Mate.app */,
 				452B610A2E76926B00E655B1 /* ShareToCollegeMate.appex */,
 			);
 			name = Products;
@@ -163,9 +163,9 @@
 			productReference = 452B610A2E76926B00E655B1 /* ShareToCollegeMate.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
-		452D1A5B2D283ED7006E2FAA /* College Mate */ = {
+		452D1A5B2D283ED7006E2FAA /* My College Mate */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 452D1A6A2D283ED8006E2FAA /* Build configuration list for PBXNativeTarget "College Mate" */;
+			buildConfigurationList = 452D1A6A2D283ED8006E2FAA /* Build configuration list for PBXNativeTarget "My College Mate" */;
 			buildPhases = (
 				452D1A582D283ED7006E2FAA /* Sources */,
 				452D1A592D283ED7006E2FAA /* Frameworks */,
@@ -180,12 +180,12 @@
 			fileSystemSynchronizedGroups = (
 				452D1A5E2D283ED7006E2FAA /* College Mate */,
 			);
-			name = "College Mate";
+			name = "My College Mate";
 			packageProductDependencies = (
 				45C5A75C2E599E580025FC0B /* Mantis */,
 			);
 			productName = "College Mate";
-			productReference = 452D1A5C2D283ED7006E2FAA /* College Mate.app */;
+			productReference = 452D1A5C2D283ED7006E2FAA /* My College Mate.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -207,7 +207,7 @@
 					};
 				};
 			};
-			buildConfigurationList = 452D1A572D283ED7006E2FAA /* Build configuration list for PBXProject "College Mate" */;
+			buildConfigurationList = 452D1A572D283ED7006E2FAA /* Build configuration list for PBXProject "My College Mate" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -224,7 +224,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				452D1A5B2D283ED7006E2FAA /* College Mate */,
+				452D1A5B2D283ED7006E2FAA /* My College Mate */,
 				452B61092E76926B00E655B1 /* ShareToCollegeMate */,
 			);
 		};
@@ -477,7 +477,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "College-Mate-Info.plist";
-				INFOPLIST_KEY_CFBundleDisplayName = "College Mate";
+				INFOPLIST_KEY_CFBundleDisplayName = "My College Mate";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.education";
 				INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = YES;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Need to use camera for notes";
@@ -521,7 +521,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "College-Mate-Info.plist";
-				INFOPLIST_KEY_CFBundleDisplayName = "College Mate";
+				INFOPLIST_KEY_CFBundleDisplayName = "My College Mate";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.education";
 				INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = YES;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Need to use camera for notes";
@@ -563,7 +563,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		452D1A572D283ED7006E2FAA /* Build configuration list for PBXProject "College Mate" */ = {
+		452D1A572D283ED7006E2FAA /* Build configuration list for PBXProject "My College Mate" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				452D1A682D283ED8006E2FAA /* Debug */,
@@ -572,7 +572,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		452D1A6A2D283ED8006E2FAA /* Build configuration list for PBXNativeTarget "College Mate" */ = {
+		452D1A6A2D283ED8006E2FAA /* Build configuration list for PBXNativeTarget "My College Mate" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				452D1A6B2D283ED8006E2FAA /* Debug */,
