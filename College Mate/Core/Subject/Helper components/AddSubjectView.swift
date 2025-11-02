@@ -260,12 +260,6 @@ struct DayRowView: View {
                         }
                     }
                     
-                    // Optional Timing Comment
-                    Text("Adding class timings is optional.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                        .italic()
-                        .padding(.top, 5)
                 }
             }
         }
