@@ -14,8 +14,6 @@ struct SubjectCardView: View {
     private var isPad: Bool { UIDevice.current.userInterfaceIdiom == .pad }
     
     var body: some View {
-        // --- THIS IS THE FIX ---
-        // We must now safely unwrap the optional 'attendance' object
         if let attendance = subject.attendance {
             VStack(spacing: 7) {
                 // Subject Card
@@ -64,18 +62,14 @@ struct SubjectCardView: View {
                 .background(Color.gray.opacity(0.2))
                 .cornerRadius(16)
         }
-        // --- END OF FIX ---
     }
 
     // MARK: Attendance Modification Functions
     private func addLog(_ action: String) {
-        // 'logs' is not a @Model, so it was not made optional. This is fine.
         let log = AttendanceLogEntry(timestamp: Date(), subjectName: subject.name, action: action)
         subject.logs.append(log)
     }
 
-    // --- FIX IN ALL FUNCTIONS ---
-    // Add a guard to safely unwrap attendance
     private func incrementAttended() {
         guard let attendance = subject.attendance else { return }
         attendance.attendedClasses += 1
@@ -106,13 +100,11 @@ struct SubjectCardView: View {
             addLog("− Missed")
         }
     }
-    // --- END OF FIX ---
 }
 
 #Preview {
     do {
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
-        // --- FIX ---
         // 1. Added Attendance.self to the container
         let container = try ModelContainer(for: Subject.self, Attendance.self, configurations: config)
         
@@ -122,7 +114,6 @@ struct SubjectCardView: View {
         // 3. Use optional chaining `?.` to set properties
         subject.attendance?.totalClasses = 6
         subject.attendance?.attendedClasses = 4
-        // --- END OF FIX ---
         
         return SubjectCardView(subject: subject)
             .modelContainer(container)
@@ -194,10 +185,7 @@ struct AttendanceControl: View {
 }
 
 struct AttendanceStatsView: View {
-    // --- FIX ---
-    // This view now receives a non-optional Attendance
     @Bindable var attendance: Attendance
-    // --- END OF FIX ---
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -210,10 +198,7 @@ struct AttendanceStatsView: View {
 
 extension SubjectCardView {
     struct CircularProgressView: View {
-        // --- FIX ---
-        // This view now receives a non-optional Attendance
         @Bindable var attendance: Attendance
-        // --- END OF FIX ---
         
         // Derived values
         private var percentage: Double { attendance.percentage }
@@ -272,10 +257,7 @@ extension SubjectCardView {
     
     
     struct AttendanceInfoView: View {
-        // --- FIX ---
-        // This view now receives a non-optional Attendance
         @Bindable var attendance: Attendance
-        // --- END OF FIX ---
         
         var body: some View {
             VStack(alignment: .leading, spacing: 3) {

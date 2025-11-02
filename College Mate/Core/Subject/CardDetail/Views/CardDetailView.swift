@@ -595,11 +595,9 @@ struct CardDetailView: View {
             VStack(alignment: .leading) {
                 Text(folder.name)
                     .font(.headline)
-                // --- CloudKit Fix: Use nil coalescing ---
                 Text("\((folder.files ?? []).count) files")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
-                // --- End of Fix ---
             }
             
             Spacer()
@@ -742,11 +740,9 @@ struct CardDetailView: View {
                 .lineLimit(2)
                 .frame(maxWidth: tileSize + 20)
             
-            // --- CloudKit Fix: Use nil coalescing ---
             Text("\((folder.files ?? []).count) files")
                 .font(.caption2)
                 .foregroundColor(.gray)
-            // --- End of Fix ---
         }
         .contextMenu {
             if !viewModel.isEditing {
@@ -1042,8 +1038,7 @@ struct CardDetailView: View {
             }
             .font(.subheadline.weight(.medium))
             .padding(.leading)
-            .disabled(viewModel.filteredFileMetadata.isEmpty && viewModel.subfolders.isEmpty) // Disable if no files or folders to select
-            // --- FIX: Typo corrected ---
+            .disabled(viewModel.filteredFileMetadata.isEmpty && viewModel.subfolders.isEmpty)
             .foregroundColor((viewModel.filteredFileMetadata.isEmpty && viewModel.subfolders.isEmpty) ? .gray : .blue)
 
             Spacer()
@@ -1054,8 +1049,8 @@ struct CardDetailView: View {
                 viewModel.shareSelectedFiles()
             } label: {
                 Image(systemName: "square.and.arrow.up")
-                    .font(.title3) // Consistent font size
-                    .frame(width: 44, height: 44) // Make touch target larger
+                    .font(.title3)
+                    .frame(width: 44, height: 44)
             }
             .disabled(viewModel.selectedItemCount == 0)
 
@@ -1496,11 +1491,9 @@ private func isPlaceholderImageName(_ fileName: String) -> Bool {
 
 //#Preview("Card Detail Preview") {
 //
-//    // --- CloudKit Fix: Wrap in helper view ---
 //    struct PreviewWrapper: View {
 //        var body: some View {
 //            do {
-//                // --- CloudKit Fix: Add all models to container ---
 //                let config = ModelConfiguration(isStoredInMemoryOnly: true)
 //                let container = try ModelContainer(for: [
 //                    Subject.self,
@@ -1514,7 +1507,6 @@ private func isPlaceholderImageName(_ fileName: String) -> Bool {
 //                ], configurations: config)
 //                let context = container.mainContext
 //
-//                // --- CloudKit Fix: Use new init() and set properties ---
 //                let subject = Subject()
 //                subject.name = "Physics"
 //                subject.startDateOfSubject = Date()
@@ -1564,6 +1556,5 @@ private func isPlaceholderImageName(_ fileName: String) -> Bool {
 //    }
 //
 //    PreviewWrapper()
-//    // --- End of Fix ---
 //}
 

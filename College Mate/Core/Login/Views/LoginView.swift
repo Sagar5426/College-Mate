@@ -8,7 +8,6 @@ struct LoginView: View {
     
     var body: some View {
         ZStack {
-            // Using the same background as the CardDetailView for consistency
             LinearGradient(
                 gradient: Gradient(colors: [Color(.systemGray6), Color(.systemBackground)]),
                 startPoint: .top,

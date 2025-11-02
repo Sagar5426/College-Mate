@@ -86,7 +86,6 @@ struct AddSubjectView: View {
             return
         }
         
-        // --- CloudKit Fix: Initialize new Subject and its optional properties ---
         let newSubject = Subject(name: normalizedName)
         newSubject.startDateOfSubject = startDateOfSubject
         
@@ -97,41 +96,32 @@ struct AddSubjectView: View {
         
         // 2. Initialize optional Schedules array
         newSubject.schedules = []
-        // --- End of Fix ---
 
         // Create schedules for the selected days
         for day in selectedDays {
             let newSchedule = Schedule(day: day)
             
-            // --- CloudKit Fix: Initialize optional classTimes array ---
             newSchedule.classTimes = []
-            // --- End of Fix ---
 
             // Add class times to the schedule
             if let times = classTimes[day] {
                 for time in times {
                     let newClassTime = ClassTime(startTime: time.startTime, endTime: time.endTime, date: Date())
-                    // --- CloudKit Fix: Append to optional array ---
                     newSchedule.classTimes?.append(newClassTime)
-                    // --- End of Fix ---
                 }
             }
             
             // Add the schedule to the subject
-            // --- CloudKit Fix: Append to optional array ---
             newSubject.schedules?.append(newSchedule)
-            // --- End of Fix ---
         }
         
         // Add the new Subject to the modelContext
         modelContext.insert(newSubject)
         
-        // --- ADDED: Schedule notifications for the new subject ---
         let subjectToSchedule = newSubject
         Task {
             await NotificationManager.shared.scheduleNotifications(for: subjectToSchedule)
         }
-        // --- END OF ADDED CODE ---
         
         // Reset form fields
         subjectName = ""
@@ -292,7 +282,6 @@ struct DayRowView: View {
 
 
 //#Preview {
-//    // --- CloudKit Fix: Wrap in helper view to handle do-catch ---
 //    struct PreviewWrapper: View {
 //        var body: some View {
 //            do {
@@ -321,7 +310,6 @@ struct DayRowView: View {
 //    }
 //    
 //    PreviewWrapper()
-//    // --- End of Fix ---
 //}
 
 

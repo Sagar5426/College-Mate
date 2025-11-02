@@ -64,7 +64,6 @@ struct ProfileView: View {
                             }
                             .listRowBackground(Color(UIColor.secondarySystemGroupedBackground))
                             
-                            // --- THIS IS THE NEW SECTION ---
                             Section {
                                 HStack {
                                     if viewModel.isSyncing {
@@ -79,7 +78,7 @@ struct ProfileView: View {
                                                 Text("Sync Now")
                                             }
                                         }
-                                        .buttonStyle(PlainButtonStyle()) // Ensure it looks like text
+                                        .buttonStyle(PlainButtonStyle())
                                         .foregroundColor(.accentColor)
                                     }
                                     
@@ -100,7 +99,6 @@ struct ProfileView: View {
                                     .foregroundColor(.gray)
                             }
                             .listRowBackground(Color(UIColor.secondarySystemGroupedBackground))
-                            // --- END OF NEW SECTION ---
                             
                             AttendanceHistorySection(viewModel: viewModel)
                         }
@@ -121,7 +119,7 @@ struct ProfileView: View {
                             viewModel: viewModel,
                             isShowingPhotoPicker: $isShowingPhotoPicker,
                             authService: authService,
-                            isSigningOut: $isSigningOut // Pass binding here
+                            isSigningOut: $isSigningOut
                         )
                     }
                     .sheet(isPresented: $viewModel.isShowingDatePicker) {
@@ -198,9 +196,8 @@ struct ProfileHeaderView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(viewModel.username.isEmpty ? "Your Name" : viewModel.username)
                             .font(.headline)
-                            .foregroundColor(.primary) // Ensure primary visibility
+                            .foregroundColor(.primary)
                         
-                        // FIX: Using .secondary semantic color for guaranteed visibility.
                         Text(viewModel.collegeName.isEmpty ? "Your College" : viewModel.collegeName)
                             .font(.subheadline)
                             .foregroundColor(.secondary)
@@ -282,13 +279,11 @@ struct AttendanceHistorySection: View {
                     Spacer()
                     
                     Menu {
-                        // Displaying the updated filter options
                         Button(ProfileViewModel.FilterType.oneDay.rawValue) { viewModel.selectedFilter = .oneDay }
                         Button(ProfileViewModel.FilterType.sevenDays.rawValue) { viewModel.selectedFilter = .sevenDays }
                         Button(ProfileViewModel.FilterType.oneMonth.rawValue) { viewModel.selectedFilter = .oneMonth }
                         Button(ProfileViewModel.FilterType.allHistory.rawValue) { viewModel.selectedFilter = .allHistory }
                         
-                        // Select Date option is now separate and at the bottom
                         Divider()
                         Button(ProfileViewModel.FilterType.selectDate.rawValue) {
                             viewModel.selectedFilter = .selectDate
@@ -379,7 +374,6 @@ struct EditProfileView: View {
                 
                 // --- TextFields Section ---
                 VStack(spacing: 16) {
-                    // FIX: Simplified TextField and used semantic system colors for background.
                     HStack {
                         Image(systemName: "person.fill").foregroundColor(.gray)
                         TextField("Enter your name", text: $viewModel.username)
@@ -488,13 +482,9 @@ private struct ProfileImageCropperFullScreen: View {
         ImageCropService(
             image: image,
             onCrop: { cropped in
-                // --- THIS IS THE FIX ---
-                // Changed compressionQuality from 0.9 to 0.5 to
-                // reduce file size and fit within 1MB iCloud KVS limit.
                 if let data = cropped.jpegData(compressionQuality: 0.5) {
                     viewModel.profileImageData = data
                 }
-                // --- END OF FIX ---
             },
             isPresented: $isPresented
         )

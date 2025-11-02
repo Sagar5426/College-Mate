@@ -14,7 +14,6 @@ struct DateFilterView: View {
     var onSubmit: (Date) -> ()
     var onClose: () -> ()
     
-    // 1. Add a state variable to track if the view has "settled"
     @State private var hasAppeared = false
     
     private var dateRange: ClosedRange<Date> {
@@ -27,11 +26,8 @@ struct DateFilterView: View {
         VStack(spacing: 15) {
             DatePicker("Select Date", selection: $start, in: dateRange, displayedComponents: [.date])
                 .datePickerStyle(.graphical)
-                // 2. Use opacity to hide the picker until it has settled
                 .opacity(hasAppeared ? 1 : 0)
                 .onAppear {
-                    // 3. Give the DatePicker a tiny delay (50ms) to layout, then fade it in.
-                    // This is a common workaround for the graphical picker "jump" bug.
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
                         withAnimation(.easeIn(duration: 0.2)) {
                             hasAppeared = true
@@ -59,15 +55,13 @@ struct DateFilterView: View {
         .frame(maxWidth: .infinity)
         .background(.bar, in: .rect(cornerRadius: 10))
         .padding(.horizontal, 30)
-        // MODIFICATION: Constrain the max width for larger screens like iPad
         .frame(maxWidth: 540)
-        // 4. Removed the non-working .animation(nil, value: 0)
     }
 }
 
 #Preview {
     DateFilterView(
-        start: Date(), // Start with the current date
+        start: Date(),
         onSubmit: { start in
             print("Date submitted: \(start)")
         },

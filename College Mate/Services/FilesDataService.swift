@@ -2,23 +2,13 @@ import Foundation
 import SwiftData
 
 struct FileDataService {
-    /// Attempts to resolve the App Group identifier without a hard dependency on a specific type.
-    /// Priority:
-    /// 1. SharedAppGroup.id if the type exists at runtime
-    /// 2. Info.plist key `AppGroupIdentifier`
-    /// 3. nil (caller should fallback to Documents)
-    /// NOTE: This function is no longer used by `baseFolder` but is left for reference.
     private static func resolvedAppGroupID() -> String? {
-        // Try to access SharedAppGroup.id via reflection to avoid compile-time dependency
         if let sharedAppGroupType: AnyObject.Type = NSClassFromString("SharedAppGroup") {
-            // Attempt to read a static `id` property via KVC
             let mirror = Mirror(reflecting: sharedAppGroupType)
-            // If direct reflection fails, try known accessor through NSObject bridging
             if let value = (sharedAppGroupType as? NSObject.Type)?.value(forKey: "id") as? String {
                 return value
             }
-            // Fallback: check for a global function `id` is not feasible; ignore
-            _ = mirror // keep mirror referenced to avoid warnings
+            _ = mirror
         }
         // Try Info.plist key
         if let infoDict = Bundle.main.infoDictionary,
@@ -29,9 +19,6 @@ struct FileDataService {
         return nil
     }
 
-    // --- THIS IS THE CRITICAL FIX ---
-    // We hardcode the App Group ID string. Your entitlements file makes this safe.
-    // The old `resolvedAppGroupID()` function was the bug.
     private static let appGroupID = "group.com.sagarjangra.College-Mate"
     
     private static let iCloudContainerID = "iCloud.com.sagarjangra.College-Mate"
@@ -127,7 +114,6 @@ struct FileDataService {
             folderURL = getFolderURL(for: folder, in: subject)
             relativePath = "\(folder.fullPath)/\(fileName)"
             
-            // Ensure folder exists on disk
             if !FileManager.default.fileExists(atPath: folderURL.path) {
                 do {
                     try FileManager.default.createDirectory(at: folderURL, withIntermediateDirectories: true, attributes: nil)
@@ -225,10 +211,6 @@ struct FileDataService {
         
         for fileURL in existingFiles {
             let fileName = fileURL.lastPathComponent
-            
-            // Check if metadata already exists for this file in this subject
-            // Use a simple predicate on fileName only to avoid optional relationship chaining in the predicate,
-            // then filter by subject in memory.
             let fetchDescriptor = FetchDescriptor<FileMetadata>(
                 predicate: #Predicate { $0.fileName == fileName }
             )

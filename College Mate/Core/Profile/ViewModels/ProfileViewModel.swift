@@ -1,6 +1,6 @@
 import SwiftUI
 import SwiftData
-import Combine // <-- Import Combine
+import Combine
 
 // The @MainActor attribute ensures that all UI updates happen on the main thread.
 @MainActor
@@ -13,7 +13,6 @@ class ProfileViewModel: ObservableObject {
     @AppStorage("notificationLeadMinutes") var notificationLeadMinutes: Int = 10
     
     // --- 1. Private iCloud-synced properties ---
-    // Renamed to avoid name collisions with the property wrapper's synthesized properties.
     @iCloudStorage("username") private var syncedUsername: String = "Your Name"
     @iCloudStorage("age") private var syncedUserDob: Date = Date()
     @iCloudStorage("collegeName") private var syncedCollegeName: String = "Your College"
@@ -75,7 +74,7 @@ class ProfileViewModel: ObservableObject {
             case .sevenDays: return calendar.date(byAdding: .day, value: -7, to: date)
             case .oneMonth: return calendar.date(byAdding: .month, value: -1, to: date)
             case .allHistory: return nil
-            case .selectDate: return nil // Special handling
+            case .selectDate: return nil
             }
         }
     }
@@ -103,7 +102,7 @@ class ProfileViewModel: ObservableObject {
         return components.year ?? 0
     }
     
-    // MARK: - Initializer (This is the fix)
+    // MARK: - Initializer 
     
     init() {
         // --- 4. Initialize @Published properties from iCloud ---
@@ -115,10 +114,7 @@ class ProfileViewModel: ObservableObject {
         self.profileImageData = syncedProfileImageData
         self.gender = syncedGender
         
-        // --- ADDED: Load last synced time from UserDefaults ---
-        // --- THIS IS THE FIX ---
-        // `double(forKey:)` returns 0.0 if not found, not nil.
-        // So we check the value directly.
+        // --- ADDED: Load last synced time from UserDefaults
         let lastSyncTimestamp = UserDefaults.standard.double(forKey: "profileLastSyncedTime")
         if lastSyncTimestamp > 0 {
             self.lastSyncedTime = Date(timeIntervalSince1970: lastSyncTimestamp)
@@ -126,14 +122,9 @@ class ProfileViewModel: ObservableObject {
         
         // --- 5. Set up two-way data binding ---
         
-        // A. BIND: @Published UI property -> @iCloudStorage
-        // When the user edits a @Published property in the UI,
-        // we subscribe (sink) to that change and manually set the
-        // value of our @iCloudStorage property.
-        
         $username
             .dropFirst() // Don't save the initial value on load
-            .debounce(for: 0.5, scheduler: DispatchQueue.main) // Wait for user to stop typing
+            .debounce(for: 0.5, scheduler: DispatchQueue.main)
             .sink { [weak self] newValue in
                 self?.syncedUsername = newValue
             }
@@ -181,53 +172,49 @@ class ProfileViewModel: ObservableObject {
         // (projectedValue) will fire. We subscribe to that and update
         // our @Published property, which updates the UI.
         
-        // --- THIS IS THE FIX ---
-        // The projected value ($syncedUsername) *is* the publisher.
-        // We do not need to add `.publisher` to it.
         
-        $syncedUsername // <-- Removed .publisher
+        $syncedUsername
             .receive(on: DispatchQueue.main)
             .sink { [weak self] newValue in
-                self?.username = newValue // <-- This is now correctly a String
+                self?.username = newValue
             }
             .store(in: &cancellables)
             
-        $syncedUserDob // <-- Removed .publisher
+        $syncedUserDob
             .receive(on: DispatchQueue.main)
             .sink { [weak self] newValue in
                 self?.userDob = newValue
             }
             .store(in: &cancellables)
             
-        $syncedCollegeName // <-- Removed .publisher
+        $syncedCollegeName
             .receive(on: DispatchQueue.main)
             .sink { [weak self] newValue in
                 self?.collegeName = newValue
             }
             .store(in: &cancellables)
             
-        $syncedEmail // <-- Removed .publisher
+        $syncedEmail
             .receive(on: DispatchQueue.main)
             .sink { [weak self] newValue in
                 self?.email = newValue
             }
             .store(in: &cancellables)
             
-        $syncedProfileImageData // <-- Removed .publisher
+        $syncedProfileImageData
             .receive(on: DispatchQueue.main)
             .sink { [weak self] newValue in
                 self?.profileImageData = newValue
             }
             .store(in: &cancellables)
             
-        $syncedGender // <-- Removed .publisher
+        $syncedGender
             .receive(on: DispatchQueue.main)
             .sink { [weak self] newValue in
                 self?.gender = newValue
             }
             .store(in: &cancellables)
             
-        // --- ADDED ---
         // Now that all observers are set up, request an initial sync
         // to populate the UI with the latest data.
         print("[ProfileViewModel] Init: Requesting initial sync...")
@@ -254,7 +241,6 @@ class ProfileViewModel: ObservableObject {
         // 2. Start an async task to wait, then force re-read the data.
         syncTask = Task {
             do {
-                // --- THIS IS THE FIX ---
                 // Give the OS 10 seconds to fetch the data from iCloud.
                 // This matches your observation that the sync
                 // takes about 5-10 seconds to complete.
@@ -263,11 +249,7 @@ class ProfileViewModel: ObservableObject {
                 // If the task wasn't cancelled, proceed to stop.
                 await MainActor.run {
                     print("[ProfileViewModel] 10s delay complete. Forcing UI refresh from store.")
-                    // --- THIS IS THE CRITICAL FIX ---
-                    // Manually re-read all values from the store
-                    // to update the UI.
                     self.forceReadFromStore()
-                    // ---------------------------------
                     self.stopSyncing()
                 }
                 

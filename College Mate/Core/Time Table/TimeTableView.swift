@@ -113,13 +113,8 @@ struct TimeTableView: View {
     private func sortedClassTimes(for day: Day) -> [ScheduledClass] {
         var result: [ScheduledClass] = []
         for subject in subjects {
-            // --- FIX 1 ---
-            // Use nil coalescing `?? []` to safely loop over optional array
             for schedule in (subject.schedules ?? []) where schedule.day == day.rawValue {
-                // --- FIX 2 ---
-                // Use nil coalescing `?? []` to safely loop over optional array
                 for classTime in (schedule.classTimes ?? []) {
-                    // Each class time becomes a unique, identifiable object.
                     result.append(ScheduledClass(id: classTime.id, subject: subject, classTime: classTime))
                 }
             }
@@ -166,12 +161,10 @@ struct DayHeaderView: View {
 // MARK: - Schedule Card (Redesigned)
 struct ScheduleCard: View {
     @Bindable var subject: Subject
-    // The card still accepts a ClassTime object as before.
     let classTime: ClassTime
 
     var body: some View {
         HStack(spacing: 15) {
-            // Vertical accent color bar for better visual separation.
             Rectangle()
                 .fill(subject.color)
                 .frame(width: 4)
@@ -184,8 +177,6 @@ struct ScheduleCard: View {
                 // It now uses the specific start and end times from the ClassTime object.
                 HStack {
                     Image(systemName: "clock")
-                    // FIX: Use nil coalescing to provide a default value for startTime and endTime.
-                    // This prevents the view from failing to render if a time is unexpectedly nil.
                     Text("\(formattedTime(classTime.startTime ?? Date())) - \(formattedTime(classTime.endTime ?? Date()))")
                 }
                 .font(.subheadline)
@@ -194,8 +185,6 @@ struct ScheduleCard: View {
             
             Spacer()
             
-            // --- FIX 3 ---
-            // Safely unwrap the optional attendance object
             if let attendance = subject.attendance {
                 ZStack {
                     Circle()
@@ -212,7 +201,6 @@ struct ScheduleCard: View {
                 }
                 .frame(width: 50, height: 50)
             } else {
-                // Fallback view if attendance is nil
                 ZStack {
                     Circle()
                         .stroke(.gray, lineWidth: 2.5)
@@ -221,7 +209,6 @@ struct ScheduleCard: View {
                 }
                 .frame(width: 50, height: 50)
             }
-            // --- END OF FIX ---
         }
         .padding()
         .background(Color.black.opacity(0.2))
@@ -229,7 +216,6 @@ struct ScheduleCard: View {
         .padding(.leading, 10)
     }
 
-    // --- MODIFICATION: Function now takes attendance as a parameter ---
     private func attendanceRingColor(for attendance: Attendance) -> Color {
         let percentage = attendance.percentage
         let minRequirement = attendance.minimumPercentageRequirement
@@ -267,8 +253,6 @@ extension Subject {
 //#Preview {
 //    // Create a more robust preview with sample data.
 //    do {
-//        // --- FIX 4 ---
-//        // Add ALL models used by Subject to the container
 //        let config = ModelConfiguration(isStoredInMemoryOnly: true)
 //        let container = try ModelContainer(for: [
 //            Subject.self,
@@ -280,14 +264,12 @@ extension Subject {
 //            FileMetadata.self,
 //            AttendanceRecord.self
 //        ], configurations: config)
-//        // --- END OF FIX ---
 //        
 //        // Sample Data with two classes on the same day.
 //        let mathSchedule = Schedule(day: "Monday", classTimes: [
 //            ClassTime(startTime: Date().addingTimeInterval(-3600*4), endTime: Date().addingTimeInterval(-3600*3)),
 //            ClassTime(startTime: Date().addingTimeInterval(-3600*2), endTime: Date().addingTimeInterval(-3600*1))
 //        ])
-//        // --- Preview Data for 3-color logic ---
 //        // 1. Green: 80% (>= 75% req)
 //        let math = Subject(name: "Mathematics", schedules: [mathSchedule], attendance: Attendance(totalClasses: 10, attendedClasses: 8, minimumPercentageRequirement: 75.0))
 //        

@@ -6,11 +6,7 @@ class Note {
     // 1. Added default values
     var id: UUID = UUID()
     var title: String = ""
-    
-    // --- THIS IS THE FIX ---
-    // Changed .pdf to NoteType.pdf
     var type: NoteType = NoteType.pdf
-    // --- END OF FIX ---
     
     var content: Data = Data()
     var createdDate: Date = Date()

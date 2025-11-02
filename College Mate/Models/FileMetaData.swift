@@ -61,9 +61,7 @@ enum FileType: String, Codable, CaseIterable {
         case .pdf: return "doc.richtext.fill"
         case .image: return "photo.fill"
         case .docx: return "doc.text.fill"
-        // --- THIS IS THE FIX ---
-        case .unknown: return "doc.fill" // Added the 'return' keyword
-        // --- END OF FIX ---
+        case .unknown: return "doc.fill" 
         }
     }
     

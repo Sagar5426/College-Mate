@@ -18,7 +18,6 @@ struct AttendanceView: View {
                         ClassesList(viewModel: viewModel)
                     } header: {
                         // A GeometryReader is used here to get the size of the parent view.
-                        // This can be useful for creating responsive layouts.
                         GeometryReader { proxy in
                             HeaderView(size: proxy.size, title: "Attendance 🙋", isShowingProfileView: $viewModel.isShowingProfileView)
                         }
@@ -52,7 +51,6 @@ struct AttendanceView: View {
                 }
             }
         }
-        // MODIFICATION: Replaced .snappy with a smoother .spring animation
         .animation(.spring(duration: 0.4), value: viewModel.isShowingDatePicker)
         .onAppear {
             viewModel.setup(subjects: subjects, modelContext: modelContext)
@@ -102,10 +100,8 @@ struct ControlPanelView: View {
             .font(.title)
             .foregroundStyle(.blue)
             
-            // The button is now only visible if there are scheduled subjects for the selected day.
             if !viewModel.scheduledSubjects.isEmpty {
                 Button(action: {
-                    // This line triggers a light vibration.
                     let generator = UIImpactFeedbackGenerator(style: .medium)
                     generator.impactOccurred()
                     viewModel.toggleHoliday()
@@ -119,14 +115,12 @@ struct ControlPanelView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 12))
                 }
                 .buttonStyle(.plain)
-                // The transition is changed to move from the top edge.
                 .transition(.move(edge: .top).combined(with: .opacity))
             }
         }
         .padding()
         .background(.ultraThinMaterial)
         .clipShape(RoundedRectangle(cornerRadius: 15))
-        // The animation is now faster with a specific duration.
         .animation(.easeOut(duration: 0.25), value: viewModel.scheduledSubjects.isEmpty)
     }
 }
@@ -136,7 +130,6 @@ struct ControlPanelView: View {
 struct ClassesList: View {
     @ObservedObject var viewModel: AttendanceViewModel
     
-    // --- FIX 2: Helper function to fix compiler timeout ---
     /// This helper function breaks up the complex expression that was confusing the compiler.
     private func scheduledSchedules(for subject: Subject) -> [Schedule] {
         let dayOfWeek = viewModel.selectedDate.formatted(Date.FormatStyle().weekday(.wide))
@@ -175,14 +168,12 @@ struct ClassesList: View {
         }
     }
 }
-// --- End of Fix 2 ---
 
 struct ClassAttendanceRow: View {
     let subject: Subject
     let record: AttendanceRecord
     @ObservedObject var viewModel: AttendanceViewModel
     
-    // --- CloudKit Fix: Safely unwrap attendance ---
     private var percentage: Double {
         subject.attendance?.percentage ?? 0.0
     }
@@ -190,16 +181,13 @@ struct ClassAttendanceRow: View {
     private var isAboveThreshold: Bool {
         percentage >= (subject.attendance?.minimumPercentageRequirement ?? 75.0)
     }
-    // --- End of Fix ---
     
     var body: some View {
         HStack {
             VStack(alignment: .leading, spacing: 5) {
                 Text(subject.name).font(.title2).foregroundStyle(.primary)
-                // --- CloudKit Fix: Use the new computed properties ---
                 Text("Attendance: \(Int(percentage))%").font(.caption)
                     .foregroundColor(isAboveThreshold ? .green : .red)
-                // --- End of Fix ---
             }
             Spacer()
             Menu {
@@ -226,15 +214,14 @@ struct ClassAttendanceRow: View {
 }
 
 //#Preview {
-//    // --- CloudKit Fix: Wrap in helper view to handle do-catch ---
 //    struct PreviewWrapper: View {
 //        var body: some View {
 //            do {
-//                // Add ALL models to the container
+
 //                let config = ModelConfiguration(isStoredInMemoryOnly: true)
 //                
-//                // --- FIX 1: Remove the array brackets [] ---
-//                // The ModelContainer initializer takes a variadic list, not an array.
+
+
 //                let container = try ModelContainer(for:
 //                    Subject.self,
 //                    Attendance.self,
@@ -245,7 +232,7 @@ struct ClassAttendanceRow: View {
 //                    FileMetadata.self,
 //                    AttendanceRecord.self
 //                , configurations: config)
-//                // --- End of Fix 1 ---
+
 //                
 //                let todayString = Date().formatted(Date.FormatStyle().weekday(.wide))
 //                
@@ -268,6 +255,5 @@ struct ClassAttendanceRow: View {
 //    }
 //    
 //    return PreviewWrapper()
-//    // --- End of CloudKit Fix ---
 //}
 

@@ -13,14 +13,12 @@ struct iCloudStorage<Value> {
         self.defaultValue = wrappedValue
         self.key = key
         
-        // --- THIS IS THE FIX ---
         // We use the block-based observer API, which does not need '@objc' or '#selector'.
         self.observer = NotificationCenter.default.addObserver(
             forName: NSUbiquitousKeyValueStore.didChangeExternallyNotification,
             object: store,
             queue: .main // Ensure updates happen on the main thread
         ) { [self] notification in
-            // 'self' is captured here
             guard let userInfo = notification.userInfo,
                   let changedKeys = userInfo[NSUbiquitousKeyValueStoreChangedKeysKey] as? [String],
                   changedKeys.contains(key) else {
@@ -32,8 +30,6 @@ struct iCloudStorage<Value> {
             publisher.send(newValue) // Notify local subscribers
         }
         
-        // Sync from iCloud on first launch
-        // store.synchronize() // <-- REMOVED (Will be triggered by ViewModel)
     }
 
     var wrappedValue: Value {
@@ -100,7 +96,6 @@ extension iCloudStorage where Value == Date {
             let newValue = (store.object(forKey: key) as? Value) ?? defaultValue
             publisher.send(newValue)
         }
-        // store.synchronize() // <-- REMOVED (Will be triggered by ViewModel)
     }
 
     var wrappedValue: Date {
@@ -140,7 +135,6 @@ extension iCloudStorage where Value: RawRepresentable {
             let newValue = Value(rawValue: rawValue) ?? defaultValue
             publisher.send(newValue)
         }
-        // store.synchronize() // <-- REMOVED (Will be triggered by ViewModel)
     }
 
     var wrappedValue: Value {

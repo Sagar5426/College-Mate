@@ -30,12 +30,10 @@ struct EditSubjectView: View {
                     }
                     FirstSubjectDatePicker(startDateOfSubject: $subject.startDateOfSubject)
                     
-                    // --- CloudKit Fix: Safely unwrap attendance ---
                     MinimumAttendenceStepper(MinimumAttendancePercentage: Binding<Int>(
                         get: { Int(subject.attendance?.minimumPercentageRequirement ?? 75.0) }, // Read from optional
                         set: { subject.attendance?.minimumPercentageRequirement = Double($0) } // Write to optional
                     ))
-                    // --- End of Fix ---
                     
                     ClassScheduleSection(
                         daysOfWeek: daysOfWeek,
@@ -117,7 +115,6 @@ struct EditSubjectView: View {
     }
     
     private func populateExistingData() {
-        // --- CloudKit Fix: Use nil coalescing ---
         for schedule in (subject.schedules ?? []) {
             selectedDays.insert(schedule.day)
             // Convert ClassTime to ClassPeriodTime
@@ -126,11 +123,9 @@ struct EditSubjectView: View {
             }
             classCount[schedule.day] = (schedule.classTimes ?? []).count
         }
-        // --- End of Fix ---
     }
     
     private func saveUpdatedData() {
-        // --- CloudKit Fix: We are assigning a new array, which is fine ---
         subject.schedules = selectedDays.map { day in
             let schedule = Schedule(day: day)
             // Map ClassPeriodTime back to ClassTime
@@ -139,7 +134,6 @@ struct EditSubjectView: View {
             } ?? []
             return schedule
         }
-        // --- End of Fix ---
         
         // Reschedule notifications when data is saved ---
         let subjectToSchedule = subject
@@ -156,7 +150,6 @@ struct EditSubjectView: View {
 // }
 
 //#Preview {
-//    // --- CloudKit Fix: Wrap in helper view to handle do-catch ---
 //    struct PreviewWrapper: View {
 //        var body: some View {
 //            do {
@@ -192,7 +185,6 @@ struct EditSubjectView: View {
 //    }
 //    
 //    PreviewWrapper()
-//    // --- End of Fix ---
 //}
 
 // MARK: Helper Views
@@ -200,10 +192,8 @@ extension EditSubjectView {
     func moveFilesToNewFolder(oldName: String, newName: String) {
         let fileManager = FileManager.default
         
-        // --- CloudKit Fix: Use FileDataService.baseFolder ---
         let oldFolderURL = FileDataService.baseFolder.appendingPathComponent(oldName)
         let newFolderURL = FileDataService.baseFolder.appendingPathComponent(newName)
-        // --- End of Fix ---
         
         do {
             if fileManager.fileExists(atPath: oldFolderURL.path) {
@@ -228,7 +218,6 @@ extension EditSubjectView {
         }
     }
     
-    // --- CloudKit Fix: This function is now redundant, but we keep it for reference ---
     // We now use FileDataService.baseFolder to get the correct container
     func getFolderURL(for subjectName: String) -> URL {
         // This is the OLD, incorrect path:
