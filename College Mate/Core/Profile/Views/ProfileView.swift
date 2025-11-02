@@ -41,6 +41,29 @@ struct ProfileView: View {
                             ProfileHeaderView(viewModel: viewModel)
                             UserDetailsSection(viewModel: viewModel)
                             
+                            Section {
+                                Toggle(isOn: $viewModel.notificationsEnabled) {
+                                    Label("Send Notifications", systemImage: "bell")
+                                }
+                                
+                                // Lead time picker appears only when notifications are enabled
+                                if viewModel.notificationsEnabled {
+                                    Picker("Prior notification time", selection: $viewModel.notificationLeadMinutes) {
+                                        ForEach(viewModel.leadOptions) { option in
+                                            Text(option.title).tag(option.rawValue)
+                                        }
+                                    }
+                                    .pickerStyle(.segmented)
+                                    Text("This sets how long before class you’ll receive a prior notification.")
+                                        .font(.footnote)
+                                        .foregroundColor(.secondary)
+                                }
+                            } header: {
+                                Text("Notifications")
+                                    .foregroundColor(.gray)
+                            }
+                            .listRowBackground(Color(UIColor.secondarySystemGroupedBackground))
+                            
                             // --- THIS IS THE NEW SECTION ---
                             Section {
                                 HStack {

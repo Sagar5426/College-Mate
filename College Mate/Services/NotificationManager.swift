@@ -8,12 +8,16 @@
 import Foundation
 import UserNotifications
 import SwiftData
+import SwiftUI
 
 @MainActor
 class NotificationManager {
     
     static let shared = NotificationManager()
     private let center = UNUserNotificationCenter.current()
+    
+    @AppStorage("notificationsEnabled") private var notificationsEnabled: Bool = false
+    @AppStorage("notificationLeadMinutes") private var notificationLeadMinutes: Int = 10
 
     private init() {}
 
@@ -34,6 +38,13 @@ class NotificationManager {
     /// Schedules repeating weekly notifications for all classes in a given subject.
     /// This method first cancels all existing notifications for the subject to prevent duplicates.
     func scheduleNotifications(for subject: Subject) async {
+        // Respect user preference: if disabled, cancel and exit
+        guard notificationsEnabled else {
+            await cancelNotifications(for: subject)
+            print("Notifications disabled. Skipping scheduling for \(subject.name)")
+            return
+        }
+        
         // First, cancel any old notifications for this subject
         await cancelNotifications(for: subject)
         
@@ -43,9 +54,9 @@ class NotificationManager {
             guard let weekday = dayToWeekday(schedule.day) else { continue }
             
             for classTime in (schedule.classTimes ?? []) {
-                            guard let startTime = classTime.startTime else { continue }
-                            
-                            let components = Calendar.current.dateComponents([.hour, .minute], from: startTime)
+                guard let startTime = classTime.startTime else { continue }
+                
+                let components = Calendar.current.dateComponents([.hour, .minute], from: startTime)
                 guard let hour = components.hour, let minute = components.minute else { continue }
                 
                 // 1. Create Content
@@ -71,34 +82,36 @@ class NotificationManager {
                     try await center.add(request)
                     print("Scheduled notification: \(identifier)")
                     
-                    // Schedule a 10-minute before notification (weekly repeating)
+                    // Schedule a prior notification using user-selected lead time (weekly repeating)
+                    let lead = max(1, notificationLeadMinutes) // at least 1 minute
+
                     let preContent = UNMutableNotificationContent()
-                    preContent.title = "\(subjectName) class in 10 minutes"
+                    preContent.title = "\(subjectName) class in \(lead) minutes"
                     preContent.body = "Get ready to head to class."
                     preContent.sound = .default
-                    
-                    // Compute 10-min prior time components for the same weekday
+
+                    // Compute prior time components for the same weekday
                     var preHour = hour
-                    var preMinute = minute - 10
-                    if preMinute < 0 {
+                    var preMinute = minute - lead
+                    while preMinute < 0 {
                         preMinute += 60
                         preHour = (preHour - 1 + 24) % 24
                     }
-                    
+
                     var preDateComponents = DateComponents()
                     preDateComponents.weekday = weekday
                     preDateComponents.hour = preHour
                     preDateComponents.minute = preMinute
-                    
+
                     let preTrigger = UNCalendarNotificationTrigger(dateMatching: preDateComponents, repeats: true)
-                    let preIdentifier = "\(subject.id.uuidString)_\(schedule.day)_\(classTime.id.uuidString)_pre10"
+                    let preIdentifier = "\(subject.id.uuidString)_\(schedule.day)_\(classTime.id.uuidString)_pre\(lead)"
                     let preRequest = UNNotificationRequest(identifier: preIdentifier, content: preContent, trigger: preTrigger)
-                    
+
                     do {
                         try await center.add(preRequest)
-                        print("Scheduled 10-min prior notification: \(preIdentifier)")
+                        print("Scheduled \(lead)-min prior notification: \(preIdentifier)")
                     } catch {
-                        print("Failed to schedule 10-min prior notification \(preIdentifier): \(error.localizedDescription)")
+                        print("Failed to schedule \(lead)-min prior notification \(preIdentifier): \(error.localizedDescription)")
                     }
                     
                 } catch {

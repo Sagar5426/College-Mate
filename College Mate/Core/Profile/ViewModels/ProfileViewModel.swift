@@ -8,6 +8,10 @@ class ProfileViewModel: ObservableObject {
     
     // MARK: - Properties
     
+    // --- Notification Settings ---
+    @AppStorage("notificationsEnabled") var notificationsEnabled: Bool = false
+    @AppStorage("notificationLeadMinutes") var notificationLeadMinutes: Int = 10
+    
     // --- 1. Private iCloud-synced properties ---
     // Renamed to avoid name collisions with the property wrapper's synthesized properties.
     @iCloudStorage("username") private var syncedUsername: String = "Your Name"
@@ -75,6 +79,21 @@ class ProfileViewModel: ObservableObject {
             }
         }
     }
+    
+    // MARK: - Notification Lead Time Options
+    enum NotificationLeadOption: Int, CaseIterable, Identifiable {
+        case five = 5
+        case ten = 10
+        case fifteen = 15
+        case twenty = 20
+        
+        var id: Int { rawValue }
+        var title: String { "\(rawValue) min" }
+    }
+    
+    var leadOptions: [NotificationLeadOption] { NotificationLeadOption.allCases }
+    
+    var leadTimeInSeconds: TimeInterval { TimeInterval(notificationLeadMinutes * 60) }
     
     // MARK: - Computed Properties (from original file)
     
@@ -322,6 +341,7 @@ class ProfileViewModel: ObservableObject {
             .sorted { $0.timestamp > $1.timestamp }
     }
 }
+
 
 
 
