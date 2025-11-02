@@ -70,6 +70,7 @@
 				Models/Note.swift,
 				Models/Schedule.swift,
 				Models/Subject.swift,
+				"Preview Content/Assets.xcassets",
 				Services/AppDelegate.swift,
 				Services/AuthenticationService.swift,
 				Services/FilesDataService.swift,
