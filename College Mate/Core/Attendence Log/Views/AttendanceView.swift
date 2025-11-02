@@ -52,13 +52,18 @@ struct AttendanceView: View {
                 }
             }
             // --- THIS IS THE CORRECTED SYNC LISTENER ---
-            .onReceive(NotificationCenter.default.publisher(for: .NSManagedObjectContextObjectsDidChange)
-                .receive(on: DispatchQueue.main) // <-- Ensures the code runs on the main thread
-            ) { _ in
-                // We don't filter by 'object' so we get all context save notifications,
-                // including the one from the background CloudKit sync.
-                print("[AttendanceView] Received modelContext did change notification on main thread. Forcing refresh.")
-                viewID = UUID() // This is now safe to do
+            .onReceive(NotificationCenter.default.publisher(for: .NSManagedObjectContextObjectsDidChange)) { notification in
+                // Check if the notification is from a background thread
+                if !Thread.isMainThread {
+                    // This is a remote sync.
+                    // Dispatch the UI update to the main thread.
+                    DispatchQueue.main.async {
+                        print("[AttendanceView] Received REMOTE modelContext did change. Forcing refresh.")
+                        viewID = UUID()
+                    }
+                }
+                // If the notification was on the main thread, it was a local change
+                // (like tapping a button). We do nothing, to prevent lag.
             }
             // --- END CORRECTION ---
         }
