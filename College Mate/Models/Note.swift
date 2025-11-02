@@ -3,7 +3,6 @@ import SwiftData
 
 @Model
 class Note {
-    // 1. Added default values
     var id: UUID = UUID()
     var title: String = ""
     var type: NoteType = NoteType.pdf
@@ -11,7 +10,6 @@ class Note {
     var content: Data = Data()
     var createdDate: Date = Date()
     
-    // 2. Added inverse relationship
     var subject: Subject?
 
     init(title: String, type: NoteType, content: Data, createdDate: Date = .now) {
@@ -22,7 +20,7 @@ class Note {
         self.createdDate = createdDate
     }
     
-    // 3. Added default init for CloudKit
+    
     init() {}
 }
 

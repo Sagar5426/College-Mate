@@ -76,7 +76,7 @@ struct CardDetailView: View {
             }
             .navigationTitle(viewModel.subject.name)
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar { mainToolbar } // Toolbar logic updated below
+            .toolbar { mainToolbar }
             .alert("Delete this Subject", isPresented: $viewModel.isShowingDeleteAlert) {
                 deleteAlertContent
             } message: {
@@ -118,7 +118,7 @@ struct CardDetailView: View {
                         do {
                             try modelContext.save()
                         } catch {
-                            // Handle save error if needed
+                            print("Error while renaming the file")
                         }
                     }
                     folderBeingRenamed = nil
@@ -185,7 +185,6 @@ struct CardDetailView: View {
             }) {
                 SubjectNoteSheetView(noteText: $viewModel.subjectNote)
             }
-            // --- ADDED: Overlay for downloading ---
             .overlay {
                 if viewModel.isDownloading {
                     downloadingOverlay
@@ -198,11 +197,8 @@ struct CardDetailView: View {
     @ToolbarContentBuilder
     private var mainToolbar: some ToolbarContent {
         if viewModel.isEditing {
-            // ** REMOVED ToolbarItemGroup(placement: .topBarLeading) **
             
             ToolbarItemGroup(placement: .topBarTrailing) {
-                // ** REMOVED Share button **
-                
                 Button("Cancel") {
                     viewModel.toggleEditMode()
                 }
@@ -254,7 +250,7 @@ struct CardDetailView: View {
         .background(LinearGradient.appBackground.ignoresSafeArea())
         .overlay(alignment: .bottom) {
             if viewModel.isEditing {
-                editingBottomBar // Use the new redesigned bottom bar
+                editingBottomBar
             } else {
                 addButton
             }
@@ -318,7 +314,7 @@ struct CardDetailView: View {
                     Image(systemName: "list.clipboard")
                         .font(.body)
                         .foregroundStyle(.primary)
-                        .frame(minWidth: 22, alignment: .center) // Standardized frame
+                        .frame(minWidth: 22, alignment: .center)
                 }
                 
                 Menu {
@@ -557,14 +553,13 @@ struct CardDetailView: View {
                 ForEach(viewModel.filteredFileMetadata, id: \.id) { fileMetadata in
                     fileMetadataView(for: fileMetadata)
                         .onTapGesture {
-                            handleTapForMetadata(fileMetadata) // --- UPDATED ---
+                            handleTapForMetadata(fileMetadata)
                         }
                         .transition(.scale.combined(with: .opacity))
                 }
             }
             .padding(.vertical)
             .padding(.horizontal)
-             // Increased spacer to ensure content clears the bottom bar
             Spacer(minLength: 100)
         }
     }
@@ -580,7 +575,7 @@ struct CardDetailView: View {
             }
             // Custom spacer to prevent overlap with the bottom bar/button
             Color.clear
-                .frame(height: 100) // Increased spacer
+                .frame(height: 100)
                 .listRowSeparator(.hidden)
         }
         .listStyle(.plain)
@@ -655,7 +650,7 @@ struct CardDetailView: View {
         .padding(.vertical, 8)
         .contentShape(Rectangle())
         .onTapGesture {
-            handleTapForMetadata(fileMetadata) // --- UPDATED ---
+            handleTapForMetadata(fileMetadata)
         }
         .contextMenu {
             if !viewModel.isEditing {
@@ -671,7 +666,7 @@ struct CardDetailView: View {
             switch fileMetadata.fileType {
             case .image:
                 if let fileURL = fileMetadata.getFileURL(),
-                   FileManager.default.fileExists(atPath: fileURL.path), // Check if it exists
+                   FileManager.default.fileExists(atPath: fileURL.path),
                    let imageData = try? Data(contentsOf: fileURL),
                    let image = UIImage(data: imageData) {
                     Image(uiImage: image)
@@ -679,7 +674,6 @@ struct CardDetailView: View {
                         .scaledToFit()
                         .clipShape(RoundedRectangle(cornerRadius: 4))
                 } else {
-                    // Show placeholder
                     Image(systemName: "photo.fill")
                         .font(.title)
                         .foregroundColor(.green)
@@ -870,7 +864,7 @@ struct CardDetailView: View {
         )
     }
     
-    // --- UPDATED: Tap Handler ---
+    // --- Tap Handler ---
     private func handleTapForMetadata(_ fileMetadata: FileMetadata) {
         if viewModel.isEditing {
             playNavigationHaptic()
@@ -913,7 +907,6 @@ struct CardDetailView: View {
             Label("Rename", systemImage: "pencil")
         }
         
-        // MODIFIED: Changed to prompt for delete
         Button(role: .destructive) {
             viewModel.promptForDelete(item: folder)
         } label: {
@@ -932,7 +925,6 @@ struct CardDetailView: View {
         }
         
         Button {
-            // Use the centralized renaming function
             viewModel.beginRenaming(with: fileMetadata)
         } label: {
             if fileMetadata.fileType == .image {
@@ -1028,7 +1020,7 @@ struct CardDetailView: View {
         .frame(maxWidth: .infinity, alignment: .bottomTrailing)
     }
     
-    // MARK: - Redesigned Bottom Bar
+    // MARK: - Bottom Bar (with option of select all, delete , share and move)
     private var editingBottomBar: some View {
         HStack(alignment: .center) { // Align items vertically center
             // Select All / Deselect All
@@ -1062,10 +1054,10 @@ struct CardDetailView: View {
                 viewModel.showFolderPickerForSelection()
             } label: {
                 Image(systemName: "folder")
-                    .font(.title3) // Consistent font size
-                    .frame(width: 44, height: 44) // Make touch target larger
+                    .font(.title3)
+                    .frame(width: 44, height: 44)
             }
-            .disabled(viewModel.isMoveButtonDisabled) // This logic is still good
+            .disabled(viewModel.isMoveButtonDisabled)
 
             Spacer()
 
@@ -1074,17 +1066,17 @@ struct CardDetailView: View {
                 playNavigationHaptic()
                 viewModel.isShowingMultiDeleteAlert = true
             } label: {
-                VStack(spacing: 0) { // Reduced spacing for compact look
+                VStack(spacing: 0) {
                     Image(systemName: "trash")
-                        .font(.title3) // Consistent font size
+                        .font(.title3)
                         .foregroundColor(viewModel.selectedItemCount > 0 ? .red : .gray)
                     
                     // Show count only if > 0, make it smaller
                     if viewModel.selectedItemCount > 0 {
                         Text("\(viewModel.selectedItemCount)")
-                            .font(.system(size: 10, weight: .bold)) // Smaller font
+                            .font(.system(size: 10, weight: .bold))
                             .foregroundColor(.red)
-                            .padding(.top, 1) // Tiny space
+                            .padding(.top, 1)
                             .transition(.scale.combined(with: .opacity))
                     }
                 }
@@ -1093,14 +1085,13 @@ struct CardDetailView: View {
             .padding(.trailing)
             .disabled(viewModel.selectedItemCount == 0)
         }
-        .frame(maxWidth: .infinity) // Take full width
-        .padding(.vertical, 4) // Reduced vertical padding
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 4)
         .background(.thinMaterial)
         .clipShape(Capsule())
-        .padding(.horizontal) // Padding outside the capsule
-        .padding(.bottom, 8) // Padding below the capsule
+        .padding(.horizontal)
+        .padding(.bottom, 8)
         .transition(.move(edge: .bottom).combined(with: .opacity))
-         // Animate changes based on selection count for the delete badge
         .animation(.spring(response: 0.3, dampingFraction: 0.7), value: viewModel.selectedItemCount)
     }
     
@@ -1124,11 +1115,8 @@ struct CardDetailView: View {
     }
 
     private func playTapSoundAndVibrate() {
-        // Haptic feedback for selection change
         let generator = UIImpactFeedbackGenerator(style: .light)
         generator.impactOccurred()
-        
-        // Play a more audible system tap sound
         AudioServicesPlaySystemSound(1306)
     }
     
@@ -1151,19 +1139,19 @@ struct SubjectNoteSheetView: View {
             ZStack(alignment: .topLeading) {
                 // TextEditor
                 TextEditor(text: $noteText)
-                    .padding(4) // Small padding so text doesn't touch edge
+                    .padding(4)
                     .frame(minHeight: 200, maxHeight: .infinity)
                 
                 // Placeholder
                 if noteText.isEmpty {
                     Text(placeholder)
                         .foregroundColor(Color(UIColor.placeholderText))
-                        .padding(.horizontal, 8) // Match TextEditor's internal padding
-                        .padding(.vertical, 12) // Match TextEditor's internal padding
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 12)
                         .allowsHitTesting(false)
                 }
             }
-            .padding() // Overall padding for the ZStack
+            .padding()
             .navigationTitle("Important Topics")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -1196,7 +1184,7 @@ struct PreviewWithShareView: View {
                             }
                         }
                         ToolbarItem(placement: .bottomBar) {
-                            Spacer() // To push the share button to the left
+                            Spacer()
                         }
                     }
 
@@ -1444,7 +1432,7 @@ struct FolderPickerView: View {
                         HStack {
                             Image(systemName: "folder.fill")
                                 .foregroundColor(.blue)
-                            Text(folder.name) // Just show the folder name, not the full path
+                            Text(folder.name)
                             Spacer()
                         }
                     }
@@ -1485,7 +1473,6 @@ private func isPlaceholderImageName(_ fileName: String) -> Bool {
         return true
     }
 
-    // Do NOT block short, numeric, or other user-provided captions.
     return false
 }
 

@@ -3,7 +3,6 @@ import SwiftData
 
 @Model
 class FileMetadata {
-    // 1. Added default values
     var id: UUID = UUID()
     var fileName: String = ""
     
@@ -14,7 +13,6 @@ class FileMetadata {
     var relativePath: String = ""
     var fileSize: Int64 = 0
     
-    // Relationships to folder/subject already exist and are optional
     var folder: Folder?
     var subject: Subject?
     
@@ -30,7 +28,6 @@ class FileMetadata {
         self.subject = subject
     }
     
-    // 2. Added default init for CloudKit
     init() {}
     
     // Get the full file URL

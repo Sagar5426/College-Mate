@@ -3,13 +3,11 @@ import SwiftData
 
 @Model
 class Attendance {
-    // 1. Added default values
     var id: UUID = UUID()
     var totalClasses: Int = 0
     var attendedClasses: Int = 0
-    var minimumPercentageRequirement: Double = 75.0 // User-defined requirement
+    var minimumPercentageRequirement: Double = 75.0
     
-    // 2. Added inverse relationship
     var subject: Subject?
     
     init(totalClasses: Int, attendedClasses: Int, minimumPercentageRequirement: Double = 75.0) {
@@ -19,7 +17,7 @@ class Attendance {
         self.minimumPercentageRequirement = minimumPercentageRequirement
     }
     
-    // 3. Added default init for CloudKit
+    // Added default init for CloudKit
     init() {}
     
     // Computed property for attendance percentage

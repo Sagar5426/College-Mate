@@ -2,7 +2,7 @@ import SwiftUI
 import SwiftData
 import PDFKit
 import QuickLook // Import for thumbnail generation
-import PhotosUI // Import for modern photo picker
+import PhotosUI
 
 // The @MainActor attribute ensures that all UI updates happen on the main thread.
 @MainActor
@@ -27,7 +27,6 @@ class CardDetailViewModel: ObservableObject {
         guard let url = metadata.getFileURL(),
               FileManager.default.fileExists(atPath: url.path) else {
             if metadata.fileType == .image {
-                // Allow captioning a metadata-only image
                 self.renamingFileMetadata = metadata
                 self.newFileName = self.suggestedEditableName(from: metadata.fileName)
                 self.isShowingRenameView = true
@@ -51,7 +50,6 @@ class CardDetailViewModel: ObservableObject {
         if lower.hasPrefix("image_") || lower.hasPrefix("image-") {
             let dropCount = lower.hasPrefix("image_") ? 6 : 6 // length of "image_" or "image-"
             let uuidPart = String(lower.dropFirst(dropCount))
-            // Basic UUID format check: 8-4-4-4-12
             let components = uuidPart.split(separator: "-")
             let expected = [8, 4, 4, 4, 12]
             if components.count == expected.count && zip(components, expected).allSatisfy({ $0.count == $1 }) {
@@ -418,15 +416,11 @@ class CardDetailViewModel: ObservableObject {
         if FileManager.default.fileExists(atPath: fileURL.path) {
             do {
                 try FileManager.default.removeItem(at: fileURL)
-                // Deleting the file worked, now delete metadata
             } catch {
                 print("Failed to delete physical file: \(error)")
-                // Don't delete metadata, as the file is still there
                 return
             }
         } else {
-            // The file doesn't exist locally (corrupted metadata)
-            // We proceed to delete the metadata entry only.
             print("File not found locally. Deleting metadata for: \(fileMetadata.fileName)")
         }
         
@@ -451,11 +445,9 @@ class CardDetailViewModel: ObservableObject {
                 try FileManager.default.moveItem(at: oldURL, to: newURL)
             } catch {
                 print("Failed to rename physical file: \(error)")
-                return // Don't update metadata if file op failed
+                return
             }
         } else {
-            // File does NOT exist (corrupted metadata)
-            // We will *only* update the metadata
             print("File not found locally. Updating metadata name for: \(fileMetadata.fileName)")
         }
 
