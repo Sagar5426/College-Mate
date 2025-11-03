@@ -41,13 +41,6 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		452B61152E76926B00E655B1 /* Exceptions for "ShareToCollegeMate" folder in "ShareToCollegeMate" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				Info.plist,
-			);
-			target = 452B61092E76926B00E655B1 /* ShareToCollegeMate */;
-		};
 		452B611F2E76993A00E655B1 /* Exceptions for "ShareToCollegeMate" folder in "My College Mate" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
@@ -57,6 +50,13 @@
 				ShareViewController.swift,
 			);
 			target = 452D1A5B2D283ED7006E2FAA /* My College Mate */;
+		};
+		45AFDA1E2EB8784000ABBDD3 /* Exceptions for "ShareToCollegeMate" folder in "ShareToCollegeMate" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 452B61092E76926B00E655B1 /* ShareToCollegeMate */;
 		};
 		45BA4A3F2E769BA400743622 /* Exceptions for "College Mate" folder in "ShareToCollegeMate" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
@@ -87,7 +87,7 @@
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
 				452B611F2E76993A00E655B1 /* Exceptions for "ShareToCollegeMate" folder in "My College Mate" target */,
-				452B61152E76926B00E655B1 /* Exceptions for "ShareToCollegeMate" folder in "ShareToCollegeMate" target */,
+				45AFDA1E2EB8784000ABBDD3 /* Exceptions for "ShareToCollegeMate" folder in "ShareToCollegeMate" target */,
 			);
 			path = ShareToCollegeMate;
 			sourceTree = "<group>";
@@ -478,7 +478,6 @@
 				DEVELOPMENT_TEAM = 75RPJYM6U7;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = "College-Mate-Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "My College Mate";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.education";
 				INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = YES;
@@ -523,7 +522,6 @@
 				DEVELOPMENT_TEAM = 75RPJYM6U7;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = "College-Mate-Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "My College Mate";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.education";
 				INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = YES;
