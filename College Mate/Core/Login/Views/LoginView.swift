@@ -20,7 +20,7 @@ struct LoginView: View {
                 
                 // MARK: - Header
                 VStack(spacing: 12) {
-                    Image("AppLogo")
+                    Image("CollegeHat")
                         .resizable()
                         .scaledToFit()
                         .frame(width: 150, height: 150)
