@@ -8,6 +8,8 @@
 
 /* Begin PBXBuildFile section */
 		452B61142E76926B00E655B1 /* ShareToCollegeMate.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 452B610A2E76926B00E655B1 /* ShareToCollegeMate.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		45C1DB152EB90B1A00AF1E5C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 45C1DADE2EB90B1A00AF1E5C /* Assets.xcassets */; };
+		45C1DB172EB90B1A00AF1E5C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 45C1DADE2EB90B1A00AF1E5C /* Assets.xcassets */; };
 		45C5A75D2E599E580025FC0B /* Mantis in Frameworks */ = {isa = PBXBuildFile; productRef = 45C5A75C2E599E580025FC0B /* Mantis */; };
 /* End PBXBuildFile section */
 
@@ -38,6 +40,7 @@
 /* Begin PBXFileReference section */
 		452B610A2E76926B00E655B1 /* ShareToCollegeMate.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ShareToCollegeMate.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		452D1A5C2D283ED7006E2FAA /* My College Mate.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "My College Mate.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		45C1DADE2EB90B1A00AF1E5C /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		45CF87062EB885C60018D3BC /* My-College-Mate-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "My-College-Mate-Info.plist"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -71,7 +74,6 @@
 				Models/Note.swift,
 				Models/Schedule.swift,
 				Models/Subject.swift,
-				"Preview Content/Assets.xcassets",
 				Services/AppDelegate.swift,
 				Services/AuthenticationService.swift,
 				Services/FilesDataService.swift,
@@ -129,6 +131,7 @@
 				452D1A5E2D283ED7006E2FAA /* College Mate */,
 				452B610B2E76926B00E655B1 /* ShareToCollegeMate */,
 				452D1A5D2D283ED7006E2FAA /* Products */,
+				45C1DADE2EB90B1A00AF1E5C /* Assets.xcassets */,
 			);
 			sourceTree = "<group>";
 		};
@@ -238,6 +241,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				45C1DB172EB90B1A00AF1E5C /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -245,6 +249,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				45C1DB152EB90B1A00AF1E5C /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
