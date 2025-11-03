@@ -28,7 +28,6 @@ struct ProfileView: View {
                         Form {
                             // MARK: - Refactored Subviews
                             ProfileHeaderView(viewModel: viewModel)
-                            UserDetailsSection(viewModel: viewModel)
                             NotificationsSectionView(viewModel: viewModel)
                             SyncSectionView(viewModel: viewModel)
                             AttendanceHistorySection(viewModel: viewModel)
@@ -165,27 +164,6 @@ struct ProfileView: View {
                 Image(systemName: "person.circle.fill")
                     .resizable().scaledToFill().frame(width: 60, height: 60).foregroundColor(.gray)
             }
-        }
-    }
-
-    // MARK: - User Details Section
-    private struct UserDetailsSection: View {
-        @ObservedObject var viewModel: ProfileViewModel
-        
-        var body: some View {
-            Section {
-                TextField("Email", text: $viewModel.email)
-                DatePicker("Date of Birth", selection: $viewModel.userDob, displayedComponents: .date)
-                Picker("Gender", selection: $viewModel.gender) {
-                    ForEach(ProfileViewModel.Gender.allCases, id: \.self) { genderOption in
-                        Text(genderOption.rawValue)
-                    }
-                }
-            } header: {
-                Text("User Details")
-                    .foregroundColor(.gray)
-            }
-            .listRowBackground(Color(UIColor.secondarySystemGroupedBackground))
         }
     }
 
@@ -358,100 +336,136 @@ struct ProfileView: View {
     }
 
     // MARK: - Edit Profile View (Sheet)
-    private struct EditProfileView: View {
-        @ObservedObject var viewModel: ProfileViewModel
-        @Binding var isShowingPhotoPicker: Bool
-        @ObservedObject var authService: AuthenticationService
-        
-        @Binding var isSigningOut: Bool
-        
-        @Environment(\.dismiss) private var dismiss
-        
-        var body: some View {
-            NavigationStack {
-                VStack(spacing: 20) {
-                    Spacer().frame(height: 32)
-                    
-                    Button(action: {
-                        dismiss()
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                            isShowingPhotoPicker = true
+        private struct EditProfileView: View {
+            @ObservedObject var viewModel: ProfileViewModel
+            @Binding var isShowingPhotoPicker: Bool
+            @ObservedObject var authService: AuthenticationService
+            
+            @Binding var isSigningOut: Bool
+            
+            @Environment(\.dismiss) private var dismiss
+            
+            var body: some View {
+                NavigationStack {
+                    // Use a Form for a cleaner, more conventional settings UI
+                    Form {
+                        // MARK: - Avatar Section
+                        Section {
+                            HStack {
+                                Spacer() // Center the button
+                                Button(action: {
+                                    dismiss()
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                                        isShowingPhotoPicker = true
+                                    }
+                                }) {
+                                    ZStack(alignment: .bottomTrailing) {
+                                        if let imageData = viewModel.profileImageData, let uiImage = UIImage(data: imageData) {
+                                            Image(uiImage: uiImage)
+                                                .resizable()
+                                                .scaledToFill()
+                                                .frame(width: 120, height: 120)
+                                                .clipShape(Circle())
+                                        } else {
+                                            Image(systemName: "person.circle.fill")
+                                                .resizable()
+                                                .scaledToFill()
+                                                .frame(width: 120, height: 120)
+                                                .foregroundColor(.gray.opacity(0.5))
+                                        }
+
+                                        Image(systemName: "camera.circle.fill")
+                                            .font(.system(size: 32))
+                                            .foregroundColor(.accentColor)
+                                            .background(Circle().fill(Color(UIColor.systemGroupedBackground))) // Use theme BG
+                                            .offset(x: 4, y: 4)
+                                    }
+                                }
+                                .padding(.vertical, 16) // Add nice spacing around avatar
+                                Spacer() // Center the button
+                            }
                         }
-                    }) {
-                        ZStack(alignment: .bottomTrailing) {
-                            if let imageData = viewModel.profileImageData, let uiImage = UIImage(data: imageData) {
-                                Image(uiImage: uiImage)
-                                    .resizable().scaledToFill()
-                                    .frame(width: 120, height: 120).clipShape(Circle())
-                            } else {
-                                Image(systemName: "person.circle.fill")
-                                    .resizable().scaledToFill()
-                                    .frame(width: 120, height: 120).foregroundColor(.gray.opacity(0.5))
+                        .listRowBackground(Color.clear) // Make the row background transparent
+                        .listRowInsets(EdgeInsets())    // Remove default padding
+
+                        // MARK: - Basic Info Section
+                        Section(header: Text("Basic Information")) {
+                            HStack(spacing: 12) {
+                                Image(systemName: "person.fill")
+                                    .foregroundColor(.gray)
+                                    .frame(width: 20) // Align text fields
+                                TextField("Enter your name", text: $viewModel.username)
+                                    .foregroundColor(.primary)
+                                    .textInputAutocapitalization(.words)
+                            }
+                            
+                            HStack(spacing: 12) {
+                                Image(systemName: "graduationcap.fill")
+                                    .foregroundColor(.gray)
+                                    .frame(width: 20) // Align text fields
+                                TextField("Enter your college name", text: $viewModel.collegeName)
+                                    .foregroundColor(.primary)
+                                    .textInputAutocapitalization(.words)
+                            }
+                        }
+
+                        // MARK: - User Details Section
+                        Section(header: Text("User Details")) {
+                            // Email (with improved layout)
+                            HStack {
+                                Text("Email").foregroundStyle(.secondary)
+                                Spacer()
+                                TextField("Email", text: $viewModel.email)
+                                    .multilineTextAlignment(.trailing)
+                                    .keyboardType(.emailAddress)
+                                    .textInputAutocapitalization(.never)
+                                    .autocorrectionDisabled(true) // Fixed typo from original
                             }
 
-                            Image(systemName: "camera.circle.fill")
-                                .font(.system(size: 32)).foregroundColor(.accentColor)
-                                .background(Circle().fill(Color(UIColor.systemGroupedBackground)))
-                                .offset(x: 4, y: 4)
+                            // DOB (now a standard Form row)
+                            DatePicker("Date of Birth", selection: $viewModel.userDob, displayedComponents: .date)
+                                .foregroundStyle(.secondary)
+
+                            // Gender (now a standard Form row)
+                            Picker("Gender", selection: $viewModel.gender) {
+                                ForEach(ProfileViewModel.Gender.allCases, id: \.self) { genderOption in
+                                    Text(genderOption.rawValue)
+                                }
+                            }
+                            .foregroundStyle(.secondary)
                         }
-                    }
-                    .padding(.bottom, 20)
-                    
-                    VStack(spacing: 16) {
-                        HStack {
-                            Image(systemName: "person.fill").foregroundColor(.gray)
-                            TextField("Enter your name", text: $viewModel.username)
-                                .foregroundColor(.primary)
-                        }
-                        .padding()
-                        .background(Color(UIColor.tertiarySystemFill))
-                        .cornerRadius(12)
                         
-                        HStack {
-                            Image(systemName: "graduationcap.fill").foregroundColor(.gray)
-                            TextField("Enter your college name", text: $viewModel.collegeName)
-                                 .foregroundColor(.primary)
-                        }
-                        .padding()
-                        .background(Color(UIColor.tertiarySystemFill))
-                        .cornerRadius(12)
-                    }
-                    .padding(.horizontal)
-                    
-                    Spacer()
-                    
-                    Button(role: .destructive) {
-                        dismiss()
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                            withAnimation(.easeIn(duration: 0.2)) {
-                                isSigningOut = true
-                            }
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                                authService.logout()
+                        // MARK: - Sign Out Section
+                        Section {
+                            Button(role: .destructive) {
+                                dismiss()
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                                    withAnimation(.easeIn(duration: 0.2)) {
+                                        isSigningOut = true
+                                    }
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                                        authService.logout()
+                                    }
+                                }
+                            } label: {
+                                Text("Sign Out")
+                                    .fontWeight(.semibold)
+                                    .frame(maxWidth: .infinity, alignment: .center) // Center text
                             }
                         }
-                    } label: {
-                        Text("Sign Out")
-                            .fontWeight(.semibold)
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(Color(UIColor.tertiarySystemFill))
-                            .foregroundColor(.red)
-                            .cornerRadius(12)
                     }
-                    .padding(.horizontal)
-                    .padding(.bottom, 20)
-                }
-                .background(Color(UIColor.systemGroupedBackground).ignoresSafeArea())
-                .navigationTitle("Edit Profile")
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
-                    ToolbarItem(placement: .confirmationAction) { Button("Save") { dismiss() }.bold() }
+                    .scrollContentBackground(.hidden) // IMPORTANT: This makes your theme background visible
+                    .background(Color(UIColor.systemGroupedBackground).ignoresSafeArea()) // Keeps your theme
+                    .navigationTitle("Edit Profile")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                        ToolbarItem(placement: .confirmationAction) { Button("Save") { dismiss() }.bold() }
+                    }
+                    .scrollDismissesKeyboard(.interactively)
                 }
             }
         }
-    }
 
     // MARK: - Date Picker Sheet (Sheet)
     private struct ProfileDatePickerSheet: View {
