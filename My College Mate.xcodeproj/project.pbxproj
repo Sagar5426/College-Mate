@@ -52,7 +52,7 @@
 			);
 			target = 452D1A5B2D283ED7006E2FAA /* My College Mate */;
 		};
-		45AFDA1E2EB8784000ABBDD3 /* Exceptions for "ShareToCollegeMate" folder in "ShareToCollegeMate" target */ = {
+		45B0E72E2EB8E31500196651 /* Exceptions for "ShareToCollegeMate" folder in "ShareToCollegeMate" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
@@ -88,7 +88,7 @@
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
 				452B611F2E76993A00E655B1 /* Exceptions for "ShareToCollegeMate" folder in "My College Mate" target */,
-				45AFDA1E2EB8784000ABBDD3 /* Exceptions for "ShareToCollegeMate" folder in "ShareToCollegeMate" target */,
+				45B0E72E2EB8E31500196651 /* Exceptions for "ShareToCollegeMate" folder in "ShareToCollegeMate" target */,
 			);
 			path = ShareToCollegeMate;
 			sourceTree = "<group>";
@@ -285,8 +285,8 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 75RPJYM6U7;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = ShareToCollegeMate/Info.plist;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "$(PROJECT_DIR)/ShareToCollegeMate/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = ShareToCollegeMate;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
@@ -319,8 +319,8 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 75RPJYM6U7;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = ShareToCollegeMate/Info.plist;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "$(PROJECT_DIR)/ShareToCollegeMate/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = ShareToCollegeMate;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
@@ -347,6 +347,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
@@ -413,6 +414,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
@@ -483,7 +485,7 @@
 				DONT_GENERATE_INFOPLIST_FILE = NO;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = "My-College-Mate-Info.plist";
+				INFOPLIST_FILE = "$(PROJECT_DIR)/My-College-Mate-Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "My College Mate";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.education";
 				INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = YES;
@@ -529,7 +531,7 @@
 				DONT_GENERATE_INFOPLIST_FILE = NO;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = "My-College-Mate-Info.plist";
+				INFOPLIST_FILE = "$(PROJECT_DIR)/My-College-Mate-Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "My College Mate";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.education";
 				INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = YES;
