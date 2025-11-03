@@ -38,7 +38,7 @@
 /* Begin PBXFileReference section */
 		452B610A2E76926B00E655B1 /* ShareToCollegeMate.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ShareToCollegeMate.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		452D1A5C2D283ED7006E2FAA /* My College Mate.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "My College Mate.app"; sourceTree = BUILT_PRODUCTS_DIR; };
-		45AFDA1F2EB87F6300ABBDD3 /* My-College-Mate-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "My-College-Mate-Info.plist"; sourceTree = "<group>"; };
+		45CF87062EB885C60018D3BC /* My-College-Mate-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "My-College-Mate-Info.plist"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -125,7 +125,7 @@
 		452D1A532D283ED7006E2FAA = {
 			isa = PBXGroup;
 			children = (
-				45AFDA1F2EB87F6300ABBDD3 /* My-College-Mate-Info.plist */,
+				45CF87062EB885C60018D3BC /* My-College-Mate-Info.plist */,
 				452D1A5E2D283ED7006E2FAA /* College Mate */,
 				452B610B2E76926B00E655B1 /* ShareToCollegeMate */,
 				452D1A5D2D283ED7006E2FAA /* Products */,

@@ -122,7 +122,7 @@ struct ControlPanelView: View {
                     generator.impactOccurred()
                     viewModel.toggleHoliday()
                 }) {
-                    Text(viewModel.isHoliday ? "Marked as Holiday" : "MarkToday as Holiday")
+                    Text(viewModel.isHoliday ? "Marked as Holiday" : "Mark Today as Holiday")
                         .fontWeight(.semibold)
                         .frame(maxWidth: .infinity)
                         .padding()

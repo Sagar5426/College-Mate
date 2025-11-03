@@ -191,7 +191,8 @@ struct ScheduleCard: View {
                         .stroke(attendanceRingColor(for: attendance), lineWidth: 2.5)
                     
                     VStack {
-                        Text("\(Int(attendance.percentage))%")
+                        let displayPercentage = min(attendance.percentage, 100.0).rounded()
+                        Text("\(Int(displayPercentage))%")
                             .font(.caption).bold()
                             .foregroundStyle(.white)
                         Text("ATT")
@@ -293,3 +294,4 @@ extension Subject {
 //        return Text("Failed to create preview: \(error.localizedDescription)")
 //    }
 //}
+
