@@ -320,63 +320,61 @@ struct ShareView: View {
         }
     }
     
+    
     private func performSave(data: Data, fileName: String, subject: Subject, folder: Folder?, context: ModelContext, group: DispatchGroup) {
         
-        // Defer leaving the group until this function finishes
-        defer {
-            print("[ShareExt] Leaving group for file \(fileName).")
-            group.leave()
-        }
-        
-        // --- MOST ROBUST CRITICAL CHECK ---
-        if data.count < 100, let dataString = String(data: data, encoding: .utf8) {
-            let trimmedString = dataString.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-            print("[ShareExt] ERROR: Detected proxy data. Decoded as string: '\(trimmedString)'. Aborting save for this file.")
-            // Don't set the global error message, just log it.
-            // We still want other files to try and save.
-            return // Leave the group
-        }
-        // --- END CHECK ---
-        
-        print("[ShareExt] Data ready (\(data.count) bytes, name: \(fileName)). Calling FileDataService.saveFile...")
-
-        do {
-            // We must fetch models *inside* this thread-safe block
-            let subjectID = subject.persistentModelID
-            guard let subjectInContext = context.model(for: subjectID) as? Subject else {
-                throw NSError(domain: "ShareError", code: 9, userInfo: [NSLocalizedDescriptionKey: "Could not find selected subject in context."])
-            }
-
-            var folderInContext: Folder? = nil
-            if let selectedFolder = folder {
-                let folderID = selectedFolder.persistentModelID
-                folderInContext = context.model(for: folderID) as? Folder
-                if folderInContext == nil {
-                    print("[ShareExt] Warning: Could not find selected folder '\(selectedFolder.name)' in context, saving to root.")
-                }
-            }
-
-            _ = FileDataService.saveFile(
-                data: data,
-                fileName: fileName,
-                to: folderInContext,
-                in: subjectInContext,
-                modelContext: context
-            )
-            print("[ShareExt] File data prepared, attempting to save context...")
-
-            if context.hasChanges {
-                try context.save()
-                print("[ShareExt] Context saved successfully for \(fileName).")
-            } else {
-                print("[ShareExt] No changes detected in context for \(fileName), skipping save.")
+        // Dispatch all database work to the main thread
+        DispatchQueue.main.async {
+            
+            defer {
+                print("[ShareExt] Leaving group for file \(fileName).")
+                group.leave()
             }
             
-        } catch {
-            print("[ShareExt] performSave: Error during FileDataService.saveFile or context.save for \(fileName): \(error)")
-            // Set the global error message so the sheet doesn't close.
-            DispatchQueue.main.async {
-                self.errorMessage = error.localizedDescription
+            if data.count < 100, let dataString = String(data: data, encoding: .utf8) {
+                let trimmedString = dataString.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+                print("[ShareExt] ERROR: Detected proxy data. Decoded as string: '\(trimmedString)'. Aborting save for this file.")
+                return
+            }
+            
+            print("[ShareExt] Data ready (\(data.count) bytes, name: \(fileName)). Calling FileDataService.saveFile...")
+
+            do {
+                let subjectID = subject.persistentModelID
+                guard let subjectInContext = context.model(for: subjectID) as? Subject else {
+                    throw NSError(domain: "ShareError", code: 9, userInfo: [NSLocalizedDescriptionKey: "Could not find selected subject in context."])
+                }
+
+                var folderInContext: Folder? = nil
+                if let selectedFolder = folder {
+                    let folderID = selectedFolder.persistentModelID
+                    folderInContext = context.model(for: folderID) as? Folder
+                    if folderInContext == nil {
+                        print("[ShareExt] Warning: Could not find selected folder '\(selectedFolder.name)' in context, saving to root.")
+                    }
+                }
+                
+                _ = FileDataService.saveFile(
+                    data: data,
+                    fileName: fileName,
+                    to: folderInContext,
+                    in: subjectInContext,
+                    modelContext: context
+                )
+                print("[ShareExt] File data prepared, attempting to save context...")
+
+                if context.hasChanges {
+                    try context.save()
+                    print("[ShareExt] Context saved successfully for \(fileName).")
+                } else {
+                    print("[ShareExt] No changes detected in context for \(fileName), skipping save.")
+                }
+                
+            } catch {
+                print("[ShareExt] performSave: Error during FileDataService.saveFile or context.save for \(fileName): \(error)")
+                DispatchQueue.main.async {
+                    self.errorMessage = error.localizedDescription
+                }
             }
         }
     }
