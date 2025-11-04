@@ -37,6 +37,8 @@ struct DateFilterView: View {
             
             HStack(spacing: 15) {
                 Button("Cancel") {
+                    let generator = UIImpactFeedbackGenerator(style: .light)
+                    generator.impactOccurred()
                     onClose()
                 }
                 .buttonStyle(.borderedProminent)
@@ -44,6 +46,8 @@ struct DateFilterView: View {
                 .tint(.red)
                 
                 Button("Done") {
+                    let generator = UIImpactFeedbackGenerator(style: .medium)
+                    generator.impactOccurred()
                     onSubmit(start)
                 }
                 .buttonStyle(.borderedProminent)
@@ -70,4 +74,3 @@ struct DateFilterView: View {
         }
     )
 }
-

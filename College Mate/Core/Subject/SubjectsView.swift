@@ -6,7 +6,7 @@ struct SubjectsView: View {
     @Environment(\.modelContext) var modelContext
     @Query var subjects: [Subject]
     @State var isShowingAddSubject: Bool = false
-    @State var isShowingProfileView = false // Keep this as @State to modify it
+    @State var isShowingProfileView = false
     
     // This is used to force the view to refresh
     @State private var viewID = UUID()
@@ -24,7 +24,7 @@ struct SubjectsView: View {
                             isShowingProfileView: $isShowingProfileView
                         )
                     }
-                        .frame(height: 60) // Adjust header height as needed
+                        .frame(height: 60)
                     ) {
                         if subjects.isEmpty {
                             NoItemsView(isShowingAddSubject: $isShowingAddSubject)
@@ -33,10 +33,15 @@ struct SubjectsView: View {
                             // Show list of subjects if available
                             ForEach(subjects, id: \.id) { subject in
                                 NavigationLink {
+                                    
                                     CardDetailView(subject: subject, modelContext: modelContext)
                                 } label: {
                                     SubjectCardView(subject: subject)
+                                        .contentShape(Rectangle())
                                 }
+                                .simultaneousGesture(TapGesture().onEnded {
+                                    playHaptic(style: .light)
+                                })
                             }
                             Spacer(minLength: 45)
                         }
@@ -57,27 +62,21 @@ struct SubjectsView: View {
             .fullScreenCover(isPresented: $isShowingProfileView) {
                 ProfileView(isShowingProfileView: $isShowingProfileView)
             }
-            // --- THIS IS THE CORRECTED SYNC LISTENER ---
             .onReceive(NotificationCenter.default.publisher(for: .NSManagedObjectContextObjectsDidChange)) { notification in
-                // Check if the notification is from a background thread
                 if !Thread.isMainThread {
-                    // This is a remote sync.
-                    // Dispatch the UI update to the main thread.
                     DispatchQueue.main.async {
                         print("[SubjectsView] Received REMOTE modelContext did change. Forcing refresh.")
                         viewID = UUID()
                     }
                 }
-                // If the notification was on the main thread, it was a local change
-                // (like tapping a button). We do nothing, to prevent lag.
             }
-            // --- END CORRECTION ---
         }
     }
     
-    
-    
-    
+    private func playHaptic(style: UIImpactFeedbackGenerator.FeedbackStyle) {
+        let generator = UIImpactFeedbackGenerator(style: style)
+        generator.impactOccurred()
+    }
 }
 
 struct AddSubjectButton: View {
@@ -109,7 +108,7 @@ struct AddSubjectButton: View {
                 )
                 .shadow(color: .black.opacity(0.25), radius: 10, x: 0, y: 5)
         }
-        .padding() // Reverted to original padding
+        .padding() 
         .sensoryFeedback(.impact(weight: .medium), trigger: isShowingAddSubject)
     }
 }

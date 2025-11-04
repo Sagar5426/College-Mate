@@ -65,6 +65,7 @@
 		45BA4A3F2E769BA400743622 /* Exceptions for "College Mate" folder in "ShareToCollegeMate" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				Components/SharedAppGroup.swift,
 				Models/Attendance.swift,
 				Models/AttendanceRecord.swift,
 				Models/AttendenceLogEntry.swift,
@@ -78,7 +79,6 @@
 				Services/AuthenticationService.swift,
 				Services/FilesDataService.swift,
 				Services/iCloudStorage.swift,
-				Services/SharedAppGroup.swift,
 				Services/SoundService.swift,
 			);
 			target = 452B61092E76926B00E655B1 /* ShareToCollegeMate */;

@@ -62,9 +62,11 @@ struct CardDetailView: View {
                     TextField("New Name", text: $viewModel.newFileName)
                 }
                 Button("Cancel", role: .cancel) {
+                    playHaptic(style: .light)
                     viewModel.renamingFileMetadata = nil
                 }
                 Button("Save") {
+                    playHaptic(style: .medium)
                     viewModel.renameFile()
                 }
             }
@@ -85,26 +87,36 @@ struct CardDetailView: View {
             // ADDED: Alert for deleting a single item
             .alert(singleDeleteAlertTitle, isPresented: $viewModel.isShowingSingleDeleteAlert) {
                 Button("Delete", role: .destructive) {
+                    playHaptic(style: .heavy)
                     viewModel.confirmDeleteItem()
                 }
-                Button("Cancel", role: .cancel) { }
+                Button("Cancel", role: .cancel) {
+                    playHaptic(style: .light)
+                }
             } message: {
                 Text("This action cannot be undone.")
             }
              // Use selectedItemCount from ViewModel
             .alert("Delete \(viewModel.selectedItemCount) items?", isPresented: $viewModel.isShowingMultiDeleteAlert) {
-                Button("Delete", role: .destructive) { viewModel.deleteSelectedItems() }
-                Button("Cancel", role: .cancel) { }
+                Button("Delete", role: .destructive) {
+                    playHaptic(style: .heavy)
+                    viewModel.deleteSelectedItems()
+                }
+                Button("Cancel", role: .cancel) {
+                    playHaptic(style: .light)
+                }
             } message: {
                 Text("This action cannot be undone.")
             }
             .alert("Create New Folder", isPresented: $viewModel.isShowingCreateFolderAlert) {
                 TextField("Folder Name", text: $viewModel.newFolderName)
                 Button("Create") {
+                    playHaptic(style: .medium)
                     viewModel.createFolder(named: viewModel.newFolderName)
                     viewModel.newFolderName = ""
                 }
                 Button("Cancel", role: .cancel) {
+                    playHaptic(style: .light)
                     viewModel.newFolderName = ""
                 }
             } message: {
@@ -113,6 +125,7 @@ struct CardDetailView: View {
             .alert("Rename Folder", isPresented: $isShowingRenameFolderAlert) {
                 TextField("Folder Name", text: $newFolderNameForRename)
                 Button("Save") {
+                    playHaptic(style: .medium)
                     if let folder = folderBeingRenamed {
                         folder.name = newFolderNameForRename.trimmingCharacters(in: .whitespacesAndNewlines)
                         do {
@@ -125,6 +138,7 @@ struct CardDetailView: View {
                     newFolderNameForRename = ""
                 }
                 Button("Cancel", role: .cancel) {
+                    playHaptic(style: .light)
                     folderBeingRenamed = nil
                     newFolderNameForRename = ""
                 }
@@ -164,6 +178,7 @@ struct CardDetailView: View {
                 matching: .images
             )
             .onChange(of: viewModel.selectedFilter) {
+                playHaptic(style: .light)
                 viewModel.filterFileMetadata()
             }
             .sheet(isPresented: $viewModel.isShowingFolderPicker) {
@@ -171,10 +186,12 @@ struct CardDetailView: View {
                     subjectName: viewModel.subject.name,
                     folders: viewModel.availableFolders,
                     onFolderSelected: { folder in
+                        playHaptic(style: .medium)
                         viewModel.moveSelectedFiles(to: folder)
                         viewModel.isShowingFolderPicker = false
                     },
                     onCancel: {
+                        playHaptic(style: .light)
                         viewModel.isShowingFolderPicker = false
                     }
                 )
@@ -200,6 +217,7 @@ struct CardDetailView: View {
             
             ToolbarItemGroup(placement: .topBarTrailing) {
                 Button("Cancel") {
+                    playHaptic(style: .light)
                     viewModel.toggleEditMode()
                 }
             }
@@ -208,6 +226,7 @@ struct CardDetailView: View {
             ToolbarItem(placement: .topBarTrailing) {
                 HStack {
                     Button {
+                        playHaptic(style: .light)
                         withAnimation(.easeOut(duration: 0.2)) {
                             viewModel.toggleSearchBarVisibility()
                         }
@@ -218,19 +237,23 @@ struct CardDetailView: View {
                     
                     Menu {
                         Button {
+                            playHaptic(style: .light)
                             viewModel.isShowingEditView.toggle()
                         } label: {
                             Label("Edit Subject", systemImage: "pencil")
                         }
                         
                         Button(role: .destructive) {
-                            triggerHapticFeedback()
+                            triggerHapticFeedback() // Keeps existing error haptic
                             viewModel.isShowingDeleteAlert = true
                         } label: {
                             Label("Delete Subject", systemImage: "trash")
                         }
                     } label: {
                         Image(systemName: "ellipsis.circle")
+                    }
+                    .onTapGesture {
+                        playHaptic(style: .light)
                     }
                 }
             }
@@ -268,7 +291,10 @@ struct CardDetailView: View {
                 .onChange(of: viewModel.searchText) { viewModel.performSearch() }
             
             if !viewModel.searchText.isEmpty {
-                Button(action: viewModel.clearSearch) {
+                Button(action: {
+                    playHaptic(style: .light)
+                    viewModel.clearSearch()
+                }) {
                     Image(systemName: "xmark.circle.fill")
                         .foregroundColor(.secondary)
                 }
@@ -304,11 +330,15 @@ struct CardDetailView: View {
                             .foregroundStyle(.primary)
                     }
                 }
+                .onTapGesture {
+                    playHaptic(style: .light)
+                }
                 
                 Spacer()
                 
                 // ADDED: Button to open the note sheet
                 Button {
+                    playHaptic(style: .light)
                     viewModel.isShowingNoteSheet = true
                 } label: {
                     Image(systemName: "list.clipboard")
@@ -321,6 +351,7 @@ struct CardDetailView: View {
                     // Only show Select Items if not already editing
                     if !viewModel.isEditing && (!viewModel.filteredFileMetadata.isEmpty || !viewModel.subfolders.isEmpty) {
                          Button {
+                             playHaptic(style: .light)
                              viewModel.toggleEditMode()
                          } label: {
                              Label("Select Items", systemImage: "checkmark.circle")
@@ -329,7 +360,10 @@ struct CardDetailView: View {
                     }
                     
                     // Sorting Options
-                    Button(action: { viewModel.selectSortOption(.date) }) {
+                    Button(action: {
+                        playHaptic(style: .light)
+                        viewModel.selectSortOption(.date)
+                    }) {
                           HStack {
                               Text(CardDetailViewModel.SortType.date.rawValue)
                               Spacer()
@@ -338,7 +372,10 @@ struct CardDetailView: View {
                               }
                           }
                     }
-                   Button(action: { viewModel.selectSortOption(.name) }) {
+                   Button(action: {
+                       playHaptic(style: .light)
+                       viewModel.selectSortOption(.name)
+                   }) {
                        HStack {
                            Text(CardDetailViewModel.SortType.name.rawValue)
                            Spacer()
@@ -360,11 +397,17 @@ struct CardDetailView: View {
                             .tag(CardDetailViewModel.LayoutStyle.list)
                     }
                     .pickerStyle(.inline)
+                    .onChange(of: viewModel.layoutStyle) {
+                        playHaptic(style: .light)
+                    }
                     
                 } label: {
                     Image(systemName: viewModel.layoutStyle.rawValue == "Grid" ? "square.grid.2x2" : "list.bullet")
                         .font(.body) // Standardized font
                         .frame(minWidth: 22, alignment: .center) // Standardized frame
+                }
+                .onTapGesture {
+                    playHaptic(style: .light)
                 }
 
             }
@@ -392,7 +435,10 @@ struct CardDetailView: View {
                             .foregroundColor(.blue)
                             .clipShape(Capsule())
                         } else {
-                            Button(action: viewModel.navigateToRoot) {
+                            Button(action: {
+                                playNavigationHaptic()
+                                viewModel.navigateToRoot()
+                            }) {
                                 HStack {
                                     Image(systemName: "house.fill")
                                     Text(viewModel.subject.name)
@@ -412,6 +458,7 @@ struct CardDetailView: View {
                                         .foregroundColor(.gray)
                                     
                                     Button(action: {
+                                        playNavigationHaptic()
                                         viewModel.navigateToFolder(at: index)
                                     }) {
                                         Text(folder.name)
@@ -887,12 +934,14 @@ struct CardDetailView: View {
     @ViewBuilder
     private func folderContextMenu(for folder: Folder) -> some View {
         Button {
+            playHaptic(style: .light)
             viewModel.shareFolder(folder)
         } label: {
             Label("Share Folder", systemImage: "square.and.arrow.up")
         }
         
         Button {
+            playHaptic(style: .light)
             viewModel.toggleFavorite(for: folder)
         } label: {
             Label(folder.isFavorite ? "Remove from Favorites" : "Add to Favorites",
@@ -900,6 +949,7 @@ struct CardDetailView: View {
         }
 
         Button {
+            playHaptic(style: .light)
             folderBeingRenamed = folder
             newFolderNameForRename = folder.name
             isShowingRenameFolderAlert = true
@@ -908,6 +958,7 @@ struct CardDetailView: View {
         }
         
         Button(role: .destructive) {
+            playHaptic(style: .light)
             viewModel.promptForDelete(item: folder)
         } label: {
             Label("Delete", systemImage: "trash")
@@ -918,6 +969,7 @@ struct CardDetailView: View {
     private func fileMetadataContextMenu(for fileMetadata: FileMetadata) -> some View {
         
         Button {
+            playHaptic(style: .light)
             viewModel.toggleFavorite(for: fileMetadata)
         } label: {
             Label(fileMetadata.isFavorite ? "Remove from Favorites" : "Add to Favorites",
@@ -925,6 +977,7 @@ struct CardDetailView: View {
         }
         
         Button {
+            playHaptic(style: .light)
             viewModel.beginRenaming(with: fileMetadata)
         } label: {
             if fileMetadata.fileType == .image {
@@ -936,6 +989,7 @@ struct CardDetailView: View {
         
         // ADDED: Delete button for files
         Button(role: .destructive) {
+            playHaptic(style: .light)
             viewModel.promptForDelete(item: fileMetadata)
         } label: {
             Label("Delete", systemImage: "trash")
@@ -947,14 +1001,22 @@ struct CardDetailView: View {
             // Only allow creating folders at the root level for now
             if viewModel.currentFolder == nil {
                  Button("New Folder", systemImage: "folder.badge.plus") {
+                     playHaptic(style: .light)
                      viewModel.isShowingCreateFolderAlert = true
                  }
             }
-            Button("Camera", systemImage: "camera.fill") { viewModel.isShowingCamera = true }
+            Button("Camera", systemImage: "camera.fill") {
+                playHaptic(style: .light)
+                viewModel.isShowingCamera = true
+            }
             Button("Images from Photos", systemImage: "photo.on.rectangle.angled") {
+                playHaptic(style: .light)
                 viewModel.isShowingPhotoPicker = true
             }
-            Button("Document from Files", systemImage: "doc.fill") { viewModel.isShowingFileImporter = true }
+            Button("Document from Files", systemImage: "doc.fill") {
+                playHaptic(style: .light)
+                viewModel.isShowingFileImporter = true
+            }
         } label: {
             Image(systemName: "plus")
                 .font(.system(size: 28, weight: .bold, design: .rounded))
@@ -1014,6 +1076,9 @@ struct CardDetailView: View {
                 .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
                 .animation(.easeInOut(duration: 0.15), value: viewModel.isEditing)
                 .accessibilityLabel("Add")
+                .onTapGesture {
+                    playHaptic(style: .medium)
+                }
         }
         .padding()
         .transition(.scale.combined(with: .opacity))
@@ -1124,6 +1189,12 @@ struct CardDetailView: View {
         let generator = UIImpactFeedbackGenerator(style: .light)
         generator.impactOccurred()
     }
+    
+    // Helper function for haptics
+    private func playHaptic(style: UIImpactFeedbackGenerator.FeedbackStyle) {
+        let generator = UIImpactFeedbackGenerator(style: style)
+        generator.impactOccurred()
+    }
 }
 
 // ADDED: New view for the note sheet
@@ -1157,11 +1228,18 @@ struct SubjectNoteSheetView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Done") {
+                        playHaptic(style: .medium)
                         dismiss()
                     }
                 }
             }
         }
+    }
+    
+    // Helper function for haptics
+    private func playHaptic(style: UIImpactFeedbackGenerator.FeedbackStyle) {
+        let generator = UIImpactFeedbackGenerator(style: style)
+        generator.impactOccurred()
     }
 }
 
@@ -1179,7 +1257,10 @@ struct PreviewWithShareView: View {
                     .ignoresSafeArea()
                     .toolbar {
                         ToolbarItem(placement: .bottomBar) {
-                            Button(action: { isShowingShareSheet = true }) {
+                            Button(action: {
+                                playHaptic(style: .light)
+                                isShowingShareSheet = true
+                            }) {
                                 Image(systemName: "square.and.arrow.up")
                             }
                         }
@@ -1188,7 +1269,10 @@ struct PreviewWithShareView: View {
                         }
                     }
 
-                Button(action: onDismiss) {
+                Button(action: {
+                    playHaptic(style: .light)
+                    onDismiss()
+                }) {
                     Image(systemName: "xmark.circle.fill")
                         .font(.largeTitle)
                         .symbolRenderingMode(.palette)
@@ -1202,6 +1286,12 @@ struct PreviewWithShareView: View {
         .sheet(isPresented: $isShowingShareSheet) {
             ShareSheetView(activityItems: [document.url])
         }
+    }
+    
+    // Helper function for haptics
+    private func playHaptic(style: UIImpactFeedbackGenerator.FeedbackStyle) {
+        let generator = UIImpactFeedbackGenerator(style: style)
+        generator.impactOccurred()
     }
 }
 
@@ -1415,6 +1505,7 @@ struct FolderPickerView: View {
         NavigationView {
             List {
                 Button(action: {
+                    playHaptic(style: .light)
                     onFolderSelected(nil) // `nil` represents the root
                 }) {
                     HStack {
@@ -1427,6 +1518,7 @@ struct FolderPickerView: View {
                 
                 ForEach(folders, id: \.id) { folder in
                     Button(action: {
+                        playHaptic(style: .light)
                         onFolderSelected(folder)
                     }) {
                         HStack {
@@ -1443,11 +1535,18 @@ struct FolderPickerView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Cancel") {
+                        playHaptic(style: .light)
                         onCancel()
                     }
                 }
             }
         }
+    }
+    
+    // Helper function for haptics
+    private func playHaptic(style: UIImpactFeedbackGenerator.FeedbackStyle) {
+        let generator = UIImpactFeedbackGenerator(style: style)
+        generator.impactOccurred()
     }
 }
 

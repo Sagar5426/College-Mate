@@ -1,6 +1,6 @@
 import SwiftUI
 import SwiftData
-import CoreData // Import CoreData for the notification name
+import CoreData
 
 struct AttendanceView: View {
     @Environment(\.modelContext) private var modelContext
@@ -51,7 +51,6 @@ struct AttendanceView: View {
                     .transition(.move(edge: .leading))
                 }
             }
-            // --- THIS IS THE CORRECTED SYNC LISTENER ---
             .onReceive(NotificationCenter.default.publisher(for: .NSManagedObjectContextObjectsDidChange)) { notification in
                 // Check if the notification is from a background thread
                 if !Thread.isMainThread {
@@ -62,10 +61,7 @@ struct AttendanceView: View {
                         viewID = UUID()
                     }
                 }
-                // If the notification was on the main thread, it was a local change
-                // (like tapping a button). We do nothing, to prevent lag.
             }
-            // --- END CORRECTION ---
         }
         .animation(.spring(duration: 0.4), value: viewModel.isShowingDatePicker)
         .onAppear {
@@ -86,13 +82,19 @@ struct ControlPanelView: View {
     var body: some View {
         VStack(spacing: 16) {
             HStack {
-                Button(action: viewModel.moveToPreviousDay) {
+                Button(action: {
+                    let generator = UIImpactFeedbackGenerator(style: .medium)
+                    generator.impactOccurred()
+                    viewModel.moveToPreviousDay()
+                }) {
                     Image(systemName: "chevron.left.circle.fill")
                 }
                 
                 Spacer()
                 
                 Button(action: {
+                    let generator = UIImpactFeedbackGenerator(style: .medium)
+                    generator.impactOccurred()
                     withAnimation(.snappy) {
                         viewModel.isShowingDatePicker.toggle()
                     }
@@ -107,7 +109,11 @@ struct ControlPanelView: View {
                 
                 Spacer()
                 
-                Button(action: viewModel.moveToNextDay) {
+                Button(action: {
+                    let generator = UIImpactFeedbackGenerator(style: .medium)
+                    generator.impactOccurred()
+                    viewModel.moveToNextDay()
+                }) {
                     Image(systemName: "chevron.right.circle.fill")
                 }
                 .disabled(isNextDayDisabled)
@@ -168,7 +174,6 @@ struct ClassesList: View {
             Text("No classes scheduled for this day.").font(.subheadline).foregroundColor(.gray).padding()
         } else {
             VStack(alignment: .leading, spacing: 20) {
-                // Use the helper function here
                 ForEach(viewModel.scheduledSubjects) { subject in
                     ForEach(scheduledSchedules(for: subject)) { schedule in
                         ForEach(schedule.classTimes ?? []) { classTime in
@@ -207,9 +212,21 @@ struct ClassAttendanceRow: View {
             }
             Spacer()
             Menu {
-                Button("Attended") { viewModel.updateAttendance(for: record, in: subject, to: "Attended") }
-                Button("Not Attended") { viewModel.updateAttendance(for: record, in: subject, to: "Not Attended") }
-                Button("Canceled") { viewModel.updateAttendance(for: record, in: subject, to: "Canceled") }
+                Button("Attended") {
+                    let generator = UIImpactFeedbackGenerator(style: .light)
+                    generator.impactOccurred()
+                    viewModel.updateAttendance(for: record, in: subject, to: "Attended")
+                }
+                Button("Not Attended") {
+                    let generator = UIImpactFeedbackGenerator(style: .light)
+                    generator.impactOccurred()
+                    viewModel.updateAttendance(for: record, in: subject, to: "Not Attended")
+                }
+                Button("Canceled") {
+                    let generator = UIImpactFeedbackGenerator(style: .light)
+                    generator.impactOccurred()
+                    viewModel.updateAttendance(for: record, in: subject, to: "Canceled")
+                }
             } label: {
                 Text(record.status)
                     .padding().foregroundColor(.white).background(labelColor)
@@ -272,4 +289,3 @@ struct ClassAttendanceRow: View {
 //
 //    return PreviewWrapper()
 //}
-

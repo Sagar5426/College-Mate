@@ -215,22 +215,17 @@ class ProfileViewModel: ObservableObject {
             }
             .store(in: &cancellables)
             
-        // --- MODIFICATION: Listen for KVS notification ---
-        // We listen for the KVS notification to stop our sync spinner
-        // when a sync *actually* completes.
+        
         NotificationCenter.default.addObserver(
             forName: NSUbiquitousKeyValueStore.didChangeExternallyNotification,
             object: NSUbiquitousKeyValueStore.default,
             queue: nil // Listen on any thread
         ) { [weak self] _ in
-            // --- FIX: Dispatch to main thread to resolve actor isolation warning ---
             DispatchQueue.main.async {
                 print("[ProfileViewModel] Received KVS didChange notification. Stopping sync spinner.")
                 self?.stopSyncing()
             }
-            // --- END FIX ---
         }
-        // --- END MODIFICATION ---
             
         // Now that all observers are set up, request an initial sync
         // to populate the UI with the latest data.
@@ -270,7 +265,7 @@ class ProfileViewModel: ObservableObject {
         }
     }
     
-    // --- UPDATED: New helper function ---
+    // --- helper function ---
     @MainActor
     private func forceReadFromStore() {
         print("[ProfileViewModel] forceReadFromStore: Re-reading all values directly from store.")

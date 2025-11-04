@@ -99,6 +99,8 @@ struct TimeTableView: View {
     }
 
     private func toggleDayExpansion(_ day: Day) {
+        let generator = UIImpactFeedbackGenerator(style: .light)
+        generator.impactOccurred()
         // Add animation for a smoother expand/collapse transition.
         withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
             if expandedDays.contains(day) {

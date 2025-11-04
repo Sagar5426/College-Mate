@@ -43,9 +43,11 @@ struct LoginView: View {
                 
                 // MARK: - Sign In Button
                 SignInWithAppleButton(
-                    // Using .continue is best practice for both sign up and sign in
                     .continue,
                     onRequest: { request in
+                        let generator = UIImpactFeedbackGenerator(style: .medium)
+                        generator.impactOccurred()
+                        
                         request.requestedScopes = [.fullName, .email]
                     },
                     onCompletion: { result in
@@ -95,4 +97,3 @@ struct LoginView: View {
     LoginView()
         .environmentObject(AuthenticationService())
 }
-

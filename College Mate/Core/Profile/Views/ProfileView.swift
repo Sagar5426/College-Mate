@@ -39,6 +39,8 @@ struct ProfileView: View {
                     .toolbar {
                         ToolbarItem(placement: .topBarLeading) {
                             Button("Close", systemImage: "xmark") {
+                                let generator = UIImpactFeedbackGenerator(style: .light)
+                                generator.impactOccurred()
                                 isShowingProfileView = false
                             }
                         }
@@ -121,6 +123,8 @@ struct ProfileView: View {
         var body: some View {
             Section {
                 Button {
+                    let generator = UIImpactFeedbackGenerator(style: .medium)
+                    generator.impactOccurred()
                     viewModel.isEditingProfile = true
                 } label: {
                     HStack(spacing: 12) {
@@ -176,6 +180,10 @@ struct ProfileView: View {
                 Toggle(isOn: $viewModel.notificationsEnabled) {
                     Label("Send Notifications", systemImage: "bell")
                 }
+                .onChange(of: viewModel.notificationsEnabled) {
+                    let generator = UIImpactFeedbackGenerator(style: .light)
+                    generator.impactOccurred()
+                }
                 
                 // Lead time picker appears only when notifications are enabled
                 if viewModel.notificationsEnabled {
@@ -212,6 +220,9 @@ struct ProfileView: View {
                             .foregroundColor(.secondary)
                     } else {
                         Button(action: {
+                            let generator = UIImpactFeedbackGenerator(style: .medium)
+                            generator.impactOccurred()
+                            
                             viewModel.triggerSync()
                             showSyncInfo = true
                             
@@ -272,9 +283,17 @@ struct ProfileView: View {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack {
                         Menu {
-                            Button("All Subjects") { viewModel.selectedSubjectName = "All Subjects" }
+                            Button("All Subjects") {
+                                let generator = UIImpactFeedbackGenerator(style: .light)
+                                generator.impactOccurred()
+                                viewModel.selectedSubjectName = "All Subjects"
+                            }
                             ForEach(viewModel.subjects, id: \.id) { subject in
-                                Button(subject.name) { viewModel.selectedSubjectName = subject.name }
+                                Button(subject.name) {
+                                    let generator = UIImpactFeedbackGenerator(style: .light)
+                                    generator.impactOccurred()
+                                    viewModel.selectedSubjectName = subject.name
+                                }
                             }
                         } label: {
                             HStack(spacing: 4) {
@@ -287,13 +306,31 @@ struct ProfileView: View {
                         Spacer()
                         
                         Menu {
-                            Button(ProfileViewModel.FilterType.oneDay.rawValue) { viewModel.selectedFilter = .oneDay }
-                            Button(ProfileViewModel.FilterType.sevenDays.rawValue) { viewModel.selectedFilter = .sevenDays }
-                            Button(ProfileViewModel.FilterType.oneMonth.rawValue) { viewModel.selectedFilter = .oneMonth }
-                            Button(ProfileViewModel.FilterType.allHistory.rawValue) { viewModel.selectedFilter = .allHistory }
+                            Button(ProfileViewModel.FilterType.oneDay.rawValue) {
+                                let generator = UIImpactFeedbackGenerator(style: .light)
+                                generator.impactOccurred()
+                                viewModel.selectedFilter = .oneDay
+                            }
+                            Button(ProfileViewModel.FilterType.sevenDays.rawValue) {
+                                let generator = UIImpactFeedbackGenerator(style: .light)
+                                generator.impactOccurred()
+                                viewModel.selectedFilter = .sevenDays
+                            }
+                            Button(ProfileViewModel.FilterType.oneMonth.rawValue) {
+                                let generator = UIImpactFeedbackGenerator(style: .light)
+                                generator.impactOccurred()
+                                viewModel.selectedFilter = .oneMonth
+                            }
+                            Button(ProfileViewModel.FilterType.allHistory.rawValue) {
+                                let generator = UIImpactFeedbackGenerator(style: .light)
+                                generator.impactOccurred()
+                                viewModel.selectedFilter = .allHistory
+                            }
                             
                             Divider()
                             Button(ProfileViewModel.FilterType.selectDate.rawValue) {
+                                let generator = UIImpactFeedbackGenerator(style: .light)
+                                generator.impactOccurred()
                                 viewModel.selectedFilter = .selectDate
                                 viewModel.isShowingDatePicker = true
                             }
@@ -347,12 +384,11 @@ struct ProfileView: View {
             
             var body: some View {
                 NavigationStack {
-                    // Use a Form for a cleaner, more conventional settings UI
                     Form {
                         // MARK: - Avatar Section
                         Section {
                             HStack {
-                                Spacer() // Center the button
+                                Spacer()
                                 Button(action: {
                                     dismiss()
                                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
@@ -377,23 +413,23 @@ struct ProfileView: View {
                                         Image(systemName: "camera.circle.fill")
                                             .font(.system(size: 32))
                                             .foregroundColor(.accentColor)
-                                            .background(Circle().fill(Color(UIColor.systemGroupedBackground))) // Use theme BG
+                                            .background(Circle().fill(Color(UIColor.systemGroupedBackground)))
                                             .offset(x: 4, y: 4)
                                     }
                                 }
-                                .padding(.vertical, 16) // Add nice spacing around avatar
-                                Spacer() // Center the button
+                                .padding(.vertical, 16)
+                                Spacer()
                             }
                         }
-                        .listRowBackground(Color.clear) // Make the row background transparent
-                        .listRowInsets(EdgeInsets())    // Remove default padding
+                        .listRowBackground(Color.clear)
+                        .listRowInsets(EdgeInsets())
 
                         // MARK: - Basic Info Section
                         Section(header: Text("Basic Information")) {
                             HStack(spacing: 12) {
                                 Image(systemName: "person.fill")
                                     .foregroundColor(.gray)
-                                    .frame(width: 20) // Align text fields
+                                    .frame(width: 20)
                                 TextField("Enter your name", text: $viewModel.username)
                                     .foregroundColor(.primary)
                                     .textInputAutocapitalization(.words)
@@ -402,7 +438,7 @@ struct ProfileView: View {
                             HStack(spacing: 12) {
                                 Image(systemName: "graduationcap.fill")
                                     .foregroundColor(.gray)
-                                    .frame(width: 20) // Align text fields
+                                    .frame(width: 20)
                                 TextField("Enter your college name", text: $viewModel.collegeName)
                                     .foregroundColor(.primary)
                                     .textInputAutocapitalization(.words)
@@ -411,7 +447,6 @@ struct ProfileView: View {
 
                         // MARK: - User Details Section
                         Section(header: Text("User Details")) {
-                            // Email (with improved layout)
                             HStack {
                                 Text("Email").foregroundStyle(.secondary)
                                 Spacer()
@@ -419,14 +454,12 @@ struct ProfileView: View {
                                     .multilineTextAlignment(.trailing)
                                     .keyboardType(.emailAddress)
                                     .textInputAutocapitalization(.never)
-                                    .autocorrectionDisabled(true) // Fixed typo from original
+                                    .autocorrectionDisabled(true)
                             }
 
-                            // DOB (now a standard Form row)
                             DatePicker("Date of Birth", selection: $viewModel.userDob, displayedComponents: .date)
                                 .foregroundStyle(.secondary)
 
-                            // Gender (now a standard Form row)
                             Picker("Gender", selection: $viewModel.gender) {
                                 ForEach(ProfileViewModel.Gender.allCases, id: \.self) { genderOption in
                                     Text(genderOption.rawValue)
@@ -438,6 +471,9 @@ struct ProfileView: View {
                         // MARK: - Sign Out Section
                         Section {
                             Button(role: .destructive) {
+                                let generator = UIImpactFeedbackGenerator(style: .heavy)
+                                generator.impactOccurred()
+                                
                                 dismiss()
                                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                                     withAnimation(.easeIn(duration: 0.2)) {
@@ -450,17 +486,29 @@ struct ProfileView: View {
                             } label: {
                                 Text("Sign Out")
                                     .fontWeight(.semibold)
-                                    .frame(maxWidth: .infinity, alignment: .center) // Center text
+                                    .frame(maxWidth: .infinity, alignment: .center)
                             }
                         }
                     }
                     .scrollContentBackground(.hidden) // IMPORTANT: This makes your theme background visible
-                    .background(Color(UIColor.systemGroupedBackground).ignoresSafeArea()) // Keeps your theme
+                    .background(Color(UIColor.systemGroupedBackground).ignoresSafeArea())
                     .navigationTitle("Edit Profile")
                     .navigationBarTitleDisplayMode(.inline)
                     .toolbar {
-                        ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
-                        ToolbarItem(placement: .confirmationAction) { Button("Save") { dismiss() }.bold() }
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Cancel") {
+                                let generator = UIImpactFeedbackGenerator(style: .light)
+                                generator.impactOccurred()
+                                dismiss()
+                            }
+                        }
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Save") {
+                                let generator = UIImpactFeedbackGenerator(style: .medium)
+                                generator.impactOccurred()
+                                dismiss()
+                            }.bold()
+                        }
                     }
                     .scrollDismissesKeyboard(.interactively)
                 }
@@ -483,6 +531,9 @@ struct ProfileView: View {
                 .padding()
                 
                 Button(action: {
+                    let generator = UIImpactFeedbackGenerator(style: .medium)
+                    generator.impactOccurred()
+                    
                     viewModel.isShowingDatePicker = false
                     viewModel.filterAttendanceLogs()
                 }) {

@@ -12,27 +12,34 @@ struct HomeView: View {
     @EnvironmentObject var authService: AuthenticationService
     @Query var subjects: [Subject]
     
+    @State private var selectedTab = "Subjects"
+    
     var body: some View {
         
-        TabView {
-            Tab("Subjects", systemImage: "book.closed") {
-                SubjectsView()
-            }
+        TabView(selection: $selectedTab) {
             
-            Tab("Daily Log", systemImage: "calendar.circle.fill") {
-                AttendanceView()
-            }
+            SubjectsView()
+                .tabItem {
+                    Label("Subjects", systemImage: "book.closed")
+                }
+                .tag("Subjects")
             
-            Tab("TimeTable", systemImage: "calendar") {
-                TimeTableView()
-            }
+            AttendanceView()
+                .tabItem {
+                    Label("Daily Log", systemImage: "calendar.circle.fill")
+                }
+                .tag("Daily Log")
             
-            
+            TimeTableView()
+                .tabItem {
+                    Label("TimeTable", systemImage: "calendar")
+                }
+                .tag("TimeTable")
             
         }
         .tint(.cyan)
         .environment(\.colorScheme, .dark)
-        
+        .sensoryFeedback(.selection, trigger: selectedTab)
         
     }
 }
